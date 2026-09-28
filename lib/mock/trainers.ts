@@ -1,0 +1,68 @@
+import type { Trainer } from "@/lib/types";
+
+export const trainers: Trainer[] = [
+  {
+    id: "trn_001",
+    name: "Aline Mukamana",
+    title: "Head of Fire & Security Training",
+    email: "aline.mukamana@kigalisafetyacademy.com",
+    phone: "+250 788 412 006",
+    licenseNo: "RSA-FIR-2019-0142",
+    bio: "Former Kigali Fire Brigade station officer with 14 years in structural fire response, evacuation planning and fire watch management.",
+    isDefaultSigner: true,
+    signatureUrl: "/signature-sample.png",
+    stampUrl: "/stamp-sample.png",
+    courseIds: ["crs_fire", "crs_site"],
+    certificatesIssued: 96,
+    activeSince: "2023-01-09",
+  },
+  {
+    id: "trn_002",
+    name: "Jean Bosco Nsengimana",
+    title: "Maintenance & Rigging Instructor",
+    email: "jean.bosco@kigalisafetyacademy.com",
+    phone: "+250 789 233 771",
+    licenseNo: "RSA-MNT-2020-0311",
+    bio: "Mechanical engineer specialising in lockout/tagout, machine guarding and certified lifting operations across East African industrial sites.",
+    isDefaultSigner: false,
+    signatureUrl: "/signature-sample.png",
+    stampUrl: "/stamp-sample.png",
+    courseIds: ["crs_maint", "crs_height"],
+    certificatesIssued: 74,
+    activeSince: "2023-04-17",
+  },
+  {
+    id: "trn_003",
+    name: "Claudine Uwase",
+    title: "First Aid & Occupational Health Lead",
+    email: "claudine.uwase@kigalisafetyacademy.com",
+    phone: "+250 787 905 118",
+    licenseNo: "RSA-FA-2018-0090",
+    bio: "Registered nurse and certified first aid instructor, delivering CPR, trauma and chemical exposure response training since 2018.",
+    isDefaultSigner: false,
+    signatureUrl: "/signature-sample.png",
+    stampUrl: "/stamp-sample.png",
+    courseIds: ["crs_first", "crs_chem"],
+    certificatesIssued: 131,
+    activeSince: "2022-11-02",
+  },
+  {
+    id: "trn_004",
+    name: "Eric Mugisha",
+    title: "Electrical & Fleet Safety Assessor",
+    email: "eric.mugisha@kigalisafetyacademy.com",
+    phone: "+250 782 640 553",
+    licenseNo: "RSA-ELEC-2021-0455",
+    bio: "HV/LV authorised electrician and defensive driving assessor, overseeing electrical isolation and fleet safety programmes.",
+    isDefaultSigner: false,
+    signatureUrl: "/signature-sample.png",
+    stampUrl: "/stamp-sample.png",
+    courseIds: ["crs_elec", "crs_drive"],
+    certificatesIssued: 58,
+    activeSince: "2024-02-20",
+  },
+];
+
+export const trainerById = new Map(trainers.map((t) => [t.id, t]));
+
+export const defaultSigner = trainers.find((t) => t.isDefaultSigner) ?? trainers[0]!;

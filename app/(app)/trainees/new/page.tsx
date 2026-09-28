@@ -1,0 +1,340 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftIcon, SaveIcon } from "lucide-react";
+import { toast } from "sonner";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+
+import { PageHeader } from "@/components/shared/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { mockApi } from "@/lib/mock";
+import { formatRwf } from "@/lib/utils/format";
+import { CATEGORIES, COUNTRIES, type Trainee } from "@/lib/types";
+
+const schema = z.object({
+  name: z.string().min(3, "Enter the trainee's full name."),
+  email: z.string().email("Enter a valid email address."),
+  phone: z
+    .string()
+    .min(7, "Enter a reachable phone number.")
+    .regex(/^\+?\d[\d\s]{6,}$/, "Use digits, spaces and an optional leading +."),
+  country: z.string().min(1, "Select a country."),
+  category: z.string().min(1, "Select a category."),
+  courseId: z.string().min(1, "Select a course."),
+  amountPaidRwf: z.coerce
+    .number({ invalid_type_error: "Enter an amount." })
+    .min(0, "Amount cannot be negative."),
+  notes: z.string().max(500, "Keep notes under 500 characters.").optional(),
+});
+
+type Values = z.infer<typeof schema>;
+
+export default function NewTraineePage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const coursesQuery = useQuery({
+    queryKey: ["courses", "options"],
+    queryFn: () => mockApi.courses.list(),
+    staleTime: 5 * 60_000,
+  });
+  const courses = coursesQuery.data ?? [];
+
+  const form = useForm<Values>({
+    resolver: zodResolver(schema),
+    mode: "onBlur",
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      country: "Rwanda",
+      category: "",
+      courseId: "",
+      amountPaidRwf: 0,
+      notes: "",
+    },
+  });
+
+  const courseId = form.watch("courseId");
+  const amount = form.watch("amountPaidRwf");
+  const price = courses.find((c) => c.id === courseId)?.priceRwf ?? 0;
+  const balance = Math.max(0, price - Number(amount || 0));
+
+  const createMutation = useMutation({
+    mutationFn: (values: Values) =>
+      mockApi.trainees.create(values as unknown as Partial<Trainee>),
+    onSuccess: (trainee) => {
+      toast.success("Trainee created", {
+        description: `${trainee.name} · ${trainee.traineeNo}`,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["trainees"] });
+      router.push(`/trainees/${trainee.id}`);
+    },
+    onError: () => toast.error("Could not create that trainee."),
+  });
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-5">
+      <PageHeader
+        breadcrumbSlot={
+          <Link href="/trainees" className="text-sm text-ink-2 transition-colors hover:text-ink">
+            ← Trainees
+          </Link>
+        }
+        title="Add a trainee"
+        subtitle="Create a single enrolment record. You can import many at once from CSV."
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/trainees/import">Import CSV instead</Link>
+          </Button>
+        }
+      />
+
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}
+          className="space-y-5"
+          noValidate
+        >
+          <Card>
+            <CardHeader className="gap-1">
+              <CardTitle className="text-base">Personal details</CardTitle>
+              <CardDescription>
+                The trainee uses these details to receive exam links and receipts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Full name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Clarisse Uwase" {...field} />
+                    </FormControl>
+                    <FormMessage>{form.formState.errors.name?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="name@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage>{form.formState.errors.email?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone</FormLabel>
+                    <FormControl>
+                      <Input type="tel" placeholder="+250 788 000 000" {...field} />
+                    </FormControl>
+                    <FormDescription>Used for SMS reminders.</FormDescription>
+                    <FormMessage>{form.formState.errors.phone?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a country" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {COUNTRIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage>{form.formState.errors.country?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {CATEGORIES.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage>{form.formState.errors.category?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="gap-1">
+              <CardTitle className="text-base">Enrolment</CardTitle>
+              <CardDescription>
+                The course sets the price, pass mark and exam deadline.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="courseId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Course</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a course" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {courses.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} — {formatRwf(c.priceRwf)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage>{form.formState.errors.courseId?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="amountPaidRwf"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount paid (RWF)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={500}
+                        inputMode="numeric"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(e.target.value === "" ? 0 : Number(e.target.value))
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {price > 0
+                        ? `Course fee is ${formatRwf(price)} — balance ${formatRwf(balance)}.`
+                        : "Course fee will be applied once a course is selected."}
+                    </FormDescription>
+                    <FormMessage>
+                      {form.formState.errors.amountPaidRwf?.message}
+                    </FormMessage>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Notes (optional)</FormLabel>
+                    <FormControl>
+                      <Textarea rows={3} placeholder="Anything staff should know…" {...field} />
+                    </FormControl>
+                    <FormMessage>{form.formState.errors.notes?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {balance > 0 ? (
+            <Alert>
+              <AlertDescription>
+                This enrolment will be created as <strong>partially paid</strong> with{" "}
+                {formatRwf(balance)} outstanding. You can record the rest from the
+                trainee&rsquo;s page.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link href="/trainees">
+                <ArrowLeftIcon className="size-4" />
+                Cancel
+              </Link>
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={form.handleSubmit((values) => createMutation.mutate(values))}
+                disabled={createMutation.isPending}
+              >
+                Save and add another
+              </Button>
+              <Button
+                type="submit"
+                className="gap-1.5"
+                disabled={createMutation.isPending}
+              >
+                <SaveIcon className="size-4" />
+                {createMutation.isPending ? "Creating…" : "Create trainee"}
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Form>
+    </div>
+  );
+}

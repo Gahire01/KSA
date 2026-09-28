@@ -1,0 +1,306 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ═══════════════════════════════════════════════════════════════════
+   Kigali Safety Academy — design tokens
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Brand */
+  --navy: #0f2340;
+  --navy-2: #1b3a63;
+  --orange: #e85d25;
+  --orange-d: #b7430f;
+
+  /* Surfaces */
+  --paper: #f4f2ec;
+  --card: #ffffff;
+  --line: #e3e0d6;
+
+  /* Ink */
+  --ink: #151515;
+  --ink-2: #5b5b55;
+
+  /* Status */
+  --green: #1f7a4d;
+  --green-bg: #e6f3ea;
+  --amber: #b7791f;
+  --amber-bg: #fbf0dc;
+  --red: #b23a2e;
+  --red-bg: #fbe9e6;
+
+  /* Semantic layer (shadcn-compatible) */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: var(--orange);
+  --primary-foreground: #ffffff;
+  --secondary: #eceadf;
+  --secondary-foreground: var(--navy);
+  --muted: #eeece4;
+  --muted-foreground: var(--ink-2);
+  --accent: #fbe7dc;
+  --accent-foreground: var(--orange-d);
+  --destructive: var(--red);
+  --destructive-foreground: #ffffff;
+  --border: var(--line);
+  --input: #d9d5c8;
+  --ring: var(--orange);
+  --sidebar: var(--navy);
+  --sidebar-foreground: #e9edf4;
+}
+
+.dark {
+  /* Brand stays the same */
+  --navy: #0f2340;
+  --navy-2: #1b3a63;
+  --orange: #f07038;
+  --orange-d: #ff9160;
+
+  /* Surfaces inverted */
+  --paper: #101823;
+  --card: #182231;
+  --line: #27344a;
+
+  /* Ink inverted */
+  --ink: #e9ebef;
+  --ink-2: #9aa7b8;
+
+  /* Status */
+  --green: #4ade9a;
+  --green-bg: #11312a;
+  --amber: #f0b95c;
+  --amber-bg: #372c16;
+  --red: #f38b80;
+  --red-bg: #3a1d1c;
+
+  /* Semantic */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card-foreground: var(--ink);
+  --popover: var(--card);
+  --popover-foreground: var(--ink);
+  --primary: var(--orange);
+  --primary-foreground: #ffffff;
+  --secondary: #202d40;
+  --secondary-foreground: #dbe2ec;
+  --muted: #1d2837;
+  --muted-foreground: var(--ink-2);
+  --accent: #2c2a2e;
+  --accent-foreground: #ffb08a;
+  --destructive: #b8342a;
+  --destructive-foreground: #ffffff;
+  --border: var(--line);
+  --input: #33415a;
+  --ring: var(--orange);
+  --sidebar: var(--navy);
+  --sidebar-foreground: #e9edf4;
+}
+
+@theme inline {
+  --color-navy: var(--navy);
+  --color-navy-2: var(--navy-2);
+  --color-orange: var(--orange);
+  --color-orange-brand: var(--orange);
+  --color-orange-d: var(--orange-d);
+  --color-paper: var(--paper);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-green: var(--green);
+  --color-green-bg: var(--green-bg);
+  --color-amber: var(--amber);
+  --color-amber-bg: var(--amber-bg);
+  --color-red: var(--red);
+  --color-red-bg: var(--red-bg);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-inter), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Keep the native focus ring suppressed where we draw our own */
+  [data-slot="select-trigger"]:focus-visible,
+  [data-slot="tabs-trigger"]:focus-visible {
+    outline-offset: -2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--orange) 24%, transparent);
+  }
+}
+
+@layer components {
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 200;
+  }
+
+  .skip-link:focus {
+    left: 1rem;
+    top: 1rem;
+    padding: 0.5rem 0.875rem;
+    background: var(--navy);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 0.875rem;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Recharts — dark-mode aware, transparent by default */
+.recharts-surface:focus {
+  outline: none;
+}
+
+.recharts-cartesian-axis-tick text {
+  fill: var(--ink-2);
+  font-size: 11px;
+}
+
+.recharts-cartesian-grid line {
+  stroke: var(--line);
+}
+
+.recharts-tooltip-wrapper:focus-visible {
+  outline: none;
+}
+
+/* ── Print ─────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .no-print,
+  nav[data-app="sidebar"],
+  header[data-app="topbar"] {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-area {
+    position: static !important;
+    overflow: visible !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-page {
+    display: block !important;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+}
+
+.print-only {
+  display: none;
+}
+
+@keyframes ksa-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes ksa-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.ksa-pulse {
+  animation: ksa-pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.ksa-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+}

@@ -1,0 +1,516 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  AwardIcon,
+  BookOpenIcon,
+  ClipboardCheckIcon,
+  CreditCardIcon,
+  MailIcon,
+  PencilIcon,
+  PhoneIcon,
+  PlusIcon,
+  SendIcon,
+  Trash2Icon,
+  UserRoundIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { PageHeader } from "@/components/shared/PageHeader";
+import { AvatarInitials } from "@/components/shared/AvatarInitials";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { DeadlineBadge } from "@/components/shared/DeadlineBadge";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { CopyButton } from "@/components/shared/CopyButton";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { mockApi } from "@/lib/mock";
+import {
+  categoryLabel,
+  daysBetween,
+  formatDate,
+  formatDateTime,
+  formatNumber,
+  formatRwf,
+  formatTime,
+} from "@/lib/utils/format";
+import { useAuthStore } from "@/lib/stores/auth-store";
+
+const ENROLLMENT_LABEL: Record<string, string> = {
+  ACTIVE: "Active",
+  PENDING: "Pending",
+  COMPLETED: "Completed",
+  SUSPENDED: "Suspended",
+};
+
+export default function TraineeDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const role = useAuthStore((s) => s.currentUser?.role ?? "ADMIN");
+  const isTrainer = role === "TRAINER";
+
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["trainee", id],
+    queryFn: () => mockApi.trainees.detail(id),
+    enabled: Boolean(id),
+  });
+
+  const coursesQuery = useQuery({
+    queryKey: ["courses", "options"],
+    queryFn: () => mockApi.courses.list(),
+    staleTime: 5 * 60_000,
+  });
+  const courseName = React.useCallback(
+    (courseId: string) =>
+      coursesQuery.data?.find((c) => c.id === courseId)?.name ?? "—",
+    [coursesQuery.data],
+  );
+
+  const deleteMutation = useMutation({
+    mutationFn: () => mockApi.trainees.remove(id),
+    onSuccess: () => {
+      toast.success("Trainee removed", { description: "The record has been deleted." });
+      void queryClient.invalidateQueries({ queryKey: ["trainees"] });
+      router.push("/trainees");
+    },
+    onError: () => toast.error("Could not delete that trainee."),
+  });
+
+  const remindMutation = useMutation({
+    mutationFn: async () => {
+      await new Promise((r) => setTimeout(r, 700));
+    },
+    onSuccess: () =>
+      toast.success("Reminder queued", {
+        description: "The trainee will receive an email and SMS nudge.",
+      }),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-36 w-full rounded-xl" />
+        <Skeleton className="h-72 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <EmptyState
+        title="Trainee not found"
+        description="This record may have been removed, or the link is incorrect."
+        action={
+          <Button asChild size="sm">
+            <Link href="/trainees">Back to trainees</Link>
+          </Button>
+        }
+      />
+    );
+  }
+
+  const { trainee, payments, attempts, certificates, enrollments } = data;
+  const balance = Math.max(0, trainee.totalDueRwf - trainee.amountPaidRwf);
+  const paidPct = trainee.totalDueRwf
+    ? Math.min(100, Math.round((trainee.amountPaidRwf / trainee.totalDueRwf) * 100))
+    : 100;
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        breadcrumbSlot={
+          <nav aria-label="Breadcrumb">
+            <Link
+              href="/trainees"
+              className="text-sm text-ink-2 transition-colors hover:text-ink"
+            >
+              ← Trainees
+            </Link>
+          </nav>
+        }
+        title={trainee.name}
+        subtitle={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-mono text-xs">{trainee.traineeNo}</span>
+            <span aria-hidden>·</span>
+            <span>{categoryLabel(trainee.category)}</span>
+            <span aria-hidden>·</span>
+            <span>{courseName(trainee.courseId)}</span>
+          </span>
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => remindMutation.mutate()}
+              disabled={remindMutation.isPending}
+            >
+              <SendIcon className="size-4" />
+              Send reminder
+            </Button>
+            {!isTrainer ? (
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link href={`/trainees/${trainee.id}/edit`}>
+                  <PencilIcon className="size-4" />
+                  Edit
+                </Link>
+              </Button>
+            ) : null}
+            {!isTrainer ? (
+              <Button asChild size="sm" className="gap-1.5">
+                <Link href="/payments/new">
+                  <CreditCardIcon className="size-4" />
+                  Record payment
+                </Link>
+              </Button>
+            ) : null}
+          </>
+        }
+      />
+
+      {/* ── Summary ─────────────────────────────────────────────── */}
+      <Card>
+        <CardContent className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="flex gap-4">
+            <AvatarInitials name={trainee.name} size="xl" />
+            <dl className="min-w-0 flex-1 space-y-2 text-sm">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <dt className="sr-only">Status</dt>
+                <dd>
+                  <StatusBadge
+                    status={trainee.status}
+                    label={ENROLLMENT_LABEL[trainee.status] ?? trainee.status}
+                  />
+                </dd>
+                {!isTrainer ? (
+                  <dd>
+                    <StatusBadge status={trainee.paymentStatus} size="sm" />
+                  </dd>
+                ) : null}
+                <dd>
+                  <DeadlineBadge days={daysBetween(new Date(), trainee.deadline)} />
+                </dd>
+              </div>
+
+              <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                <div className="flex items-center gap-2">
+                  <MailIcon className="size-3.5 shrink-0 text-ink-3" aria-hidden />
+                  <dt className="sr-only">Email</dt>
+                  <dd className="min-w-0">
+                    <a
+                      href={`mailto:${trainee.email}`}
+                      className="block truncate text-ink underline decoration-line underline-offset-2 transition-colors hover:decoration-orange"
+                    >
+                      {trainee.email}
+                    </a>
+                  </dd>
+                </div>
+                <div className="flex items-center gap-2">
+                  <PhoneIcon className="size-3.5 shrink-0 text-ink-3" aria-hidden />
+                  <dt className="sr-only">Phone</dt>
+                  <dd className="truncate text-ink">{trainee.phone}</dd>
+                </div>
+                <div className="flex items-center gap-2">
+                  <UserRoundIcon className="size-3.5 shrink-0 text-ink-3" aria-hidden />
+                  <dt className="sr-only">Country</dt>
+                  <dd className="text-ink">{trainee.country}</dd>
+                </div>
+                <div className="flex items-center gap-2">
+                  <BookOpenIcon className="size-3.5 shrink-0 text-ink-3" aria-hidden />
+                  <dt className="sr-only">Enrolled</dt>
+                  <dd className="text-ink">Enrolled {formatDate(trainee.enrolledAt)}</dd>
+                </div>
+              </div>
+            </dl>
+          </div>
+
+          <div className="space-y-3">
+            {!isTrainer ? (
+              <div className="rounded-lg border border-line bg-paper p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-xs font-semibold tracking-wider text-ink-2 uppercase">
+                    Fee balance
+                  </p>
+                  <p className="font-display text-lg font-semibold text-ink tabular">
+                    {formatRwf(balance)}
+                  </p>
+                </div>
+                <Progress value={paidPct} className="mt-2" aria-label="Fee payment progress" />
+                <p className="mt-1.5 text-xs text-ink-2 tabular">
+                  {formatRwf(trainee.amountPaidRwf)} paid of{" "}
+                  {formatRwf(trainee.totalDueRwf)} ({paidPct}%)
+                </p>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-3 gap-2">
+              <Metric label="Attendance" value={`${formatNumber(trainee.attendancePct)}%`} />
+              <Metric
+                label="Best score"
+                value={trainee.examScore === null ? "—" : `${formatNumber(trainee.examScore)}%`}
+              />
+              <Metric
+                label="Exams taken"
+                value={formatNumber(attempts.length)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {trainee.notes ? (
+        <Card>
+          <CardHeader className="gap-1 pb-2">
+            <CardTitle className="text-sm">Staff notes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-line text-ink-2">{trainee.notes}</p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* ── Tabs ────────────────────────────────────────────────── */}
+      <Card>
+        <CardContent className="p-5">
+          <Tabs defaultValue="attempts">
+            <TabsList>
+              <TabsTrigger value="attempts">Exam attempts</TabsTrigger>
+              <TabsTrigger value="payments">Payments</TabsTrigger>
+              <TabsTrigger value="certificates">Certificates</TabsTrigger>
+              <TabsTrigger value="enrollments">Enrollments</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="attempts" className="mt-4">
+              {attempts.length === 0 ? (
+                <EmptyState compact title="No exam attempts yet" description="Attempts appear here once the trainee sits an exam." />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Exam</TableHead>
+                      <TableHead>Started</TableHead>
+                      <TableHead>Score</TableHead>
+                      <TableHead>Result</TableHead>
+                      <TableHead className="text-right">Review</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {attempts.map((a) => (
+                      <TableRow key={a.id}>
+                        <TableCell className="font-medium text-ink">
+                          {courseName(a.courseId)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-ink-2">
+                          {formatDateTime(a.startedAt)}
+                        </TableCell>
+                        <TableCell className="tabular">
+                          {a.score === null ? "—" : `${formatNumber(a.score)}%`}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={a.status} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={`/exams/attempts/${a.id}`}>Open</Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            <TabsContent value="payments" className="mt-4">
+              {isTrainer ? (
+                <EmptyState
+                  compact
+                  title="Not available for your role"
+                  description="Payment records are limited to owners and administrators."
+                />
+              ) : payments.length === 0 ? (
+                <EmptyState compact title="No payments recorded" />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                        <TableHead>Receipt no.</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Receipt</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payments.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-mono text-xs">{p.receiptNo}</TableCell>
+                        <TableCell className="whitespace-nowrap text-ink-2">
+                          {formatDate(p.paidAt)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{p.method}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular">
+                          {formatRwf(p.amountRwf)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <CopyButton value={p.receiptNo} label="receipt number" variant="button" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            <TabsContent value="certificates" className="mt-4">
+              {certificates.length === 0 ? (
+                <EmptyState
+                  compact
+                  title="No certificates yet"
+                  description="Certificates are issued automatically once an exam is passed."
+                />
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {certificates.map((c) => (
+                    <li key={c.id}>
+                      <Link
+                        href={`/certificates/${c.id}`}
+                        className="flex items-center gap-3 rounded-xl border border-line bg-card p-4 transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none"
+                      >
+                        <span
+                          aria-hidden
+                          className="flex size-10 items-center justify-center rounded-lg bg-orange-bg text-orange-d"
+                        >
+                          <AwardIcon className="size-5" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-ink">
+                            {courseName(c.courseId)}
+                          </span>
+                          <span className="block font-mono text-xs text-ink-3">
+                            {c.certNo}
+                          </span>
+                        </span>
+                        <StatusBadge status={c.status} size="sm" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+
+            <TabsContent value="enrollments" className="mt-4">
+              {enrollments.length === 0 ? (
+                <EmptyState compact title="No enrollments" />
+              ) : (
+                <ul className="space-y-2">
+                  {enrollments.map((e) => (
+                    <li
+                      key={e.id}
+                      className="flex flex-wrap items-center gap-3 rounded-lg border border-line px-4 py-3"
+                    >
+                      <BookOpenIcon className="size-4 shrink-0 text-ink-3" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium text-ink">
+                          {courseName(e.courseId)}
+                        </span>
+                        <span className="block text-xs text-ink-2">
+                          Enrolled {formatDate(e.enrolledAt)} · due {formatDate(e.deadline)}
+                        </span>
+                      </span>
+                      <StatusBadge
+                        status={e.status}
+                        label={ENROLLMENT_LABEL[e.status] ?? e.status}
+                        size="sm"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {!isTrainer ? (
+        <>
+          <Separator />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-ink-3">
+              Last updated {formatDateTime(trainee.updatedAt)} · record created{" "}
+              {formatTime(trainee.createdAt)}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link href={`/exams/new?traineeId=${trainee.id}`}>
+                  <ClipboardCheckIcon className="size-4" />
+                  Schedule exam
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link href={`/trainees/${trainee.id}/enroll`}>
+                  <PlusIcon className="size-4" />
+                  Enrol in another course
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-red"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2Icon className="size-4" />
+                Delete trainee
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete this trainee?"
+        description={`${trainee.name} and their exam history will be removed from the demo dataset. This cannot be undone.`}
+        confirmLabel="Delete trainee"
+        destructive
+        onConfirm={() => deleteMutation.mutate()}
+      />
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-line bg-paper px-3 py-2">
+      <p className="text-[10px] font-semibold tracking-wider text-ink-2 uppercase">{label}</p>
+      <p className="mt-0.5 font-display text-base font-semibold text-ink tabular">{value}</p>
+    </div>
+  );
+}

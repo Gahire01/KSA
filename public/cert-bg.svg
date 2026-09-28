@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" aria-hidden="true">
+  <defs>
+    <g id="rosette" fill="none" stroke="#0F2340" stroke-width="0.55">
+      <ellipse cx="200" cy="200" rx="180" ry="180"/>
+      <ellipse cx="200" cy="200" rx="168" ry="168"/>
+      <ellipse cx="200" cy="200" rx="150" ry="60"/>
+      <ellipse cx="200" cy="200" rx="150" ry="100"/>
+      <ellipse cx="200" cy="200" rx="150" ry="130"/>
+      <ellipse cx="200" cy="200" rx="60" ry="150"/>
+      <ellipse cx="200" cy="200" rx="100" ry="150"/>
+      <ellipse cx="200" cy="200" rx="130" ry="150"/>
+      <ellipse cx="200" cy="200" rx="62" ry="190"/>
+      <ellipse cx="200" cy="200" rx="86" ry="190"/>
+      <ellipse cx="200" cy="200" rx="112" ry="190"/>
+    </g>
+    <g id="wave" fill="none" stroke="#0F2340" stroke-width="0.5">
+      <path d="M-40 120 C 40 60, 120 180, 200 120 S 360 60, 440 120"/>
+      <path d="M-40 150 C 40 90, 120 210, 200 150 S 360 90, 440 150"/>
+      <path d="M-40 250 C 40 190, 120 310, 200 250 S 360 190, 440 250"/>
+      <path d="M-40 280 C 40 220, 120 340, 200 280 S 360 220, 440 280"/>
+    </g>
+  </defs>
+  <rect width="400" height="400" fill="#FFFFFF"/>
+  <g opacity="1">
+    <use href="#rosette" transform="translate(0,0)"/>
+    <use href="#rosette" transform="rotate(45 200 200)"/>
+    <use href="#wave"/>
+  </g>
+</svg>

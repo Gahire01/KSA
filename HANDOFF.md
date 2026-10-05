@@ -142,3 +142,104 @@ APP_URL=htt***00
 - Note: NEXT_PUBLIC_APP_URL is NOT in .env.local (only needed for Vercel, Step 11)
 
 Resumed at Step 0. Remaining: 1 Audit, 2 Schema, 3 Exam OTP, 4 Access links, 5 Notifications, 6 Certificates, 7 PWA, 8 Perf, 9 Security, 10 Tests, 11 Deploy, 12 Docs.
+
+## Session - 2026-10-05 22:55:07 +02:00 - Step 1 AUDIT (read-only, verified by reading files)
+
+### Prisma models
+| Model | Status | Evidence |
+|---|---|---|
+| User | OK | prisma/schema.prisma:39 (email unique, passwordHash, totpSecret, totpCounter, failedLogins, lockedAt) |
+| Session | OK | schema:72 (id=HMAC of token, mfaPassed, expiresAt, ip, userAgent) |
+| RecoveryCode | OK | schema:62 (codeHash, usedAt) |
+| Category | OK | schema:85 |
+| Course | OK | schema:91 (topics String[], passMarkPct 50, maxAttempts 2, examDurationMin) |
+| Trainee | OK | schema:116 (traineeNo unique, email, courseId, status, paymentStatus) |
+| Question | MISSING | no model |
+| QuestionOption | MISSING | no model |
+| ExamAttempt | MISSING | no model |
+| ExamAnswer | MISSING | no model |
+| Certificate | MISSING | no model |
+| AccessLink | MISSING | no model |
+| ReferralCode | MISSING | no model |
+| DeviceSession | MISSING | no model |
+| Notification | MISSING | no model |
+| AuditLog | MISSING | no model (page app/(app)/audit-log/page.tsx reads mocks) |
+
+### API routes
+Existing (11, all real DB-backed):
+OK app/api/health/route.ts
+OK app/api/auth/login/route.ts
+OK app/api/auth/logout/route.ts
+OK app/api/auth/me/route.ts
+OK app/api/auth/mfa/setup/route.ts
+OK app/api/auth/mfa/confirm/route.ts
+OK app/api/auth/mfa/verify/route.ts
+OK app/api/categories/route.ts
+OK app/api/courses/route.ts
+OK app/api/courses/[id]/route.ts
+OK app/api/trainees/route.ts
+OK app/api/trainees/[id]/route.ts
+
+MISSING:
+POST /api/exams/:courseId/send
+POST /api/exams/attempts/:token/verify-otp
+POST /api/exams/attempts/:token/resend-otp
+GET  /api/exams/attempts/:token/next
+POST /api/exams/attempts/:token/answer
+POST /api/exams/attempts/:token/submit
+POST /api/access/generate
+POST /api/access/use
+GET  /api/access/list
+POST /api/access/[id]/revoke
+GET  /api/access/[id]/devices
+POST /api/access/[id]/devices/[deviceId]/revoke
+POST /api/referral/generate
+POST /api/referral/redeem
+GET  /api/notifications
+GET  /api/notifications/stream
+POST /api/notifications/[id]/read
+POST /api/notifications/read-all
+GET  /api/questions?courseId=
+GET  /api/certificates
+GET  /api/certificates/[id]
+GET  /api/certificates/[id]/pdf
+POST /api/certificates/[id]/revoke
+GET  /api/verify/[token]
+GET  /api/exams (list) / GET /api/exams/[id]
+
+### Frontend pages
+OK  /login (app/(auth)/login/page.tsx)
+OK  /login/mfa
+OK  /login/mfa/setup
+OK  /trainees, /trainees/new, /trainees/[id], /trainees/[id]/edit, /trainees/import
+OK  /courses, /courses/new, /courses/[id], /courses/[id]/edit
+OK  /exams, /exams/new, /exams/[id], /exams/attempts/[id]
+OK  /certificates, /certificates/[id]
+PARTIAL /verify (app/verify/page.tsx is a search form, no /verify/[token])
+PARTIAL /exam/[token] - full runner UI exists but reads lib/mock (mockApi.attempts), not the API
+MISSING /access/[code]
+MISSING /settings/access
+MISSING /settings/devices
+MISSING /settings/notifications
+MISSING /exam/[token]/submitted
+MISSING /dashboard is OK (mock data)
+
+### Utilities
+OK  lib/auth/authorize.ts, cookies.ts, password.ts, session.ts, totp.ts
+OK  lib/api/client.ts, guard.ts, hooks.ts, rate-limit.ts, response.ts, schemas.ts, adapters.ts, types.ts
+MISSING lib/email/* (no Resend integration at all)
+MISSING lib/certificates/pdf
+MISSING lib/notifications/*
+PARTIAL lib/mock/* (prototype data; /exams, /certificates, /reports, /payments, /audit-log, /settings, /trainers, /verify still read it)
+OK  lib/utils/shuffle.ts, ids.ts, format.ts, cn.ts
+OK  lib/db.ts (Prisma 7 + @prisma/adapter-pg, Neon)
+
+### Notable defects found
+- app/layout.tsx metadata has mojibake (encoding corruption): "template: \"%s A? Kigali Safety Academy\"" and "certificates" line. Fix in Step 7.
+- components/providers.tsx:15 refetchOnWindowFocus: false -> must be true (Step 8 requirement).
+- /dashboard first-load JS 140 kB (recharts inline) -> split with next/dynamic (Step 8).
+- lib/stores/notification-store.ts seeds from lib/mock/notifications.ts -> must be replaced by real API (Step 5).
+- authorize.ts hard-blocks every role except OWNER -> ADMIN/TRAINER access links would 403. Must be relaxed in Step 4.
+- lib/auth/password.ts ARGON_OPTIONS is the module to reuse for OTP hashing.
+
+Audit complete. Building Steps 2-3 now.

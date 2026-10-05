@@ -24,13 +24,17 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   const attempt = await loadAttemptByToken(token);
   if (!attempt) return apiFail("This exam link is not valid.", 404);
 
+  /* The cookie is checked before the status so that anyone who has not yet proved
+   * possession of the emailed code gets the same "enter the code" answer whatever
+   * state the attempt is in. Checking status first would tell a stranger holding
+   * nothing but a link whether the sitting is pending, open or already finished. */
+  if (!(await readExamSession(token, attempt.id))) {
+    return apiFail("Enter the code we emailed you to open this exam.", 401);
+  }
+
   /* Reuse of a submitted token is refused here as well as in verify-otp. */
   if (attempt.status !== "STARTED") {
     return apiFail("This exam is not open.", 410);
-  }
-
-  if (!(await readExamSession(token, attempt.id))) {
-    return apiFail("Enter the code we emailed you to open this exam.", 401);
   }
 
   const manifest = manifestOf(attempt);

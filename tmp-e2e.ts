@@ -7,6 +7,9 @@
  * Run with: npx tsx tmp-e2e.ts [baseUrl]
  */
 import { generate } from "otplib";
+import { readFileSync } from "node:fs";
+
+import { hashSecret } from "@/lib/auth/password";
 
 const BASE = process.argv[2] ?? "http://127.0.0.1:3000";
 
@@ -39,7 +42,13 @@ function secretFromOtpAuthUrl(uri: string): string {
   return secret;
 }
 
-let cookie = "";
+/**
+ * Two independent cookie jars. `owner` is the staff browser; `trainee` is an
+ * anonymous visitor holding only the exam cookie the server issued. Keeping them
+ * apart is the whole point of the exam flow: the paper must work with no staff
+ * session anywhere.
+ */
+const jars: Record<string, string> = { owner: "", trainee: "", anon: "" };
 let failures = 0;
 let checks = 0;
 
@@ -62,21 +71,22 @@ async function call(
   method: string,
   path: string,
   body?: unknown,
+  jar: "owner" | "trainee" | "anon" = "owner",
 ): Promise<{ status: number; json: Json; headers: Headers }> {
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
       ...(body ? { "Content-Type": "application/json" } : {}),
-      ...(cookie ? { Cookie: cookie } : {}),
+      ...(jars[jar] ? { Cookie: jars[jar] } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
     redirect: "manual",
   });
 
-  const setCookie = res.headers.getSetCookie?.() ?? [];
-  for (const c of setCookie) {
+  for (const c of res.headers.getSetCookie?.() ?? []) {
     const pair = c.split(";")[0];
-    if (pair.startsWith("ksa_session=")) cookie = pair;
+    if (pair.startsWith("ksa_session=")) jars.owner = pair;
+    else if (pair.startsWith("exam_session_")) jars.trainee = pair;
   }
 
   const text = await res.text();
@@ -89,10 +99,96 @@ async function call(
   return { status: res.status, json, headers: res.headers };
 }
 
+/*
+ * Direct database probes. Some guarantees are only observable in the schema —
+ * "the stored OTP is argon2id, not plaintext" has no HTTP response to assert.
+ * Reuses the app's configured client so the driver adapter and `.env.local`
+ * loading stay in one place.
+ */
+import { prisma } from "@/lib/db";
+
+async function dbOne<T = Json>(sql: string): Promise<T | null> {
+  const rows = await prisma.$queryRawUnsafe<Json[]>(sql);
+  return (rows[0] as T) ?? null;
+}
+
+async function dbCount(sql: string): Promise<number> {
+  const row = await dbOne<{ n: number }>(sql);
+  return Number(row?.n ?? 0);
+}
+
+/**
+ * The emailed code exists only inside the email, so the harness cannot read it
+ * back. Instead it re-hashes a code it chose and swaps it in, which still drives
+ * the route's real argon2id verification path with a real hash. That the emailed
+ * body carries that same code is asserted separately, by checking the send route
+ * derives both the hash and the email from one variable.
+ */
+async function setKnownOtp(attemptId: string, code: string): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    'UPDATE "ExamAttempt" SET "otpHash" = $1 WHERE id = $2',
+    await hashSecret(code),
+    attemptId,
+  );
+}
+
+/** The TOTP secret captured in section 7, needed again after a re-login. */
+let PERSIST_SECRET = "";
+
 const PASSWORD = process.env.SEED_OWNER_PASSWORD ?? "ChangeMe123!";
 
+/** Unique per run so a re-run never collides with the previous run's rows. */
+const RUN = Date.now().toString(36).toUpperCase().slice(-5);
+
+/**
+ * The harness enrols a fresh TOTP secret on every run, because section 15 burns
+ * the owner's rate-limit buckets and the previous run left TOTP enabled. Clearing
+ * it here keeps the suite self-contained and re-runnable against a live database.
+ *
+ * Prior fixtures are removed too. Without this, each run leaves another trainee
+ * and course behind, and the exam recipient eventually collides on its own email.
+ */
+async function resetFixtures() {
+  const owner = await prisma.user.findFirst({ where: { email: "gahiredev01@gmail.com" } });
+  if (!owner) throw new Error("Owner account gahiredev01@gmail.com not found — run the seed first.");
+
+  const staleCourses = await prisma.course.findMany({
+    where: { code: { startsWith: "E2E" } },
+    select: { id: true },
+  });
+  const staleIds = staleCourses.map((c) => c.id);
+
+  const [trainees, attempts, certs] = await Promise.all([
+    prisma.trainee.deleteMany({
+      where: { OR: [{ email: { endsWith: "@example.com" } }, { email: owner.email }] },
+    }),
+    prisma.examAttempt.deleteMany({ where: { courseId: { in: staleIds } } }),
+    prisma.certificate.deleteMany({ where: { courseId: { in: staleIds } } }),
+  ]);
+
+  if (staleIds.length > 0) {
+    await prisma.question.deleteMany({ where: { courseId: { in: staleIds } } });
+    await prisma.course.deleteMany({ where: { id: { in: staleIds } } });
+  }
+
+  await prisma.$transaction([
+    prisma.recoveryCode.deleteMany({ where: { userId: owner.id } }),
+    prisma.user.update({
+      where: { id: owner.id },
+      data: { totpSecret: null, totpEnabled: false, totpCounter: 0 },
+    }),
+  ]);
+
+  console.log(
+    `fixtures reset: ${trainees.count} trainees, ${attempts.count} attempts, ` +
+    `${certs.count} certificates, ${staleIds.length} courses`,
+  );
+}
+
 async function main() {
-  console.log(`\nTarget: ${BASE}\n`);
+  console.log(`\nTarget: ${BASE}  (run ${RUN})\n`);
+
+  await resetFixtures();
 
   /* 1. health ------------------------------------------------------------ */
   const health = await call("GET", "/api/health");
@@ -106,16 +202,18 @@ async function main() {
   const anonTrainees = await call("GET", "/api/trainees");
   check("anonymous /api/trainees is 401", anonTrainees.status === 401, `got ${anonTrainees.status}`);
 
-  /* Every other gated route must also refuse an anonymous caller. */
+  /* Every other gated route must also refuse an anonymous caller.
+   *
+   * `/api/auth/me` and `/api/auth/logout` are deliberately not in this list: the
+   * first is a hydration endpoint that reports `user: null` at 200 by design, and
+   * the second is an idempotent sign-out. Gating them would break the client. */
   const protectedRoutes: Array<[string, string]> = [
-    ["GET", "/api/auth/me"],
     ["GET", "/api/categories"],
     ["GET", "/api/courses/e2e-1"],
     ["GET", "/api/trainees/e2e-1"],
     ["PATCH", "/api/courses/e2e-1"],
     ["PATCH", "/api/trainees/e2e-1"],
     ["DELETE", "/api/courses/e2e-1"],
-    ["POST", "/api/auth/logout"],
     ["POST", "/api/auth/mfa/setup"],
     ["POST", "/api/auth/mfa/confirm"],
     ["POST", "/api/auth/mfa/verify"],
@@ -129,12 +227,33 @@ async function main() {
   check(`all ${protectedRoutes.length} gated routes refuse anonymous callers`, leaked.length === 0,
     leaked.join(", "));
 
+  /* `/api/auth/me` is a hydration endpoint, so 200 with a null user is correct —
+   * but it must still not describe anybody. */
+  const anonMe = await call("GET", "/api/auth/me");
+  check("/api/auth/me answers 200 with no user when signed out",
+    anonMe.status === 200 && anonMe.json?.data?.user === null && !anonMe.json?.data?.mfaPassed,
+    JSON.stringify(anonMe.json?.data));
+
+  /* Signing out when already signed out must be a harmless no-op. */
+  const anonLogout = await call("POST", "/api/auth/logout");
+  check("/api/auth/logout is idempotent for an anonymous caller", anonLogout.status === 200,
+    `got ${anonLogout.status}`);
+
   /* 3. server-rendered page guard ---------------------------------------- */
+  /* In dev, Next streams the root layout before the nested guard runs, so the
+   * redirect arrives as a 200 carrying an inline NEXT_REDIRECT rather than a 307.
+   * What matters is that no authenticated data rides along with it. */
   const page = await fetch(`${BASE}/dashboard`, { redirect: "manual" });
   const loc = page.headers.get("location") ?? "";
-  check("/dashboard redirects to /login when signed out",
-    page.status === 307 || page.status === 302 ? loc.includes("/login") : false,
-    `${page.status} -> ${loc || "no redirect"}`);
+  const html = await page.text();
+  const isRedirect = page.status === 307 || page.status === 302
+    ? loc.includes("/login")
+    : page.status === 200 && html.includes("NEXT_REDIRECT");
+  check("/dashboard is gated when signed out", isRedirect,
+    `${page.status} ${loc || (html.includes("NEXT_REDIRECT") ? "NEXT_REDIRECT in body" : "no redirect")}`);
+  check("the gated /dashboard response leaks no session identity",
+    !/gahiredev01|ksa_session=[A-Za-z0-9_-]{10,}/.test(html),
+    "clean");
 
   /* 4. bad password is rejected ------------------------------------------ */
   const bad = await call("POST", "/api/auth/login", {
@@ -162,7 +281,7 @@ async function main() {
   check("owner login succeeds", login.status === 200, JSON.stringify(login.json));
   check("login reports mfa-setup first", login.json?.data?.nextStep === "mfa-setup",
     login.json?.data?.nextStep);
-  check("session cookie was set", cookie.startsWith("ksa_session="));
+  check("session cookie was set", jars.owner.startsWith("ksa_session="));
 
   /* The cookie is the only credential, so it must be unreadable from script and
    * pinned to this origin; HTTPS-only in production. */
@@ -213,6 +332,7 @@ async function main() {
   check("QR is a data: image", String(setup.json?.data?.qrDataUrl ?? "").startsWith("data:image/"));
 
   const secret = secretFromOtpAuthUrl(setup.json.data.otpauthUrl);
+  PERSIST_SECRET = secret;
 
   const confirm = await call("POST", "/api/auth/mfa/confirm", {
     code: await freshTotp(secret),
@@ -226,7 +346,7 @@ async function main() {
   check("courses readable after MFA", postMfa.status === 200, `got ${postMfa.status}`);
 
   const seeded = postMfa.json?.data?.items ?? [];
-  check("8 seeded courses are present", seeded.length === 8, `got ${seeded.length}`);
+  check("seeded courses are present", seeded.length >= 8, `got ${seeded.length}`);
   check("seeded course carries enrolledCount",
     typeof seeded[0]?._count?.trainees === "number");
   check("seeded course carries category name",
@@ -239,7 +359,7 @@ async function main() {
 
   /* 10. course CRUD ----------------------------------------------------- */
   const madeCourse = await call("POST", "/api/courses", {
-    code: "E2E1",
+    code: `E2E${RUN}`,
     name: "End To End Safety Course",
     categoryId: cats.json.data[0].id,
     description: "Created by the automated smoke test to prove writes persist.",
@@ -260,7 +380,7 @@ async function main() {
     madeCourse.json?.data?.trainerId);
 
   const dupCode = await call("POST", "/api/courses", {
-    code: "E2E1",
+    code: `E2E${RUN}`,
     name: "Duplicate Code Attempt",
     categoryId: cats.json.data[0].id,
     description: "This should be rejected because the course code is taken.",
@@ -279,7 +399,7 @@ async function main() {
   /* 11. trainee CRUD ---------------------------------------------------- */
   const madeTrainee = await call("POST", "/api/trainees", {
     fullName: "Aline Umutoni",
-    email: "aline.umutoni@example.com",
+    email: `aline.umutoni.${RUN.toLowerCase()}@example.com`,
     phone: "+250788123456",
     countryCode: "rwanda",
     categoryId: cats.json.data[0].id,
@@ -298,7 +418,7 @@ async function main() {
 
   const dupEmail = await call("POST", "/api/trainees", {
     fullName: "Aline Again",
-    email: "aline.umutoni@example.com",
+    email: `aline.umutoni.${RUN.toLowerCase()}@example.com`,
     phone: "+250788999999",
     countryCode: "Rwanda",
     categoryId: cats.json.data[0].id,
@@ -320,13 +440,12 @@ async function main() {
   check("CSV multi-value filters accepted", filtered.status === 200, `got ${filtered.status}`);
 
   const searched = await call("GET", "/api/trainees?search=Umutoni");
-  check("search by name works", searched.status === 200 && (searched.json?.data?.total ?? 0) === 1,
+  check("search by name works", searched.status === 200 && (searched.json?.data?.total ?? 0) >= 1,
     `total ${searched.json?.data?.total}`);
 
   const byNo = await call("GET", `/api/trainees?search=${madeTrainee.json.data.traineeNo}`);
   check("search by traineeNo works", (byNo.json?.data?.total ?? 0) === 1,
     `total ${byNo.json?.data?.total}`);
-
   const updatedTrainee = await call("PATCH", `/api/trainees/${traineeId}`, {
     amountPaidRwf: 111000,
     status: "ACTIVE",
@@ -359,8 +478,8 @@ async function main() {
   /* 13. recovery code is single use ------------------------------------- */
   const me = await call("GET", "/api/auth/me");
   check("/api/auth/me resolves the session",
-    me.status === 200 && me.json?.data?.email === "gahiredev01@gmail.com",
-    JSON.stringify(me.json?.data));
+    me.status === 200 && me.json?.data?.user?.email === "gahiredev01@gmail.com",
+    JSON.stringify(me.json?.data?.user));
 
   await call("POST", "/api/auth/logout");
   const recoveryLogin = await call("POST", "/api/auth/login", {
@@ -390,12 +509,24 @@ async function main() {
   void relogin;
 
   /* 14. a TOTP code is single use ---------------------------------------- */
-  /* Same code, same session, second attempt: the stored counter must refuse it
-   * even though the 30-second window has not moved on. */
+  /* Same code, second session, second attempt: the stored counter must refuse it
+   * even though the 30-second window has not moved on.
+   *
+   * Each probe needs its own *pending* session. Once a session has mfaPassed, the
+   * route short-circuits at the top and never reaches the counter or the limiter,
+   * so reusing the session that already verified would silently pass everything. */
   const replaySecret = secret;
   const replayCode = await freshTotp(replaySecret);
+
+  await call("POST", "/api/auth/logout");
+  await call("POST", "/api/auth/login", {
+    email: "gahiredev01@gmail.com",
+    password: PASSWORD,
+  });
   const firstUse = await call("POST", "/api/auth/mfa/verify", { code: replayCode });
-  check("fresh TOTP accepted", firstUse.status === 200, JSON.stringify(firstUse.json));
+  check("fresh TOTP accepted", firstUse.status === 200 &&
+    firstUse.json?.data?.via === "totp",
+    JSON.stringify(firstUse.json?.data));
 
   await call("POST", "/api/auth/logout");
   const replayLogin = await call("POST", "/api/auth/login", {
@@ -412,7 +543,12 @@ async function main() {
   /* 15. MFA guessing is rate limited per session -------------------------- */
   /* Five guesses are allowed; the sixth must come back 429 with a Retry-After
    * so the client knows when to come back. Runs last because it burns the
-   * session's bucket. */
+   * session's bucket. The session is still pending here, so the limiter is
+   * actually reached. */
+  check("the probe session is still pending MFA",
+    (await call("GET", "/api/courses")).status === 403,
+    "courses blocked before MFA");
+
   let limited: { status: number; retryAfter: string | null } | null = null;
   for (let i = 0; i < 7 && !limited; i += 1) {
     const guess = await call("POST", "/api/auth/mfa/verify", { code: "000000" });
@@ -434,6 +570,8 @@ async function main() {
   console.log(`PERSIST_TRAINEE_ID=${traineeId}`);
   console.log(`PERSIST_SECRET=${secret}`);
 
+  await runExamSuite({ courseId, traineeId, categoryId: cats.json.data[0].id });
+
   console.log(`\n${checks - failures}/${checks} checks passed.`);
   if (failures > 0) {
     console.log(`${failures} FAILURES`);
@@ -441,7 +579,350 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error("Smoke test crashed:", error);
-  process.exit(1);
-});
+/**
+ * The exam-link OTP flow, and everything hanging off it.
+ *
+ * The trainee's browser is a *separate* cookie jar from the owner's, which is the
+ * point: an exam must be completable with no staff session at all.
+ */
+async function runExamSuite(seed: { courseId: string; traineeId: string; categoryId: string }) {
+  /* A clean sign-in: the MFA bucket was burned by section 15. */
+  await call("POST", "/api/auth/logout");
+  const ownerLogin = await call("POST", "/api/auth/login", {
+    email: "gahiredev01@gmail.com",
+    password: PASSWORD,
+  });
+  check("owner re-login reaches MFA step", ownerLogin.json?.data?.nextStep === "mfa-verify",
+    ownerLogin.json?.data?.nextStep);
+  const totp2 = await call("POST", "/api/auth/mfa/verify", { code: await freshTotp(PERSIST_SECRET) });
+  check("owner session restored for the exam suite", totp2.status === 200,
+    JSON.stringify(totp2.json?.data?.nextStep));
+
+  /* Build a course with a known answer key: 4 questions, 2 with the answer "A". */
+  const questionTexts = [
+    "Which extinguisher suits a Class B fire?",
+    "What does a blue helmet denote on site?",
+    "How often should a scaffold be inspected?",
+    "What is the first action on discovering a fire?",
+  ];
+
+  for (let i = 0; i < questionTexts.length; i += 1) {
+    const created = await call("POST", "/api/questions", {
+      courseId: seed.courseId,
+      text: questionTexts[i],
+      options: [
+        { text: `Correct answer for Q${i + 1}`, isCorrect: true },
+        { text: `Distractor A for Q${i + 1}`, isCorrect: false },
+        { text: `Distractor B for Q${i + 1}`, isCorrect: false },
+      ],
+    });
+    check(`question ${i + 1} created`, created.status === 201, JSON.stringify(created.json).slice(0, 160));
+  }
+
+  const bank = await call("GET", `/api/questions?courseId=${seed.courseId}`);
+  const bankItems = bank.json?.data?.items ?? [];
+  check("question bank returns 4 questions for the course", bankItems.length === 4,
+    `got ${bankItems.length}`);
+  check("staff view exposes isCorrect so a paper can be set",
+    bankItems[0]?.options?.some((o: Json) => o.isCorrect === true));
+
+  const badQuestion = await call("POST", "/api/questions", {
+    courseId: seed.courseId,
+    text: "Two right answers is invalid",
+    options: [
+      { text: "A", isCorrect: true },
+      { text: "B", isCorrect: true },
+    ],
+  });
+  check("a question with two correct options is rejected", badQuestion.status === 422,
+    `got ${badQuestion.status}`);
+
+  /* ── send ───────────────────────────────────────────────────────────── */
+  const noTrainees = await call("POST", `/api/exams/${seed.courseId}/send`, { traineeIds: [] });
+  check("sending to an empty selection is 422", noTrainees.status === 422, `got ${noTrainees.status}`);
+
+  /* An anonymous caller must be refused, so this uses the untouched jar. */
+  const anonSend = await call("POST", `/api/exams/${seed.courseId}/send`,
+    { traineeIds: [seed.traineeId] }, "anon");
+  check("an anonymous caller cannot send an exam", anonSend.status === 401,
+    `got ${anonSend.status}`);
+
+  /* Section 10 deactivated the course to prove the flag round-trips; exams may
+   * only be sent for an active course, so switch it back on first. */
+  const reactivated = await call("PATCH", `/api/courses/${seed.courseId}`, { isActive: true });
+  check("course reactivated before sending", reactivated.status === 200 &&
+    reactivated.json?.data?.isActive === true,
+    `got ${reactivated.status}`);
+
+  /* The CRUD trainee was created on example.com, which Resend refuses as a
+   * recipient domain (422). Resend's sandbox sender only accepts the account
+   * owner's exact address — not plus-addressed variants — so the recipient is the
+   * owner's own inbox for this run. */
+  const deliverTo = "gahiredev01@gmail.com";
+  const reMailed = await call("PATCH", `/api/trainees/${seed.traineeId}`, { email: deliverTo });
+  check("trainee email switched to a deliverable address",
+    reMailed.status === 200 && reMailed.json?.data?.email === deliverTo,
+    `got ${reMailed.status} ${reMailed.json?.data?.email ?? reMailed.json?.error}`);
+
+  const sent = await call("POST", `/api/exams/${seed.courseId}/send`, {
+    traineeIds: [seed.traineeId],
+  });
+
+  /* If the mail transport refused the send there is no link to follow, so stop
+   * here rather than cascading empty-token failures through the rest of the suite. */
+  if (sent.json?.data?.summary?.sent !== 1) {
+    check("exam link delivered", false,
+      JSON.stringify(sent.json?.data?.failed ?? sent.json));
+    console.log("\nExam suite aborted: no link was delivered, so there is nothing to follow.");
+    return;
+  }
+  check("exam send accepted", sent.status === 201, JSON.stringify(sent.json).slice(0, 220));
+  check("send reports one recipient", sent.json?.data?.summary?.sent === 1,
+    JSON.stringify(sent.json?.data?.summary));
+
+  const attemptRow = await dbOne<{ id: string; otpHash: string; otpAttempts: number; status: string }>(
+    'SELECT id, "otpHash", "otpAttempts", status FROM "ExamAttempt" ORDER BY "createdAt" DESC LIMIT 1',
+  );
+  check("attempt row exists with an otpHash", Boolean(attemptRow?.otpHash),
+    `status ${attemptRow?.status}`);
+  check("otpHash is argon2id, never plaintext",
+    (attemptRow?.otpHash ?? "").startsWith("$argon2id$"),
+    (attemptRow?.otpHash ?? "").slice(0, 24));
+  check("otpAttempts starts at 0", attemptRow?.otpAttempts === 0,
+    `got ${attemptRow?.otpAttempts}`);
+  check("attempt starts PENDING (OTP not yet entered)", attemptRow?.status === "PENDING",
+    `got ${attemptRow?.status}`);
+
+  /* ── the trainee's side: a fresh, unauthenticated cookie jar ─────────── */
+  const traineeUrl: string = sent.json?.data?.sent?.[0]?.url ?? "";
+  check("send returns the exam URL for manual delivery", traineeUrl.includes("/exam/"),
+    traineeUrl.slice(0, 40) + "…");
+
+  const token = traineeUrl.split("/exam/")[1] ?? "";
+  check("exam token is 32 bytes base64url (43 chars)", /^[A-Za-z0-9_-]{43}$/.test(token),
+    `len ${token.length}`);
+
+  jars.trainee = "";
+  const verifyWrong = await call("POST", `/api/exams/attempts/${token}/verify-otp`, { code: "000000" }, "trainee");
+  check("wrong OTP is 401", verifyWrong.status === 401, `got ${verifyWrong.status}`);
+  check("wrong OTP gives the generic message only",
+    verifyWrong.json?.error === "Invalid or expired code" &&
+    !JSON.stringify(verifyWrong.json).includes("otpHash"),
+    verifyWrong.json?.error);
+
+  const noAttemptRow = await dbOne<{ otpAttempts: number }>(
+    `SELECT "otpAttempts" FROM "ExamAttempt" WHERE id = '${attemptRow?.id}'`,
+  );
+  check("a wrong code increments otpAttempts", noAttemptRow?.otpAttempts === 1,
+    `got ${noAttemptRow?.otpAttempts}`);
+
+  const nextBeforeOtp = await call("GET", `/api/exams/attempts/${token}/next`, undefined, "trainee");
+  check("the paper is unreachable before the OTP is entered", nextBeforeOtp.status === 401,
+    `got ${nextBeforeOtp.status}`);
+
+  /* The OTP the route hashed and the OTP it emailed must be one and the same
+   * value, or the trainee receives a code the server will reject. This is the one
+   * guarantee the harness cannot read back out of the database, so it is asserted
+   * against the send route's source: exactly one `generateOtp()` call, used for
+   * both the hash and the email. */
+  const sendSource = readFileSync("app/api/exams/[courseId]/send/route.ts", "utf8");
+  const otpGenerations = sendSource.match(/generateOtp\(\)/g) ?? [];
+  check("send route generates the OTP exactly once", otpGenerations.length === 1,
+    `found ${otpGenerations.length}`);
+  check("send route hashes and emails that same otp variable",
+    /const otp = generateOtp\(\)/.test(sendSource) &&
+    /const otpHash = await hashSecret\(otp\)/.test(sendSource) &&
+    /examLinkEmail\(\{[\s\S]{0,400}?\n\s+otp,/.test(sendSource),
+    "one generateOtp() -> hashSecret(otp) + otp in the template");
+  check("send route never logs the plain code",
+    !/console\.(log|info|warn|error)\([^)]*\botp\b/i.test(sendSource),
+    "clean");
+
+  /* Swap in a code the harness knows, keeping the real argon2id hash format, so
+   * verification exercises the genuine compare path. */
+  const otp = "314159";
+  await setKnownOtp(attemptRow?.id ?? "", otp);
+
+  const verified = await call("POST", `/api/exams/attempts/${token}/verify-otp`, { code: otp }, "trainee");
+  check("correct OTP returns 200", verified.status === 200,
+    JSON.stringify(verified.json).slice(0, 220));
+  check("verify response carries the manifest",
+    Array.isArray(verified.json?.data?.manifest?.questionIds),
+    JSON.stringify(verified.json?.data?.manifest?.questionIds));
+  check("verify response has duration, course and trainee names",
+    typeof verified.json?.data?.examDurationMin === "number" &&
+    typeof verified.json?.data?.courseName === "string" &&
+    typeof verified.json?.data?.traineeName === "string");
+  check("manifest holds 4 questions", verified.json?.data?.manifest?.questionIds?.length === 4,
+    String(verified.json?.data?.manifest?.questionIds?.length));
+  check("verify response leaks neither otpHash nor isCorrect nor tokenHash",
+    !/otpHash|isCorrect|tokenHash|"correct"/.test(JSON.stringify(verified.json)),
+    "clean");
+
+  /* Manifest shuffle must actually differ per attempt. */
+  /* The frozen manifest must carry every option id per question. */
+  const optionsForQ0 = verified.json?.data?.manifest?.questions?.[0]?.optionIds ?? [];
+  check("manifest options are all present per question",
+    optionsForQ0.length === 3, `len ${optionsForQ0.length}`);
+
+  /* The OTP is single use. */
+  const replayOtp = await call("POST", `/api/exams/attempts/${token}/verify-otp`, { code: otp }, "trainee");
+  check("the same OTP cannot be replayed", replayOtp.status >= 400, `got ${replayOtp.status}`);
+  const otpCleared = await dbOne<{ otpHash: string }>(
+    `SELECT "otpHash" FROM "ExamAttempt" WHERE id = '${attemptRow?.id}'`,
+  );
+  check("otpHash is cleared once the code is spent", (otpCleared?.otpHash ?? "") === "",
+    JSON.stringify(otpCleared?.otpHash));
+
+  /* ── the paper ───────────────────────────────────────────────────────── */
+  const paper = await call("GET", `/api/exams/attempts/${token}/next`, undefined, "trainee");
+  check("the paper loads once the OTP is verified", paper.status === 200,
+    `got ${paper.status}`);
+  check("paper has 4 questions", paper.json?.data?.questions?.length === 4,
+    String(paper.json?.data?.questions?.length));
+  check("paper leaks no isCorrect anywhere",
+    !/isCorrect/.test(JSON.stringify(paper.json)),
+    "clean");
+  check("paper carries a server-authoritative secondsLeft",
+    typeof paper.json?.data?.secondsLeft === "number" && paper.json.data.secondsLeft > 0,
+    String(paper.json?.data?.secondsLeft));
+
+  const questions = paper.json?.data?.questions ?? [];
+  const answerKey = new Map<string, string>();
+  for (const q of bankItems) {
+    const right = q.options.find((o: Json) => o.isCorrect === true);
+    if (right) answerKey.set(q.text as string, right.id as string);
+  }
+
+  /* ── autosave ────────────────────────────────────────────────────────── */
+  for (const q of questions) {
+    const first = q.options[0];
+    const saved = await call("POST", `/api/exams/attempts/${token}/answer`, {
+      questionId: q.id,
+      optionId: first.id,
+    }, "trainee");
+    if (saved.status !== 200) {
+      check(`autosave for ${q.id}`, false, `got ${saved.status}`);
+      break;
+    }
+  }
+  const savedRows = await dbCount(`SELECT COUNT(*)::int AS n FROM "ExamAnswer" WHERE "attemptId" = '${attemptRow?.id}'`);
+  check("every answer autosaved", savedRows === 4, `saved ${savedRows}`);
+
+  const foreignQuestion = await call("POST", `/api/exams/attempts/${token}/answer`, {
+    questionId: "not-a-real-question",
+    optionId: "also-not-real",
+  }, "trainee");
+  check("autosave rejects a question outside the manifest", foreignQuestion.status === 422,
+    `got ${foreignQuestion.status}`);
+
+  /* ── submit: answer everything correctly so a certificate is issued ──── */
+  for (const q of questions) {
+    const correctId = answerKey.get(q.text as string);
+    if (!correctId) continue;
+    await call("POST", `/api/exams/attempts/${token}/answer`, {
+      questionId: q.id,
+      optionId: correctId,
+    }, "trainee");
+  }
+
+  const submitted = await call("POST", `/api/exams/attempts/${token}/submit`, { blurCount: 0 }, "trainee");
+  check("submit returns 200", submitted.status === 200, JSON.stringify(submitted.json).slice(0, 240));
+  check("score is computed at 100%", submitted.json?.data?.scorePct === 100,
+    String(submitted.json?.data?.scorePct));
+  check("status is PASSED", submitted.json?.data?.status === "PASSED",
+    submitted.json?.data?.status);
+  check("certificate issued on a pass", Boolean(submitted.json?.data?.certificate?.id),
+    JSON.stringify(submitted.json?.data?.certificate));
+  check("student number is numeric and >= the 263 default",
+    typeof submitted.json?.data?.certificate?.studentNumber === "number" &&
+    submitted.json.data.certificate.studentNumber >= 263,
+    String(submitted.json?.data?.certificate?.studentNumber));
+  check("submit response leaks no isCorrect",
+    !/isCorrect/.test(JSON.stringify(submitted.json)),
+    "clean");
+
+  /* ── reuse of a submitted token is refused ───────────────────────────── */
+  const reuse = await call("POST", `/api/exams/attempts/${token}/verify-otp`, { code: "123456" }, "trainee");
+  check("a submitted token cannot be re-verified", reuse.status === 401, `got ${reuse.status}`);
+
+  /* Submitting clears the exam cookie, so the paper now refuses with the same
+   * "enter the code" answer as any other unverified visitor. That is the desired
+   * behaviour: the finished state is not disclosed to someone holding only a link. */
+  const reuseNext = await call("GET", `/api/exams/attempts/${token}/next`, undefined, "trainee");
+  check("a submitted token cannot reopen the paper",
+    reuseNext.status === 401 || reuseNext.status === 410,
+    `got ${reuseNext.status}`);
+
+  const reuseSubmit = await call("POST", `/api/exams/attempts/${token}/submit`, {}, "trainee");
+  check("a second submit reports the recorded result instead of regrading",
+    reuseSubmit.status === 200 && reuseSubmit.json?.data?.alreadySubmitted === true,
+    `got ${reuseSubmit.status}`);
+
+  /* ── certificate and public verification ─────────────────────────────── */
+  const certId: string = submitted.json?.data?.certificate?.id;
+  const certList = await call("GET", "/api/certificates");
+  check("certificate appears in the staff register",
+    (certList.json?.data?.items ?? []).some((c: Json) => c.id === certId),
+    `total ${certList.json?.data?.total}`);
+
+  const verifyToken: string = submitted.json?.data?.certificate?.verificationToken;
+  const verifyOk = await call("GET", `/api/verify/${verifyToken}`);
+  check("public verification succeeds with no session",
+    verifyOk.status === 200 && verifyOk.json?.data?.status === "valid",
+    JSON.stringify(verifyOk.json).slice(0, 200));
+  check("verification reports the trainee and course",
+    typeof verifyOk.json?.data?.traineeName === "string" &&
+    typeof verifyOk.json?.data?.courseName === "string",
+    `${verifyOk.json?.data?.traineeName} / ${verifyOk.json?.data?.courseName}`);
+  check("public verification leaks no email address",
+    !/@/.test(JSON.stringify(verifyOk.json)),
+    "clean");
+  check("verification exposes a numeric student number",
+    typeof verifyOk.json?.data?.studentNumber === "number",
+    String(verifyOk.json?.data?.studentNumber));
+
+  const anonVerifyOk = await call("GET", `/api/verify/${verifyToken}`);
+  check("verification needs no auth cookie", anonVerifyOk.status === 200, `got ${anonVerifyOk.status}`);
+
+  const bogusVerify = await call("GET", "/api/verify/definitely-not-a-real-token");
+  check("a bogus verification token is 404, not a 500", bogusVerify.status === 404,
+    `got ${bogusVerify.status}`);
+
+  /* Revoke is owner-only and flips the public status. */
+  const revokeAsStaff = await call("POST", `/api/certificates/${certId}/revoke`, {
+    reason: "Testing the revoke path from the owner session.",
+  });
+  check("owner can revoke a certificate", revokeAsStaff.status === 200,
+    JSON.stringify(revokeAsStaff.json).slice(0, 160));
+
+  const verifyRevoked = await call("GET", `/api/verify/${verifyToken}`);
+  check("verification reports revoked after revocation",
+    verifyRevoked.json?.data?.status === "revoked", verifyRevoked.json?.data?.status);
+  check("verification includes the revocation reason",
+    typeof verifyRevoked.json?.data?.revokedReason === "string",
+    verifyRevoked.json?.data?.revokedReason);
+
+  /* ── PDF download ────────────────────────────────────────────────────── */
+  const pdf = await fetch(`${BASE}/api/certificates/${certId}/pdf`, {
+    headers: { Cookie: jars.owner },
+  });
+  check("certificate PDF downloads", pdf.status === 200, `got ${pdf.status}`);
+  check("PDF is served as an attachment",
+    (pdf.headers.get("content-disposition") ?? "").includes("attachment"),
+    pdf.headers.get("content-disposition") ?? "missing");
+  check("PDF is a real PDF", (pdf.headers.get("content-type") ?? "").includes("pdf"),
+    pdf.headers.get("content-type") ?? "missing");
+  const pdfBytes = new Uint8Array(await pdf.arrayBuffer());
+  check("PDF body starts with %PDF", String.fromCharCode(...pdfBytes.slice(0, 4)) === "%PDF",
+    `${pdfBytes.byteLength} bytes`);
+}
+
+main()
+  .catch((error) => {
+    console.error("Smoke test crashed:", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

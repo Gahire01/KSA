@@ -115,6 +115,7 @@ model Category {
   id      String   @id @default(cuid())
   name    String   @unique
   courses Course[]
+  trainees Trainee[]
 }
 
 model Course {
@@ -156,6 +157,7 @@ model Trainee {
   phone         String
   countryCode   String
   categoryId    String
+  category      Category       @relation(fields: [categoryId], references: [id])
   courseId      String?
   course        Course?          @relation("TraineeCourse", fields: [courseId], references: [id])
   enrolledAt    DateTime         @default(now())

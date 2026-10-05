@@ -91,6 +91,7 @@ export const notificationListQuerySchema = z
 
 export const questionCreateSchema = z
   .object({
+    courseId: z.string().trim().min(1, "Choose a course.").max(64),
     text: z.string().trim().min(5, "Enter the question text.").max(2000),
     explanation: z.string().trim().max(2000).optional().nullable(),
     options: z

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { FilterChips, type Chip } from "@/components/shared/FilterChips";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
@@ -326,6 +327,11 @@ export default function CertificatesPage() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner>
+        Certificates in this register are demo data. Issuing and revoking here
+        does not change any stored record.
+      </DemoBanner>
+
       <PageHeader
         title="Certificates"
         subtitle={

@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
 import { DateRangePicker, type DateRange } from "@/components/shared/DateRangePicker";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -95,6 +96,11 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner>
+        Report figures are calculated from demo data, and generated files are not
+        saved anywhere.
+      </DemoBanner>
+
       <PageHeader
         title="Reports"
         subtitle="Generate register extracts for regulators, funders, and internal review."

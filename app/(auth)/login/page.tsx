@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRightIcon, InfoIcon, MailIcon } from "lucide-react";
+import { ArrowRightIcon, InfoIcon, KeyRoundIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -14,58 +14,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useAuthStore } from "@/lib/stores/auth-store";
+import { ApiError } from "@/lib/api/client";
+import { useLogin } from "@/lib/api/hooks";
 
 const schema = z.object({
   email: z
     .string()
     .min(1, "Enter your work email.")
     .email("That does not look like an email address."),
+  password: z.string().min(1, "Enter your password."),
 });
 
 type Values = z.infer<typeof schema>;
 
-const DEMO_ACCOUNTS = [
-  {
-    email: "owner@academy.rw",
-    name: "Aline Mukamana",
-    role: "Owner — full access",
-  },
-  {
-    email: "admin@academy.rw",
-    name: "Academy Administrator",
-    role: "Administrator",
-  },
-  {
-    email: "trainer@academy.rw",
-    name: "Eric Mugisha",
-    role: "Trainer — scoped access",
-  },
-];
-
 export default function LoginPage() {
   const router = useRouter();
-  const login = useAuthStore((s) => s.login);
-  const mfaVerifiedFor = useAuthStore((s) => s.mfaVerifiedFor);
+  const login = useLogin();
+  const submitting = login.isPending;
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "" },
+    defaultValues: { email: "", password: "" },
     mode: "onSubmit",
   });
 
-  /* Returning from MFA with a verified session goes straight in. */
-  React.useEffect(() => {
-    if (mfaVerifiedFor) router.replace("/dashboard");
-  }, [mfaVerifiedFor, router]);
-
   const onSubmit = (values: Values) => {
-    const user = login(values.email);
-    toast.success("Check your inbox", {
-      description: `We sent a 6-digit code to ${values.email}.`,
+    login.mutate(values, {
+      onSuccess: (result) => {
+        /* First sign-in has to enrol an authenticator before anything else. */
+        router.replace(result.nextStep === "mfa-setup" ? "/login/mfa/setup" : "/login/mfa");
+      },
+      onError: (error) => {
+        const message =
+          error instanceof ApiError ? error.message : "Could not sign in. Try again.";
+
+        form.setError("password", { message });
+        toast.error("Sign-in failed", { description: message });
+      },
     });
-    void user;
-    router.push("/login/mfa");
   };
 
   return (
@@ -75,15 +61,16 @@ export default function LoginPage() {
           Sign in
         </h1>
         <p className="text-sm text-ink-2">
-          Use your academy work email. We&rsquo;ll send a one-time code.
+          Staff access for owners and administrators.
         </p>
       </header>
 
       <Card>
         <CardHeader className="gap-1">
-          <CardTitle className="text-base">Staff access</CardTitle>
+          <CardTitle className="text-base">Academy account</CardTitle>
           <CardDescription>
-            Passwordless sign-in for owners, administrators and trainers.
+            Sign in with your email and password, then confirm with your
+            authenticator app.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -109,8 +96,31 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full gap-1.5" disabled={form.formState.isSubmitting}>
-                Send sign-in code
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        autoComplete="current-password"
+                        placeholder="••••••••••"
+                        aria-invalid={Boolean(form.formState.errors.password)}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage>{form.formState.errors.password?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full gap-1.5"
+                disabled={submitting || form.formState.isSubmitting}
+              >
+                {submitting ? "Signing in…" : "Continue"}
                 <ArrowRightIcon className="size-4" />
               </Button>
             </form>
@@ -121,27 +131,21 @@ export default function LoginPage() {
       <Alert>
         <InfoIcon className="size-4" />
         <AlertDescription>
-          <p className="font-medium text-ink">Demo accounts</p>
-          <ul className="mt-2 space-y-1.5">
-            {DEMO_ACCOUNTS.map((account) => (
-              <li key={account.email} className="flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => form.setValue("email", account.email, { shouldValidate: true })}
-                  className="inline-flex items-center gap-1.5 rounded font-mono text-xs text-navy underline decoration-line underline-offset-2 transition-colors hover:decoration-orange focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none"
-                >
-                  <MailIcon className="size-3" />
-                  {account.email}
-                </button>
-                <span className="shrink-0 text-xs text-ink-2">{account.role}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="font-medium text-ink">Owner account</p>
+          <p className="mt-1 text-xs">
+            Phase 1 ships a single seeded owner. Sign in with the credentials from{" "}
+            <span className="font-mono">SEED_OWNER_PASSWORD</span>, then enrol an
+            authenticator app on first use.
+          </p>
         </AlertDescription>
       </Alert>
 
       <p className="text-center text-xs text-ink-3">
-        Need to check a certificate instead?{" "}
+        <span className="inline-flex items-center gap-1.5">
+          <KeyRoundIcon className="size-3" />
+          Protected by two-factor authentication
+        </span>
+        {" · "}
         <Link href="/verify" className="font-medium text-orange-d underline underline-offset-2">
           Public verification
         </Link>

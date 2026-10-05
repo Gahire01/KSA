@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -131,6 +132,11 @@ export default function CertificateDetailPage() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner>
+        This certificate record is demo data. Printing and revoking it have no
+        effect on stored records.
+      </DemoBanner>
+
       <PageHeader
         breadcrumbSlot={
           <Link

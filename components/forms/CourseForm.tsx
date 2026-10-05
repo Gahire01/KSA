@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftIcon, SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,11 +32,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { mockApi } from "@/lib/mock";
+import { ApiError } from "@/lib/api/client";
+import { toCourseInput } from "@/lib/api/adapters";
+import {
+  useCategories,
+  useCourse,
+  useCreateCourse,
+  useUpdateCourse,
+} from "@/lib/api/hooks";
 import { formatRwf } from "@/lib/utils/format";
-import { CATEGORIES } from "@/lib/types";
-import type { Course, DurationUnit } from "@/lib/types";
+import type { Category } from "@/lib/types";
 
 const schema = z.object({
   code: z
@@ -54,7 +61,8 @@ const schema = z.object({
   maxAttempts: z.coerce.number().int().min(1).max(10, "Between 1 and 10."),
   validityMonths: z.coerce.number().int().min(0).max(120),
   examDurationMin: z.coerce.number().int().min(5).max(300),
-  trainerId: z.string().min(1, "Assign a lead trainer."),
+  /* Trainers are a Phase 2 model, so this stays optional for now. */
+  trainerId: z.string(),
   isActive: z.boolean(),
 });
 
@@ -62,20 +70,21 @@ type Values = z.infer<typeof schema>;
 
 export function CourseForm({ courseId }: { courseId?: string }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const isEdit = Boolean(courseId);
 
+  const categoriesQuery = useCategories();
+  const categories = categoriesQuery.data ?? [];
+
+  /* Trainer records are Phase 2; the id is persisted on the course as-is. */
   const trainersQuery = useQuery({
     queryKey: ["trainers", "options"],
-    queryFn: () => mockApi.trainers.list(),
+    queryFn: async () => [] as { id: string; name: string; title: string }[],
     staleTime: 5 * 60_000,
   });
 
-  const courseQuery = useQuery({
-    queryKey: ["course", courseId],
-    queryFn: () => mockApi.courses.get(courseId as string),
-    enabled: isEdit,
-  });
+  const courseQuery = useCourse(isEdit ? courseId : undefined);
+  const createMutation = useCreateCourse();
+  const updateMutation = useUpdateCourse();
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -120,31 +129,27 @@ export function CourseForm({ courseId }: { courseId?: string }) {
     });
   }, [courseQuery.data, form]);
 
-  const saveMutation = useMutation({
-    mutationFn: async (values: Values) => {
-      const payload = {
-        ...values,
-        durationUnit: values.durationUnit as DurationUnit,
-        validityMonths: values.validityMonths === 0 ? null : values.validityMonths,
-      } as unknown as Partial<Course>;
-      return isEdit
-        ? mockApi.courses.update(courseId as string, payload)
-        : mockApi.courses.create(payload);
-    },
-    onSuccess: (course) => {
-      if (!course) {
-        toast.error("That course no longer exists.");
-        return;
-      }
+  const saving = createMutation.isPending || updateMutation.isPending;
+
+  const onSubmit = (values: Values) => {
+    const input = toCourseInput(values, categories);
+    const onSuccess = (course: { id: string; name: string }) => {
       toast.success(isEdit ? "Course updated" : "Course created", {
         description: course.name,
       });
-      void queryClient.invalidateQueries({ queryKey: ["courses"] });
-      void queryClient.invalidateQueries({ queryKey: ["course", course.id] });
       router.push(`/courses/${course.id}`);
-    },
-    onError: () => toast.error("Could not save the course."),
-  });
+    };
+    const onError = (error: Error) =>
+      toast.error("Could not save the course.", {
+        description: error instanceof ApiError ? error.message : undefined,
+      });
+
+    if (isEdit && courseId) {
+      updateMutation.mutate({ id: courseId, input }, { onSuccess, onError });
+    } else {
+      createMutation.mutate(input, { onSuccess, onError });
+    }
+  };
 
   if (isEdit && courseQuery.isLoading) {
     return (
@@ -175,10 +180,14 @@ export function CourseForm({ courseId }: { courseId?: string }) {
 
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
+          onSubmit={form.handleSubmit(onSubmit)}
           className="space-y-5"
           noValidate
         >
+          <DemoBanner>
+            Everything on this form is saved to the live database. Only the
+            trainer list is still demo data.
+          </DemoBanner>
           <Card>
             <CardHeader className="gap-1">
               <CardTitle className="text-base">Identity</CardTitle>
@@ -226,9 +235,9 @@ export function CourseForm({ courseId }: { courseId?: string }) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {CATEGORIES.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.name as Category}>
+                            {c.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -328,13 +337,18 @@ export function CourseForm({ courseId }: { courseId?: string }) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {(trainersQuery.data ?? []).map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name} — {t.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          <SelectItem value="">Not assigned</SelectItem>
+                          {(trainersQuery.data ?? []).map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name} — {t.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Trainer accounts arrive in Phase 2, so the lead trainer
+                        can be left unassigned for now.
+                      </FormDescription>
                     <FormMessage>{form.formState.errors.trainerId?.message}</FormMessage>
                   </FormItem>
                 )}
@@ -449,13 +463,9 @@ export function CourseForm({ courseId }: { courseId?: string }) {
                 Cancel
               </Link>
             </Button>
-            <Button type="submit" className="gap-1.5" disabled={saveMutation.isPending}>
+            <Button type="submit" className="gap-1.5" disabled={saving}>
               <SaveIcon className="size-4" />
-              {saveMutation.isPending
-                ? "Saving…"
-                : isEdit
-                  ? "Save changes"
-                  : "Create course"}
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create course"}
             </Button>
           </div>
         </form>

@@ -17,6 +17,7 @@ import {
 import { formatDistanceToNow, parseISO } from "date-fns";
 
 import { PageHeader, TodaySubtitle } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { StatCard } from "@/components/shared/StatCard";
 import { DeadlineBadge } from "@/components/shared/DeadlineBadge";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
@@ -61,6 +62,11 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      <DemoBanner>
+        Totals, trends and activity below are generated in the browser, not read
+        from the database.
+      </DemoBanner>
+
       <PageHeader
         title={
           <span>

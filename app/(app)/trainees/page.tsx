@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   DownloadIcon,
@@ -27,20 +27,27 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { mockApi } from "@/lib/mock";
+import { useCategories, useCategoryOptions, useCourses, useTrainees } from "@/lib/api/hooks";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { categoryLabel, formatDate, formatNumber, formatRwf } from "@/lib/utils/format";
-import type { Category, Country, EnrollmentStatus, PaymentStatus, Trainee } from "@/lib/types";
-import { CATEGORIES, COUNTRIES } from "@/lib/types";
+import type { EnrollmentStatus } from "@/lib/api/types";
+import type { Category, Country, PaymentStatus, Trainee } from "@/lib/types";
+import { COUNTRIES } from "@/lib/types";
 
-/* Query page sizes: fetch the whole filtered set and paginate client-side. */
-const FETCH_SIZE = 500;
+/* Query page size: fetch the filtered set and paginate client-side.
+ * Capped at the API's MAX_PAGE_SIZE; a larger single request is rejected.
+ * See progress.md — server-side pagination lands in Phase 2. */
+const FETCH_SIZE = 100;
+
+/* Courses for the filter/select dropdowns — also bounded by MAX_PAGE_SIZE. */
+const COURSE_OPTION_LIMIT = 100;
 
 const ENROLLMENT_STATUSES: EnrollmentStatus[] = [
   "ACTIVE",
   "PENDING",
   "COMPLETED",
-  "SUSPENDED",
+  "FAILED",
+  "WITHDRAWN",
 ];
 
 const PAYMENT_STATUSES: PaymentStatus[] = ["PAID", "PARTIAL", "UNPAID"];
@@ -50,6 +57,8 @@ const ENROLLMENT_LABEL: Record<string, string> = {
   PENDING: "Pending",
   COMPLETED: "Completed",
   SUSPENDED: "Suspended",
+  FAILED: "Failed",
+  WITHDRAWN: "Withdrawn",
 };
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -123,13 +132,14 @@ export default function TraineesPage() {
     setFilters((f) => (f.search === debouncedSearch ? f : { ...f, search: debouncedSearch }));
   }, [debouncedSearch, hydrated]);
 
-  const coursesQuery = useQuery({
-    queryKey: ["courses", "options"],
-    queryFn: () => mockApi.courses.list(),
-    staleTime: 5 * 60_000,
-  });
+  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT });
+  const categoriesQuery = useCategories();
+  const categoryOptions = useCategoryOptions();
 
-  const courses = React.useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
+  const courses = React.useMemo(
+    () => coursesQuery.data?.items ?? [],
+    [coursesQuery.data],
+  );
 
   /* Trainers only see their own cohorts. */
   const scopeCourseIds = React.useMemo(() => {
@@ -139,29 +149,44 @@ export default function TraineesPage() {
       .map((c) => c.id);
   }, [isTrainer, currentUser?.trainerId, courses]);
 
+  /* The UI filters categories by name; the database keys on id. */
+  const categoryIdsForNames = React.useCallback(
+    (names: Category[]) =>
+      names
+        .map((n) => categoryOptions.find((c) => c.name === n)?.id)
+        .filter((id): id is string => Boolean(id)),
+    [categoryOptions],
+  );
+
   const listFilters = React.useMemo(
     () => ({
       search: filters.search || undefined,
-      categories: filters.categories.length ? filters.categories : undefined,
-      courseIds: filters.courseIds.length ? filters.courseIds : undefined,
-      statuses: filters.statuses.length ? filters.statuses : undefined,
-      paymentStatuses: filters.paymentStatuses.length ? filters.paymentStatuses : undefined,
-      countries: filters.countries.length ? filters.countries : undefined,
+      categoryId: categoryIdsForNames(filters.categories),
+      /* An empty trainer scope must mean "none", not "every course". */
+      courseId: isTrainer
+        ? scopeCourseIds ?? []
+        : filters.courseIds.length
+          ? filters.courseIds
+          : undefined,
+      status: filters.statuses.length ? filters.statuses : undefined,
+      paymentStatus: filters.paymentStatuses.length ? filters.paymentStatuses : undefined,
+      country: filters.countries.length ? filters.countries : undefined,
       enrolledFrom: filters.range.from,
       enrolledTo: filters.range.to,
       page: 1,
       pageSize: FETCH_SIZE,
     }),
-    [filters],
+    [filters, categoryIdsForNames, isTrainer, scopeCourseIds],
   );
 
-  const { data, isLoading, isFetching, isError, refetch } = useQuery({
-    queryKey: ["trainees", listFilters, scopeCourseIds ?? "all"],
-    queryFn: () => mockApi.trainees.list(listFilters, scopeCourseIds),
-    staleTime: 15_000,
+  /* Skip the request entirely while a trainer scope resolves to nothing. */
+  const noVisibleRows = isTrainer && scopeCourseIds?.length === 0;
+
+  const { data, isLoading, isFetching, isError, refetch } = useTrainees(listFilters, {
+    enabled: !noVisibleRows,
   });
 
-  const rows = data?.rows ?? [];
+  const rows = noVisibleRows ? [] : (data?.items ?? []);
 
   const courseName = React.useCallback(
     (id: string) => courses.find((c) => c.id === id)?.name ?? "—",
@@ -456,7 +481,10 @@ export default function TraineesPage() {
               <MultiSelectFilter
                 label="Category"
                 width="w-60"
-                options={CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))}
+                options={categoriesQuery.data?.map((c) => ({
+                  value: c.name as Category,
+                  label: categoryLabel(c.name as Category),
+                })) ?? []}
                 selected={filters.categories}
                 onChange={(categories) =>
                   setFilters((f) => ({
@@ -532,7 +560,7 @@ export default function TraineesPage() {
       {isError ? (
         <EmptyState
           title="Could not load trainees"
-          description="The mock service did not respond. Try again."
+          description="The server did not respond. Try again."
           action={
             <Button size="sm" variant="outline" onClick={() => void refetch()}>
               Retry

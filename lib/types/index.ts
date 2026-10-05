@@ -4,13 +4,17 @@
 
 /* ── Enumerations ─────────────────────────────────────────────── */
 
+/**
+ * Kept for the pages that still render mock data. The seeded database rows use
+ * exactly these names, so the two stay interchangeable.
+ */
 export const CATEGORIES = [
   "Firefighters",
   "Maintenance",
-  "First aid",
-  "Site security",
-  "Electrical safety",
-  "Working at height",
+  "First Aid",
+  "Site Security",
+  "Electrical Safety",
+  "Working at Height",
 ] as const;
 export type Category = (typeof CATEGORIES)[number];
 
@@ -36,7 +40,17 @@ export const COUNTRY_DIAL_CODES: Record<Country, string> = {
 export type Role = "OWNER" | "ADMIN" | "TRAINER";
 
 export type PaymentStatus = "PAID" | "PARTIAL" | "UNPAID";
-export type EnrollmentStatus = "ACTIVE" | "PENDING" | "COMPLETED" | "SUSPENDED";
+/**
+ * FAILED and WITHDRAWN are the values the database can now store; SUSPENDED is
+ * retained because the Phase 2+ mock pages still reference it.
+ */
+export type EnrollmentStatus =
+  | "ACTIVE"
+  | "PENDING"
+  | "COMPLETED"
+  | "SUSPENDED"
+  | "FAILED"
+  | "WITHDRAWN";
 
 export type PaymentMethod = "CASH" | "MOMO" | "BANK" | "CARD";
 

@@ -3,7 +3,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon, SaveIcon } from "lucide-react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,9 +31,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { mockApi } from "@/lib/mock";
+import { ApiError } from "@/lib/api/client";
+import { toTraineeInput } from "@/lib/api/adapters";
+import { useCategories, useCourses, useCreateTrainee } from "@/lib/api/hooks";
 import { formatRwf } from "@/lib/utils/format";
-import { CATEGORIES, COUNTRIES, type Trainee } from "@/lib/types";
+import { COUNTRIES, type Category } from "@/lib/types";
+
+/* Courses for the select dropdown; bounded by the API's MAX_PAGE_SIZE. */
+const COURSE_OPTION_LIMIT = 100;
 
 const schema = z.object({
   name: z.string().min(3, "Enter the trainee's full name."),
@@ -56,14 +60,11 @@ type Values = z.infer<typeof schema>;
 
 export default function NewTraineePage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
-  const coursesQuery = useQuery({
-    queryKey: ["courses", "options"],
-    queryFn: () => mockApi.courses.list(),
-    staleTime: 5 * 60_000,
-  });
-  const courses = coursesQuery.data ?? [];
+  const categoriesQuery = useCategories();
+  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT });
+  const categories = categoriesQuery.data ?? [];
+  const courses = coursesQuery.data?.items ?? [];
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -85,18 +86,22 @@ export default function NewTraineePage() {
   const price = courses.find((c) => c.id === courseId)?.priceRwf ?? 0;
   const balance = Math.max(0, price - Number(amount || 0));
 
-  const createMutation = useMutation({
-    mutationFn: (values: Values) =>
-      mockApi.trainees.create(values as unknown as Partial<Trainee>),
-    onSuccess: (trainee) => {
-      toast.success("Trainee created", {
-        description: `${trainee.name} · ${trainee.traineeNo}`,
-      });
-      void queryClient.invalidateQueries({ queryKey: ["trainees"] });
-      router.push(`/trainees/${trainee.id}`);
-    },
-    onError: () => toast.error("Could not create that trainee."),
-  });
+  const createMutation = useCreateTrainee();
+
+  const submit = (values: Values) => {
+    createMutation.mutate(toTraineeInput(values, categories), {
+      onSuccess: (trainee) => {
+        toast.success("Trainee created", {
+          description: `${trainee.name} · ${trainee.traineeNo}`,
+        });
+        router.push(`/trainees/${trainee.id}`);
+      },
+      onError: (error) =>
+        toast.error("Could not create that trainee.", {
+          description: error instanceof ApiError ? error.message : undefined,
+        }),
+    });
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -117,7 +122,7 @@ export default function NewTraineePage() {
 
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}
+          onSubmit={form.handleSubmit(submit)}
           className="space-y-5"
           noValidate
         >
@@ -206,9 +211,9 @@ export default function NewTraineePage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {CATEGORIES.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.name as Category}>
+                            {c.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -318,7 +323,7 @@ export default function NewTraineePage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={form.handleSubmit((values) => createMutation.mutate(values))}
+                onClick={form.handleSubmit(submit)}
                 disabled={createMutation.isPending}
               >
                 Save and add another

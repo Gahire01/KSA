@@ -1,0 +1,140 @@
+// KSA Phase 1 schema — auth, trainees and courses only.
+// Exams, certificates, payments and questions deliberately arrive in Phase 2.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  TRAINER
+}
+
+enum DurationUnit {
+  DAY
+  WEEK
+  MONTH
+}
+
+enum EnrollmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  FAILED
+  WITHDRAWN
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  UNPAID
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  /// Display name; falls back to the email when unset.
+  name         String?
+  passwordHash String
+  role         Role           @default(OWNER)
+  totpSecret   String?
+  totpEnabled  Boolean        @default(false)
+  totpCounter  Int            @default(0)
+  isActive     Boolean      @default(true)
+  /// Consecutive failed sign-ins; reset on success. Drives the lockout.
+  failedLogins Int          @default(0)
+  /// Set when `failedLogins` trips. Deliberately has no auto-expiry: unlocking
+  /// is an explicit owner action so a locked account cannot be re-attempted
+  /// just by waiting.
+  lockedAt     DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime       @default(now())
+  sessions     Session[]
+  recoveryCodes RecoveryCode[]
+}
+
+model RecoveryCode {
+  id       String    @id @default(cuid())
+  userId   String
+  codeHash String
+  usedAt   DateTime?
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  mfaPassed Boolean  @default(false)
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Category {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  courses Course[]
+}
+
+model Course {
+  id              String       @id @default(cuid())
+  code            String       @unique
+  name            String
+  categoryId      String
+  category        Category     @relation(fields: [categoryId], references: [id])
+  description     String?
+  topics          String[]
+  durationValue   Int
+  durationUnit    DurationUnit
+  priceRwf        Int
+  passMarkPct     Int          @default(50)
+  maxAttempts     Int          @default(2)
+  validityMonths  Int?
+  examDurationMin Int          @default(30)
+  /// Loose string for now — becomes a relation once the Trainer model lands (Phase 2).
+  trainerId      String?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  trainees        Trainee[]    @relation("TraineeCourse")
+
+  @@index([categoryId])
+}
+
+model Trainee {
+  id            String           @id @default(cuid())
+  /// Human-facing enrolment number shown across the UI, e.g. KSA-0001.
+  traineeNo     String           @unique
+  fullName      String
+  email         String
+  phone         String
+  countryCode   String
+  categoryId    String
+  courseId      String?
+  course        Course?          @relation("TraineeCourse", fields: [courseId], references: [id])
+  enrolledAt    DateTime         @default(now())
+  deadlineAt    DateTime?
+  status        EnrollmentStatus @default(PENDING)
+  paymentStatus PaymentStatus    @default(UNPAID)
+  notes         String?
+  amountPaidRwf Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([email])
+  @@index([courseId])
+  @@index([categoryId])
+  @@index([status])
+}

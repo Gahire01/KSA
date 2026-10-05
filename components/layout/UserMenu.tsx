@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useLogout } from "@/lib/api/hooks";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils/cn";
 
@@ -27,7 +28,8 @@ const ROLE_LABEL: Record<string, string> = {
 export function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const currentUser = useAuthStore((s) => s.currentUser);
-  const logout = useAuthStore((s) => s.logout);
+  const clearSession = useAuthStore((s) => s.clearSession);
+  const logout = useLogout();
   const role = currentUser?.role ?? "ADMIN";
   const canSeeSettings = role === "OWNER" || role === "ADMIN";
 
@@ -93,9 +95,15 @@ export function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
         <DropdownMenuItem
           variant="destructive"
           onSelect={() => {
-            logout();
-            toast("Signed out", { description: "See you next session." });
-            router.push("/login");
+            /* Clear the server session first, then the client mirror. */
+            logout.mutate(undefined, {
+              onSettled: () => {
+                clearSession();
+                toast("Signed out", { description: "See you next session." });
+                router.replace("/login");
+                router.refresh();
+              },
+            });
           }}
         >
           <LogOutIcon className="size-4" />

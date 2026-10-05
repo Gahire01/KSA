@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -66,6 +67,10 @@ export default function TrainersPage() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner>
+        Trainer records are demo data. Nothing on this page is stored.
+      </DemoBanner>
+
       <PageHeader
         title="Trainers"
         subtitle={`${formatNumber(totals.trainers)} trainers · ${formatNumber(totals.certificates)} certificates signed`}

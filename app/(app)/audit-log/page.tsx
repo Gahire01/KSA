@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { FilterChips, type Chip } from "@/components/shared/FilterChips";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
@@ -281,6 +282,11 @@ export default function AuditLogPage() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner>
+        Audit entries below are demo data generated in the browser. Nothing you
+        do here is written to the database.
+      </DemoBanner>
+
       <PageHeader
         title="Audit log"
         subtitle={

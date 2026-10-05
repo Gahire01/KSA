@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -97,6 +98,11 @@ export default function ReceiptPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      <DemoBanner>
+        This receipt is demo data. Printing or refunding it does not change any
+        stored payment record.
+      </DemoBanner>
+
       <PageHeader
         breadcrumbSlot={
           <Link

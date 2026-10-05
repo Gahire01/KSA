@@ -8,7 +8,6 @@ import type { ColumnDef } from "@tanstack/react-table";
 import {
   BookOpenIcon,
   CircleDollarSignIcon,
-  ClockIcon,
   PlusIcon,
   UsersIcon,
 } from "lucide-react";
@@ -18,15 +17,16 @@ import { SearchInput } from "@/components/shared/SearchInput";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
 import { DataTable } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { mockApi } from "@/lib/mock";
+import { useCategories, useCourses } from "@/lib/api/hooks";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { categoryLabel, formatDurationLabel, formatNumber, formatRwf } from "@/lib/utils/format";
-import { CATEGORIES } from "@/lib/types";
-import type { Course } from "@/lib/types";
+import type { Category, Course } from "@/lib/types";
+import { mockApi } from "@/lib/mock";
 
 export default function CoursesPage() {
   const router = useRouter();
@@ -38,11 +38,27 @@ export default function CoursesPage() {
   const [categories, setCategories] = React.useState<string[]>([]);
   const [activeOnly, setActiveOnly] = React.useState(false);
 
-  const coursesQuery = useQuery({
-    queryKey: ["courses", "list"],
-    queryFn: () => mockApi.courses.list(),
-    staleTime: 60_000,
+  const categoriesQuery = useCategories();
+
+  /* Filter in the database so totals and paging stay correct as the catalogue grows. */
+  const categoryIds = React.useMemo(
+    () =>
+      categories
+        .map((name) => categoriesQuery.data?.find((c) => c.name === name)?.id)
+        .filter((id): id is string => Boolean(id)),
+    [categories, categoriesQuery.data],
+  );
+
+  const coursesQuery = useCourses({
+    search: debounced.trim() || undefined,
+    categoryId: categoryIds.length ? categoryIds : undefined,
+    isActive: activeOnly ? true : undefined,
+    page: 1,
+    /* The grid paginates client-side; MAX_PAGE_SIZE caps a single request. */
+    pageSize: 100,
   });
+
+  /* Trainers are a Phase 2 model; the course rows still reference them by id. */
   const trainersQuery = useQuery({
     queryKey: ["trainers", "options"],
     queryFn: () => mockApi.trainers.list(),
@@ -55,22 +71,7 @@ export default function CoursesPage() {
     [trainersQuery.data],
   );
 
-  const rows = React.useMemo(() => {
-    const all = coursesQuery.data ?? [];
-    const q = debounced.trim().toLowerCase();
-    return all.filter((c) => {
-      if (activeOnly && !c.isActive) return false;
-      if (categories.length && !categories.includes(c.category)) return false;
-      if (q) {
-        return (
-          c.name.toLowerCase().includes(q) ||
-          c.code.toLowerCase().includes(q) ||
-          c.description.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [coursesQuery.data, debounced, categories, activeOnly]);
+  const rows = coursesQuery.data?.items ?? [];
 
   const columns = React.useMemo<ColumnDef<Course, unknown>[]>(
     () => [
@@ -161,9 +162,6 @@ export default function CoursesPage() {
   );
 
   const totalEnrolled = rows.reduce((s, c) => s + c.enrolledCount, 0);
-  const avgQuestions = rows.length
-    ? Math.round(rows.reduce((s, c) => s + c.questionCount, 0) / rows.length)
-    : 0;
 
   return (
     <div className="space-y-5">
@@ -195,7 +193,12 @@ export default function CoursesPage() {
         />
         <MultiSelectFilter
           label="Category"
-          options={CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))}
+          options={
+            categoriesQuery.data?.map((c) => ({
+              value: c.name as Category,
+              label: categoryLabel(c.name as Category),
+            })) ?? []
+          }
           selected={categories}
           onChange={setCategories}
           width="w-60"
@@ -271,10 +274,10 @@ export default function CoursesPage() {
         }
       />
 
-      <p className="flex items-center gap-1.5 text-xs text-ink-3">
-        <ClockIcon className="size-3.5" />
-        Average question bank depth: {formatNumber(avgQuestions)} questions per course.
-      </p>
+      <DemoBanner>
+        Trainer names and question counts are still demo data. Courses,
+        categories, fees and enrolments are read from the live database.
+      </DemoBanner>
     </div>
   );
 }

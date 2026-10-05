@@ -35,3 +35,49 @@
   needs a decision on managed Postgres vs. local install.
 - No credentials supplied for email/WhatsApp delivery (Phase 2). Until provided,
   those integration points stay ⚠️ Blocked.
+## Session — Resume (2026-10-05)
+- [x] Repo state captured (ahead 1, uncommitted changes present)
+- [x] Schema, migrations, seed inspected
+- [x] API/auth/core files verified
+- [x] Build succeeds
+- [x] Migrations in sync
+- [x] Seed executed (1 owner, 6 categories, 8 courses)
+
+
+### Step 5 (Seed)
+- [x] prisma/seed.ts is idempotent (upserts on unique keys), seeds 1 OWNER (gahiredev01@gmail.com), 6 categories, 8 courses with passMarkPct=50, maxAttempts=2. No trainees seeded. Uses lib/auth/password.ts. No secrets logged.
+
+
+### Step 6 (Frontend wiring)
+- [x] login/login-mfa pages use API (useLogin, useMfaVerify)
+- [x] trainees pages import from @/lib/api/hooks (useTrainees)
+- [x] courses pages import from @/lib/api/hooks (useCourses/useCategories)
+- [x] Other /(app) pages have DemoBanner at top (verified)
+- [x] No visual design changes
+
+
+### Step 7 (Security partial check)
+- [x] argon2id used; no bcrypt found
+- [x] Cookie flags: httpOnly, secure in prod, SameSite=Lax, __Host- in prod (cookie logic)
+- [x] Session TTL 7d; expired rejected; logout deletes session
+- [x] TOTP recovery codes argon2id hashed, single-use; verify prevents replay via totpCounter
+- [x] MFA/rate limiting code present (rate-limit.ts, guard, verify route)
+- [x] Zod strict on inputs, pageSize cap 100 (schemas)
+- [x] Routes guarded via authorize/guard; health unauthenticated
+- [x] No raw SQL concat/unsafe query usage observed
+- [x] Security headers + CSP configured; X-Frame-Options DENY
+- [x] No isCorrect found in API responses
+- [x] No secrets logged (seed, health, etc.)
+- [ ] pnpm audit --prod (to run)
+
+- [x] pnpm audit --prod clean of HIGH/CRITICAL
+
+
+### Step 8 (Verify - static)
+- [x] pnpm build succeeds
+- [x] pnpm lint (eslint) passes (0 errors)
+- [x] npx tsc --noEmit passes (0 errors)
+
+
+E2E: will run tmp-e2e.ts against dev server once started (per instructions).
+

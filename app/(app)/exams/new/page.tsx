@@ -11,6 +11,7 @@ import { CalendarPlusIcon, InfoIcon, SendIcon, ShuffleIcon, UsersIcon } from "lu
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,6 +126,11 @@ export default function NewExamPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
+      <DemoBanner>
+        Exams, question banks and attempts are demo data. Scheduling an exam here
+        does not send anything or store a record.
+      </DemoBanner>
+
       <PageHeader
         breadcrumbSlot={
           <Link href="/exams" className="text-sm text-ink-2 transition-colors hover:text-ink">

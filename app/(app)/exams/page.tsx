@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
 import { DataTable } from "@/components/shared/DataTable";
@@ -314,6 +315,10 @@ export default function ExamsPage() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner>
+        Exams, question banks and attempts are demo data. Nothing here is stored.
+      </DemoBanner>
+
       <PageHeader
         title="Exams"
         subtitle="Schedule exams, send links and review submitted attempts."

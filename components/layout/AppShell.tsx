@@ -77,8 +77,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <footer className="no-print border-t border-line px-4 py-4 text-xs text-ink-3 sm:px-6 lg:px-8">
           <p>
-            Kigali Safety Academy · Frontend demo with local mock data · No real
-            records are stored.
+            Kigali Safety Academy · Trainees and courses are backed by the live
+            database · Other sections still show demo data.
           </p>
         </footer>
       </div>

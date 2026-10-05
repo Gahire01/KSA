@@ -3,43 +3,67 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, ArrowRightIcon, RotateCcwIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, KeyRoundIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
+import { ApiError } from "@/lib/api/client";
+import { useMfaVerify } from "@/lib/api/hooks";
+import type { MfaVerifyDTO } from "@/lib/api/types";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils/cn";
 
 const LENGTH = 6;
-const RESEND_SECONDS = 30;
 
 export default function MfaPage() {
   const router = useRouter();
-  const pendingEmail = useAuthStore((s) => s.pendingEmail);
-  const verifyMfa = useAuthStore((s) => s.verifyMfa);
-  const currentUser = useAuthStore((s) => s.currentUser);
+  const setMfaPassed = useAuthStore((s) => s.setMfaPassed);
+  const verify = useMfaVerify();
+  const checking = verify.isPending;
 
   const [digits, setDigits] = React.useState<string[]>(() => Array(LENGTH).fill(""));
   const [error, setError] = React.useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = React.useState(RESEND_SECONDS);
+  const [showRecovery, setShowRecovery] = React.useState(false);
+  const [recovery, setRecovery] = React.useState("");
   const inputRefs = React.useRef<Array<HTMLInputElement | null>>([]);
-
-  /* No email in flight → send the visitor back to step one. */
-  React.useEffect(() => {
-    if (!pendingEmail) router.replace("/login");
-  }, [pendingEmail, router]);
-
-  React.useEffect(() => {
-    if (secondsLeft <= 0) return;
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [secondsLeft]);
 
   const code = digits.join("");
   const complete = code.length === LENGTH;
+
+  const finish = React.useCallback(
+    (result: MfaVerifyDTO) => {
+      setMfaPassed(true);
+      toast.success("Signed in", {
+        description:
+          result.via === "recovery"
+            ? "Signed in with a recovery code."
+            : "Two-factor confirmed.",
+      });
+      router.replace("/dashboard");
+      router.refresh();
+    },
+    [router, setMfaPassed],
+  );
+
+  const submit = React.useCallback(
+    (value: string) => {
+      setError(null);
+
+      verify.mutate(value.trim(), {
+        onSuccess: finish,
+        onError: (err) => {
+          setError(
+            err instanceof ApiError ? err.message : "Could not verify that code.",
+          );
+          setDigits(Array(LENGTH).fill(""));
+          inputRefs.current[0]?.focus();
+        },
+      });
+    },
+    [finish, verify],
+  );
 
   const setDigit = (index: number, value: string) => {
     const clean = value.replace(/\D/g, "");
@@ -75,28 +99,18 @@ export default function MfaPage() {
     if (e.key === "ArrowRight" && index < LENGTH - 1) inputRefs.current[index + 1]?.focus();
   };
 
-  const submit = React.useCallback(
-    (value: string) => {
-      /* Any 6 digits are accepted in this mock. */
-      if (value.length !== LENGTH) {
-        setError("Enter all six digits.");
-        return;
-      }
-      verifyMfa();
-      toast.success("Signed in", {
-        description: `Welcome back${
-          currentUser ? `, ${currentUser.name.split(" ")[0]}` : ""
-        }.`,
-      });
-      router.replace("/dashboard");
-    },
-    [verifyMfa, currentUser, router],
-  );
+  /* Auto-submit once all six digits are in — matches the previous behaviour. */
+  const submittedRef = React.useRef(false);
+  React.useEffect(() => {
+    /* Re-arm once the previous attempt settles, so a retry can auto-submit. */
+    if (!checking) submittedRef.current = false;
+  }, [checking]);
 
   React.useEffect(() => {
-    if (complete) submit(code);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
+    if (!complete || checking || submittedRef.current) return;
+    submittedRef.current = true;
+    submit(code);
+  }, [complete, checking, code, submit]);
 
   return (
     <div className="space-y-6">
@@ -105,26 +119,23 @@ export default function MfaPage() {
           Enter your code
         </h1>
         <p className="text-sm text-ink-2">
-          We sent a six-digit code to{" "}
-          <span className="font-medium text-ink">{pendingEmail ?? "your email"}</span>.
+          Open your authenticator app and enter the six-digit code for this site.
         </p>
       </header>
 
       <Card>
         <CardHeader className="gap-1">
-          <CardTitle className="text-base">One-time code</CardTitle>
-          <CardDescription>
-            Codes expire after 10 minutes. In this demo any six digits work.
-          </CardDescription>
+          <CardTitle className="text-base">Two-factor confirmation</CardTitle>
+          <CardDescription>Codes refresh every 30 seconds.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              submit(code);
+              if (complete) void submit(code);
             }}
           >
-            <fieldset className="space-y-3">
+            <fieldset className="space-y-3" disabled={showRecovery}>
               <legend className="sr-only">Six-digit verification code</legend>
               <div className="flex justify-between gap-2" role="group">
                 {digits.map((digit, index) => (
@@ -161,21 +172,40 @@ export default function MfaPage() {
               </p>
             ) : null}
 
-            <Button type="submit" className="mt-4 w-full gap-1.5" disabled={!complete}>
-              Verify and continue
+            <Button
+              type="submit"
+              className="mt-4 w-full gap-1.5"
+              disabled={!complete || checking || showRecovery}
+            >
+              {checking ? "Verifying…" : "Verify and continue"}
               <ArrowRightIcon className="size-4" />
             </Button>
           </form>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-ink-2">
-              <span>Code expires in 10:00</span>
-              <span className="tabular">
-                Resend in {secondsLeft > 0 ? `0:${String(secondsLeft).padStart(2, "0")}` : "0:00"}
-              </span>
-            </div>
-            <Progress value={(secondsLeft / RESEND_SECONDS) * 100} className="h-1" />
-          </div>
+          {showRecovery ? (
+            <form
+              className="space-y-3 border-t pt-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submit(recovery);
+              }}
+            >
+              <label className="text-xs font-medium text-ink" htmlFor="recovery">
+                Recovery code
+              </label>
+              <input
+                id="recovery"
+                value={recovery}
+                onChange={(e) => setRecovery(e.target.value)}
+                placeholder="XXXX-XXXX-XXXX"
+                autoComplete="one-time-code"
+                className="h-10 w-full rounded-lg border border-input bg-card px-3 font-mono text-sm text-ink focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none"
+              />
+              <p className="text-xs text-ink-2">
+                Each recovery code works once. Using one signs you in immediately.
+              </p>
+            </form>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -183,30 +213,27 @@ export default function MfaPage() {
         <Button variant="ghost" size="sm" className="gap-1.5" asChild>
           <Link href="/login">
             <ArrowLeftIcon className="size-4" />
-            Use a different email
+            Use a different account
           </Link>
         </Button>
         <Button
           variant="outline"
           size="sm"
           className="gap-1.5"
-          disabled={secondsLeft > 0}
           onClick={() => {
-            setSecondsLeft(RESEND_SECONDS);
-            setDigits(Array(LENGTH).fill(""));
+            setShowRecovery((v) => !v);
             setError(null);
-            toast("New code sent", { description: "Check your inbox for the fresh code." });
           }}
         >
-          <RotateCcwIcon className="size-3.5" />
-          Resend code
+          <KeyRoundIcon className="size-3.5" />
+          {showRecovery ? "Use authenticator" : "Use a recovery code"}
         </Button>
       </div>
 
       <Alert>
         <AlertDescription className="text-xs">
-          Trouble signing in? Contact the academy administrator at{" "}
-          <span className="font-mono">+250 788 000 000</span>.
+          Lost your device? Use one of the recovery codes you saved when you first
+          enrolled your authenticator.
         </AlertDescription>
       </Alert>
     </div>

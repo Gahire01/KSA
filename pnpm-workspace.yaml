@@ -1,2 +1,16 @@
 allowBuilds:
   unrs-resolver: true
+  prisma: true
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+
+# Phase 1 hardening: transitive advisories with a non-breaking upgrade available.
+# All four are build/CLI-time packages (Next's PostCSS, Prisma Studio's lodash,
+# Prisma CLI's MySQL driver and config merger), none shipped to the browser.
+# pnpm 11 reads overrides from here, not from package.json.
+overrides:
+  postcss: ^8.5.23
+  lodash: ^4.17.24
+  mysql2: ^3.23.1
+  deepmerge-ts: ^8.0.2

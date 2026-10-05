@@ -5,70 +5,31 @@ import { persist } from "zustand/middleware";
 
 import type { CurrentUser, Role } from "@/lib/types";
 
+/**
+ * Client-side mirror of the server session.
+ *
+ * As of Phase 1 this store is NOT the security boundary — the session cookie and
+ * the server layout guard are. It only carries the signed-in user's role into
+ * the sidebar, top bar and command palette, which are client components. It is
+ * hydrated from `GET /api/auth/me`, so it can never grant access on its own.
+ */
 interface AuthState {
   currentUser: CurrentUser | null;
-  /** Set by /login, consumed by /login/mfa. */
-  pendingEmail: string | null;
-  mfaVerifiedFor: string | null;
-  login: (email: string) => CurrentUser;
-  logout: () => void;
-  setPendingEmail: (email: string | null) => void;
-  verifyMfa: () => void;
-}
-
-const NAME_BY_EMAIL: Record<string, string> = {
-  owner: "Aline Mukamana",
-  trainer: "Eric Mugisha",
-};
-
-function buildUser(email: string): CurrentUser {
-  const lower = email.toLowerCase();
-  let role: Role = "ADMIN";
-  let trainerId: string | undefined;
-
-  if (lower.startsWith("owner")) {
-    role = "OWNER";
-  } else if (lower.includes("trainer")) {
-    role = "TRAINER";
-    trainerId = "trn_004";
-  }
-
-  const local = lower.split("@")[0] ?? "user";
-  const friendly =
-    NAME_BY_EMAIL[Object.keys(NAME_BY_EMAIL).find((k) => local.startsWith(k)) ?? ""] ??
-    local
-      .split(/[._-]/)
-      .filter(Boolean)
-      .map((p) => p[0]!.toUpperCase() + p.slice(1))
-      .join(" ");
-
-  return {
-    id: role === "TRAINER" ? "usr_trn_004" : role === "OWNER" ? "usr_owner" : "usr_admin",
-    name: friendly || "Academy User",
-    email,
-    role,
-    trainerId,
-    title: role === "TRAINER" ? "Electrical & Fleet Safety Assessor" : "Academy Administrator",
-  };
+  mfaPassed: boolean;
+  /** Populated once, from the server, so the UI can show a real name/role. */
+  setSession: (user: CurrentUser, mfaPassed: boolean) => void;
+  setMfaPassed: (mfaPassed: boolean) => void;
+  clearSession: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       currentUser: null,
-      pendingEmail: null,
-      mfaVerifiedFor: null,
-      login: (email) => {
-        const user = buildUser(email);
-        set({ currentUser: user, pendingEmail: email, mfaVerifiedFor: null });
-        return user;
-      },
-      logout: () => set({ currentUser: null, pendingEmail: null, mfaVerifiedFor: null }),
-      setPendingEmail: (email) => set({ pendingEmail: email }),
-      verifyMfa: () => {
-        const email = get().pendingEmail ?? get().currentUser?.email;
-        if (email) set({ mfaVerifiedFor: email });
-      },
+      mfaPassed: false,
+      setSession: (currentUser, mfaPassed) => set({ currentUser, mfaPassed }),
+      setMfaPassed: (mfaPassed) => set({ mfaPassed }),
+      clearSession: () => set({ currentUser: null, mfaPassed: false }),
     }),
     { name: "ksa-auth" },
   ),

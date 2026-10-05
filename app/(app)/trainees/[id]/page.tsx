@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   AwardIcon,
   BookOpenIcon,
@@ -12,7 +12,6 @@ import {
   MailIcon,
   PencilIcon,
   PhoneIcon,
-  PlusIcon,
   SendIcon,
   Trash2Icon,
   UserRoundIcon,
@@ -41,7 +40,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockApi } from "@/lib/mock";
+import { DemoBanner } from "@/components/shared/DemoBanner";
+import { ApiError } from "@/lib/api/client";
+import { useCourses, useDeleteTrainee, useTrainee } from "@/lib/api/hooks";
 import {
   categoryLabel,
   daysBetween,
@@ -52,6 +53,10 @@ import {
   formatTime,
 } from "@/lib/utils/format";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import type { Certificate, Enrollment, ExamAttempt, Payment } from "@/lib/types";
+
+/* Courses for the select dropdown; bounded by the API's MAX_PAGE_SIZE. */
+const COURSE_OPTION_LIMIT = 100;
 
 const ENROLLMENT_LABEL: Record<string, string> = {
   ACTIVE: "Active",
@@ -64,38 +69,33 @@ export default function TraineeDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
-  const queryClient = useQueryClient();
   const role = useAuthStore((s) => s.currentUser?.role ?? "ADMIN");
   const isTrainer = role === "TRAINER";
 
   const [confirmDelete, setConfirmDelete] = React.useState(false);
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["trainee", id],
-    queryFn: () => mockApi.trainees.detail(id),
-    enabled: Boolean(id),
-  });
+  const { data: trainee, isLoading, isError } = useTrainee(id);
 
-  const coursesQuery = useQuery({
-    queryKey: ["courses", "options"],
-    queryFn: () => mockApi.courses.list(),
-    staleTime: 5 * 60_000,
-  });
+  const deleteMutation = useDeleteTrainee();
+
+  const confirmRemove = () =>
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
+        toast.success("Trainee removed", { description: "The record has been deleted." });
+        router.push("/trainees");
+      },
+      onError: (error) =>
+        toast.error("Could not delete that trainee.", {
+          description: error instanceof ApiError ? error.message : undefined,
+        }),
+    });
+
+  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT });
   const courseName = React.useCallback(
     (courseId: string) =>
-      coursesQuery.data?.find((c) => c.id === courseId)?.name ?? "—",
+      coursesQuery.data?.items.find((c) => c.id === courseId)?.name ?? "—",
     [coursesQuery.data],
   );
-
-  const deleteMutation = useMutation({
-    mutationFn: () => mockApi.trainees.remove(id),
-    onSuccess: () => {
-      toast.success("Trainee removed", { description: "The record has been deleted." });
-      void queryClient.invalidateQueries({ queryKey: ["trainees"] });
-      router.push("/trainees");
-    },
-    onError: () => toast.error("Could not delete that trainee."),
-  });
 
   const remindMutation = useMutation({
     mutationFn: async () => {
@@ -117,7 +117,7 @@ export default function TraineeDetailPage() {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !trainee) {
     return (
       <EmptyState
         title="Trainee not found"
@@ -131,7 +131,12 @@ export default function TraineeDetailPage() {
     );
   }
 
-  const { trainee, payments, attempts, certificates, enrollments } = data;
+  /* These tabs belong to the Phase 2 exam / payment / certificate tables. */
+  const payments: Payment[] = [];
+  const attempts: ExamAttempt[] = [];
+  const certificates: Certificate[] = [];
+  const enrollments: Enrollment[] = [];
+
   const balance = Math.max(0, trainee.totalDueRwf - trainee.amountPaidRwf);
   const paidPct = trainee.totalDueRwf
     ? Math.min(100, Math.round((trainee.amountPaidRwf / trainee.totalDueRwf) * 100))
@@ -294,6 +299,12 @@ export default function TraineeDetailPage() {
       ) : null}
 
       {/* ── Tabs ────────────────────────────────────────────────── */}
+      <DemoBanner>
+        Exam attempts, payments, certificates and multi-course enrollments below
+        are empty until the Phase 2 tables exist. The trainee record above is
+        real and saved to the database.
+      </DemoBanner>
+
       <Card>
         <CardContent className="p-5">
           <Tabs defaultValue="attempts">
@@ -473,12 +484,6 @@ export default function TraineeDetailPage() {
                   Schedule exam
                 </Link>
               </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link href={`/trainees/${trainee.id}/enroll`}>
-                  <PlusIcon className="size-4" />
-                  Enrol in another course
-                </Link>
-              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -497,10 +502,10 @@ export default function TraineeDetailPage() {
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title="Delete this trainee?"
-        description={`${trainee.name} and their exam history will be removed from the demo dataset. This cannot be undone.`}
+        description={`${trainee.name} and their exam history will be permanently removed from the database. This cannot be undone.`}
         confirmLabel="Delete trainee"
         destructive
-        onConfirm={() => deleteMutation.mutate()}
+        onConfirm={confirmRemove}
       />
     </div>
   );

@@ -17,6 +17,7 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -124,6 +125,11 @@ export default function ExamDetailPage() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner>
+        This exam, its questions and its attempts are demo data. Sending or
+        grading here is not stored.
+      </DemoBanner>
+
       <PageHeader
         breadcrumbSlot={
           <Link href="/exams" className="text-sm text-ink-2 transition-colors hover:text-ink">

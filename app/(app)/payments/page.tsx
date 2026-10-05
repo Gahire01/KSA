@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { DemoBanner } from "@/components/shared/DemoBanner";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { FilterChips, type Chip } from "@/components/shared/FilterChips";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
@@ -376,6 +377,11 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-5">
+      <DemoBanner>
+        Payment records are demo data. Real fee balances are stored on the
+        trainee record in Phase 1.
+      </DemoBanner>
+
       <PageHeader
         title="Payments"
         subtitle={

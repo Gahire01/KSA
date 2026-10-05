@@ -53,7 +53,7 @@ export const courses: Course[] = [
     id: "crs_first",
     code: "FIRST",
     name: "First Aid & CPR",
-    category: "First aid",
+    category: "First Aid",
     description:
       "Scene safety, primary survey, recovery position, CPR on adults and children, and treatment of bleeding, burns and shock.",
     durationValue: 2,
@@ -73,7 +73,7 @@ export const courses: Course[] = [
     id: "crs_site",
     code: "SITE",
     name: "Site Security & Access Control",
-    category: "Site security",
+    category: "Site Security",
     description:
       "Access control procedure, visitor management, patrol discipline, incident reporting and radio discipline for site guards.",
     durationValue: 4,
@@ -93,7 +93,7 @@ export const courses: Course[] = [
     id: "crs_elec",
     code: "ELEC",
     name: "Electrical Safety (Low Voltage)",
-    category: "Electrical safety",
+    category: "Electrical Safety",
     description:
       "Electrical hazards, safe isolation and proving dead, arc-flash awareness, cable management and residual-current protection.",
     durationValue: 5,
@@ -113,7 +113,7 @@ export const courses: Course[] = [
     id: "crs_height",
     code: "HEIGHT",
     name: "Working at Height",
-    category: "Working at height",
+    category: "Working at Height",
     description:
       "Fall prevention and protection, ladder and scaffold inspection, harness selection, anchor points and rescue planning.",
     durationValue: 2,
@@ -153,7 +153,7 @@ export const courses: Course[] = [
     id: "crs_drive",
     code: "DRIVE",
     name: "Safe Driving & Fleet Safety",
-    category: "Site security",
+    category: "Site Security",
     description:
       "Defensive driving, load security, pre-trip inspection, fatigue management and incident response for fleet drivers.",
     durationValue: 3,

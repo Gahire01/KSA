@@ -1,6 +1,5 @@
-// KSA Phase 1 schema — auth, trainees and courses only.
-// Exams, certificates, payments and questions deliberately arrive in Phase 2.
-
+// KSA launch schema — auth, trainees, courses, exams, certificates,
+// access links and notifications.
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
@@ -36,6 +35,19 @@ enum PaymentStatus {
   UNPAID
 }
 
+enum ExamStatus {
+  /// Created and emailed; the OTP has not been entered yet.
+  PENDING
+  /// OTP verified, paper open.
+  STARTED
+  /// Answers graded.
+  SUBMITTED
+  PASSED
+  FAILED
+  /// Cancelled by staff or expired before submission.
+  VOID
+}
+
 model User {
   id           String         @id @default(cuid())
   email        String         @unique
@@ -46,17 +58,47 @@ model User {
   totpSecret   String?
   totpEnabled  Boolean        @default(false)
   totpCounter  Int            @default(0)
-  isActive     Boolean      @default(true)
+  isActive     Boolean        @default(true)
   /// Consecutive failed sign-ins; reset on success. Drives the lockout.
-  failedLogins Int          @default(0)
+  failedLogins Int            @default(0)
   /// Set when `failedLogins` trips. Deliberately has no auto-expiry: unlocking
   /// is an explicit owner action so a locked account cannot be re-attempted
   /// just by waiting.
   lockedAt     DateTime?
   lastLoginAt  DateTime?
+  /// Master switch for the queued notification emails.
+  emailNotifications Boolean @default(true)
   createdAt    DateTime       @default(now())
   sessions     Session[]
   recoveryCodes RecoveryCode[]
+  notifications Notification[]
+  deviceSessions DeviceSession[]
+  accessLinks    AccessLink[]    @relation("AccessLinkCreator")
+  referralCodes  ReferralCode[]  @relation("ReferralCodeCreator")
+
+  @@index([role])
+}
+
+/// A signed-in browser session.
+///
+/// Only the HMAC of the cookie token is stored (see lib/auth/session.ts), and the
+/// AccessLink a link-issued session came from is remembered so /settings/devices
+/// can revoke link-issued sessions and the UI can show "device N of 5".
+model Session {
+  id           String      @id
+  userId       String
+  mfaPassed    Boolean     @default(false)
+  expiresAt    DateTime
+  ip           String?
+  userAgent    String?
+  accessLinkId String?
+  createdAt    DateTime    @default(now())
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessLink   AccessLink? @relation(fields: [accessLinkId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([accessLinkId])
+  @@index([expiresAt])
 }
 
 model RecoveryCode {
@@ -65,19 +107,6 @@ model RecoveryCode {
   codeHash String
   usedAt   DateTime?
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-model Session {
-  id        String   @id
-  userId    String
-  mfaPassed Boolean  @default(false)
-  expiresAt DateTime
-  ip        String?
-  userAgent String?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -103,14 +132,19 @@ model Course {
   maxAttempts     Int          @default(2)
   validityMonths  Int?
   examDurationMin Int          @default(30)
-  /// Loose string for now — becomes a relation once the Trainer model lands (Phase 2).
-  trainerId      String?
+  /// User.id of the trainer assigned to this course.
+  trainerId       String?
   isActive        Boolean      @default(true)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   trainees        Trainee[]    @relation("TraineeCourse")
+  questions       Question[]
+  attempts        ExamAttempt[]
+  certificates    Certificate[]
 
   @@index([categoryId])
+  @@index([trainerId])
+  @@index([isActive])
 }
 
 model Trainee {
@@ -132,9 +166,244 @@ model Trainee {
   amountPaidRwf Int              @default(0)
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
+  attempts      ExamAttempt[]
+  certificates  Certificate[]
 
   @@index([email])
   @@index([courseId])
   @@index([categoryId])
   @@index([status])
+  @@index([createdAt])
+  @@index([courseId, status])
+}
+
+/// An exam question. `isCorrect` never leaves the server — see app/api/exams/*.
+model Question {
+  id          String           @id @default(cuid())
+  courseId    String
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  text        String
+  explanation String?
+  /// Position in the authored paper; unique per course so reordering is stable.
+  position    Int
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  options     QuestionOption[]
+  answers     ExamAnswer[]
+
+  @@unique([courseId, position])
+  @@index([courseId, isActive])
+}
+
+model QuestionOption {
+  id         String      @id @default(cuid())
+  questionId String
+  text       String
+  isCorrect  Boolean     @default(false)
+  position   Int
+  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers    ExamAnswer[]
+
+  @@unique([questionId, position])
+  @@index([questionId])
+}
+
+/// One trainee's sitting of a course exam.
+///
+/// The emailed link carries a 32-byte random token; only its SHA-256 is stored,
+/// so a database leak cannot be replayed as an exam link.
+model ExamAttempt {
+  id           String      @id @default(cuid())
+  tokenHash    String      @unique
+  traineeId    String
+  courseId     String
+  trainee      Trainee     @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+  course       Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// argon2id hash of the six-digit code; the plain code is never stored.
+  otpHash      String
+  otpExpiresAt DateTime
+  otpAttempts  Int         @default(0)
+  /// Canonical JSON of the shuffled question + option order for this sitting.
+  manifest     String
+  status       ExamStatus  @default(PENDING)
+  /// Which of the course's allowed attempts this is (1-based).
+  attemptNumber Int        @default(1)
+  durationMin  Int
+  /// When the emailed link itself stops working.
+  linkExpiresAt DateTime
+  scorePct     Int?
+  correctCount Int?
+  totalCount   Int?
+  startedAt    DateTime?
+  submittedAt  DateTime?
+  /// Window-focus losses reported by the runner, for staff review.
+  blurCount    Int         @default(0)
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime    @default(now())
+  answers      ExamAnswer[]
+  certificate  Certificate?
+
+  @@index([traineeId])
+  @@index([courseId])
+  @@index([status])
+  @@index([traineeId, courseId])
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
+
+/// A saved answer. Upserted by the autosave endpoint as the runner moves.
+model ExamAnswer {
+  id         String      @id @default(cuid())
+  attemptId  String
+  questionId String
+optionId   String?
+  /// Graded server-side on submit; never serialised to the client.
+  isCorrect  Boolean        @default(false)
+  answeredAt DateTime       @default(now())
+  attempt    ExamAttempt    @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question   Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option     QuestionOption? @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+  @@index([questionId])
+}
+
+/// An issued certificate. Immutable snapshots of the course and trainer are
+/// frozen here so a later course edit cannot rewrite an issued certificate.
+model Certificate {
+  id                   String       @id @default(cuid())
+  traineeId            String
+  courseId             String
+  trainee              Trainee      @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+  course               Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  attemptId            String?      @unique
+  attempt              ExamAttempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+  /// Numeric-only student number printed on the certificate, e.g. 263.
+  studentNumber        Int          @unique
+  verificationToken    String       @unique
+  /// SHA-256 over the canonical snapshot below.
+  contentHash          String
+  topicsSnapshot       String[]
+  durationSnapshot     String
+  trainerNameSnapshot  String
+  trainerTitleSnapshot String
+  issuedAt             DateTime     @default(now())
+  expiresAt            DateTime?
+  revokedAt            DateTime?
+  revokedReason        String?
+  createdAt            DateTime     @default(now())
+
+  @@index([traineeId])
+  @@index([courseId])
+  @@index([issuedAt])
+}
+
+/// A shareable sign-in link minted by the owner.
+///
+/// The plain 32-byte token is returned exactly once, at creation, and never
+/// stored — `tokenHash` holds a SHA-256 of it.
+model AccessLink {
+  id           String   @id @default(cuid())
+  tokenHash    String   @unique
+  /// Human-typeable code, e.g. "KSA-7X4M2P", shown alongside the URL.
+  referralCode String   @unique
+  role         Role
+  trainerId    String?
+  label        String?
+  expiresAt    DateTime
+  singleUse    Boolean  @default(false)
+  usedAt       DateTime?
+  revokedAt    DateTime?
+  createdById  String
+  createdAt    DateTime @default(now())
+  createdBy    User      @relation("AccessLinkCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  devices      DeviceSession[]
+  sessions     Session[]
+
+  @@index([createdById])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+/// A short code a team member types in on the sign-in page. Always 24h.
+model ReferralCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  role        Role
+  trainerId   String?
+  maxUses     Int      @default(1)
+  timesUsed   Int      @default(0)
+  expiresAt   DateTime
+  createdById String
+  createdAt   DateTime @default(now())
+  createdBy   User      @relation("ReferralCodeCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  devices     DeviceSession[]
+
+  @@index([createdById])
+  @@index([expiresAt])
+}
+
+/// A device that has redeemed a link or referral code.
+///
+/// Logout deliberately leaves this row alone — it is what makes the
+/// "already-registered device" check work on the next sign-in. Only the owner
+/// can revoke one.
+model DeviceSession {
+  id           String      @id @default(cuid())
+  accessLinkId String?
+  referralCodeId String?
+  userId       String?
+  /// SHA-256 of user agent + IP + a per-row salt, so the fingerprint is not
+  /// reversible to a device identity.
+  deviceHash   String
+  userAgent    String?
+  ipAddress    String?
+  lastSeenAt   DateTime    @default(now())
+  createdAt    DateTime    @default(now())
+  revokedAt    DateTime?
+  accessLink   AccessLink? @relation(fields: [accessLinkId], references: [id], onDelete: Cascade)
+  referralCode ReferralCode? @relation(fields: [referralCodeId], references: [id], onDelete: Cascade)
+  user         User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([accessLinkId])
+  @@index([referralCodeId])
+  @@index([userId])
+  @@index([userId, revokedAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  /// Set when the notification is also queued as an email.
+  emailedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+/// Append-only trail of privileged actions, surfaced on /audit-log.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  entityType String?
+  entityId   String?
+  meta       String?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([action])
 }

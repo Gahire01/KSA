@@ -243,3 +243,54 @@ OK  lib/db.ts (Prisma 7 + @prisma/adapter-pg, Neon)
 - lib/auth/password.ts ARGON_OPTIONS is the module to reuse for OTP hashing.
 
 Audit complete. Building Steps 2-3 now.
+
+## Session - 2026-10-05 23:05:09 - Step 2 SCHEMA + Step 3 exam OTP backend
+
+### Step 2 - schema.prisma extended, migration 20261005205703_launch_features APPLIED
+New models: Question, QuestionOption, ExamAttempt, ExamAnswer, Certificate,
+AccessLink, ReferralCode, DeviceSession, Notification, AuditLog.
+Updated: User (+emailNotifications), Session (+accessLinkId, +expiresAt index),
+Course (+questions/attempts/certificates relations), Trainee (+attempts/certificates).
+Certificate carries studentNumber Int @unique, verificationToken @unique,
+topicsSnapshot, durationSnapshot, trainerNameSnapshot, trainerTitleSnapshot,
+contentHash, revokedAt, revokedReason.
+ExamAttempt carries otpHash, otpExpiresAt, otpAttempts, manifest, tokenHash @unique.
+All Step 2 requested fields verified present.
+Indexes added for every FK and every WHERE/ORDER BY column (Step 8 partially
+pre-empted here; a second migration will add any stragglers).
+
+### Step 3 - backend complete and typechecked
+- lib/auth/password.ts: hashSecret() added, shares ARGON_OPTIONS (argon2id 19MiB/2/1)
+- lib/exams/token.ts: 32-byte base64url token, sha256 tokenHash, crypto.randomInt OTP,
+  30min TTL, 5 attempts, 3 resends/hour
+- lib/exams/manifest.ts: CSPRNG (HMAC-SHA256 keyed on the token) drives the
+  question + option shuffle. Manifest holds IDS ONLY, never isCorrect.
+- lib/exams/attempt.ts: loadAttemptByToken() - the single lookup path
+- lib/exams/session-cookie.ts: exam_session_{token} cookie, httpOnly,
+  secure in prod, SameSite=Lax, 2h TTL, HMAC-signed
+- lib/email/send.ts + lib/email/templates.ts: Resend transport, examLinkEmail
+  (subject "Your Kigali Safety Academy exam access", spaced OTP, 30-min line,
+  Start exam button, inline CSS only, no external images), otpResentEmail,
+  certificateEmail
+- lib/notifications/emit.ts + broadcaster.ts: emit(type, opts) writes the row,
+  publishes to SSE, emails only exam.failed / certificate.issued /
+  deadline.approaching
+- lib/certificates/issue.ts: MAX(studentNumber)+1 allocation with SEED_STUDENT_START
+  (263) default, unique-violation retry, canonical-JSON SHA-256 content hash
+
+Routes built:
+POST /api/exams/[courseId]/send          per-trainee attempt + email + manifest
+POST /api/exams/attempts/[token]/verify-otp   single generic 401, 5/token + 10/IP
+POST /api/exams/attempts/[token]/resend-otp   3/hour/token, shares the IP bucket
+GET  /api/exams/attempts/[token]/next         manifest order, isCorrect never selected
+POST /api/exams/attempts/[token]/answer       autosave, 30/min/token
+POST /api/exams/attempts/[token]/submit       server grading + certificate + SSE
+
+### lib/auth/authorize.ts REWRITTEN
+Was hard-coded to reject every role except OWNER, which would have made Step 4's
+ADMIN/TRAINER access links 403 on every route. Now a GRANTS table with explicit
+per-action role sets; TRAINER is additionally scoped to their own courses.
+New actions added for exam, certificate, question, access, device, audit, report.
+
+### Verification
+- npx tsc --noEmit: 0 errors

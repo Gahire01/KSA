@@ -20,8 +20,19 @@ export async function GET() {
       id: session.user.id,
       email: session.user.email,
       role: session.user.role,
-      name: session.user.email.split("@")[0],
+      name: session.user.name || session.user.email.split("@")[0],
       totpEnabled: session.user.totpEnabled,
+      /**
+       * `User` has no `trainerId` column: a trainer's identity *is* their user id,
+       * which is what `Course.trainerId` and `authorize()` both compare against.
+       *
+       * Exposing it here matters for more than convenience — client-side course
+       * scoping reads `currentUser.trainerId`, so leaving it undefined silently
+       * widened a trainer's visible courses to all of them. The server still
+       * enforces the real rule via `authorize(..., { trainerId })`; this only keeps
+       * the UI from asking for rows it will be refused.
+       */
+      trainerId: session.user.role === "TRAINER" ? session.user.id : undefined,
     },
     mfaPassed: session.mfaPassed,
   });

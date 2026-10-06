@@ -48,7 +48,7 @@ function secretFromOtpAuthUrl(uri: string): string {
  * apart is the whole point of the exam flow: the paper must work with no staff
  * session anywhere.
  */
-const jars: Record<string, string> = { owner: "", trainee: "", anon: "" };
+const jars: Record<string, string> = { owner: "", trainee: "", anon: "", device: "" };
 let failures = 0;
 let checks = 0;
 
@@ -73,11 +73,15 @@ async function call(
   body?: unknown,
   jar: "owner" | "trainee" | "anon" = "owner",
 ): Promise<{ status: number; json: Json; headers: Headers }> {
+  const cookies = [
+    ...(jar !== "anon" && jars[jar] ? [jars[jar]] : []),
+    ...(jar === "owner" && jars.device ? [jars.device] : []),
+  ];
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
       ...(body ? { "Content-Type": "application/json" } : {}),
-      ...(jars[jar] ? { Cookie: jars[jar] } : {}),
+      ...(cookies.length ? { Cookie: cookies.join("; ") } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
     redirect: "manual",
@@ -85,8 +89,16 @@ async function call(
 
   for (const c of res.headers.getSetCookie?.() ?? []) {
     const pair = c.split(";")[0];
-    if (pair.startsWith("ksa_session=")) jars.owner = pair;
-    else if (pair.startsWith("exam_session_")) jars.trainee = pair;
+    /* Only the jar this request was made with may absorb the returned session.
+     * Otherwise a redeem-as-anon would silently replace the owner's cookie and
+     * every later owner assertion would be running as somebody else. */
+    if (pair.startsWith("ksa_session=")) {
+      if (jar === "owner") jars.owner = pair;
+    } else if (pair.startsWith("ksa_device=")) {
+      if (jar === "owner") jars.device = pair;
+    } else if (pair.startsWith("exam_session_")) {
+      if (jar === "trainee") jars.trainee = pair;
+    }
   }
 
   const text = await res.text();
@@ -905,7 +917,7 @@ async function runExamSuite(seed: { courseId: string; traineeId: string; categor
 
   /* ── PDF download ────────────────────────────────────────────────────── */
   const pdf = await fetch(`${BASE}/api/certificates/${certId}/pdf`, {
-    headers: { Cookie: jars.owner },
+    headers: { Cookie: [jars.owner, jars.device].filter(Boolean).join("; ") },
   });
   check("certificate PDF downloads", pdf.status === 200, `got ${pdf.status}`);
   check("PDF is served as an attachment",
@@ -916,6 +928,200 @@ async function runExamSuite(seed: { courseId: string; traineeId: string; categor
   const pdfBytes = new Uint8Array(await pdf.arrayBuffer());
   check("PDF body starts with %PDF", String.fromCharCode(...pdfBytes.slice(0, 4)) === "%PDF",
     `${pdfBytes.byteLength} bytes`);
+
+  /* ── Step 4: access links, referral codes, device cap ─────────────────── */
+  const stamped = `e2e${Date.now().toString(36)}`;
+
+  const anonList = await call("GET", "/api/access-links", undefined, "anon");
+  check("an anonymous caller cannot list access links", anonList.status === 401,
+    `got ${anonList.status}`);
+
+  const minted = await call("POST", "/api/access-links", {
+    role: "ADMIN",
+    label: `E2E ${stamped}`,
+    singleUse: true,
+    expiresInDays: 7,
+  });
+  check("owner can mint an access link", minted.status === 201,
+    JSON.stringify(minted.json).slice(0, 160));
+  const linkToken: string = minted.json?.data?.token ?? "";
+  check("the minted token is 32 bytes base64url (43 chars)",
+    /^[A-Za-z0-9_-]{43}$/.test(linkToken), `len ${linkToken.length}`);
+  check("the mint response is not cacheable",
+    (minted.headers.get("cache-control") ?? "").includes("no-store"),
+    minted.headers.get("cache-control") ?? "missing");
+
+  /* The owner-link boundary: role is enum-constrained so OWNER is simply not
+   * accepted, rather than accepted and quietly downgraded. */
+  const ownerLink = await call("POST", "/api/access-links", { role: "OWNER" });
+  check("an owner link cannot be minted from the API", ownerLink.status === 422,
+    `got ${ownerLink.status}`);
+
+  const trainerNoTrainer = await call("POST", "/api/access-links", { role: "TRAINER" });
+  check("a trainer link without a trainer is 422", trainerNoTrainer.status === 422,
+    `got ${trainerNoTrainer.status}`);
+
+  const listAfter = await call("GET", "/api/access-links");
+  check("the link list carries no recoverable token",
+    !JSON.stringify(listAfter.json).includes(linkToken), "token absent");
+  check("the link list shows a referral code",
+    typeof listAfter.json?.data?.items?.[0]?.referralCode === "string",
+    listAfter.json?.data?.items?.[0]?.referralCode);
+
+  /* Redeem creates a real account. */
+  const newEmail = `trainer-${stamped}@example.test`;
+  const redeem = await call("POST", "/api/access-links/redeem", {
+    token: linkToken,
+    fullName: `E2E Trainer ${stamped}`,
+    email: newEmail,
+    password: "correct-horse-battery-staple-42",
+  }, "anon");
+  check("a valid link redeems into an account", redeem.status === 201,
+    JSON.stringify(redeem.json).slice(0, 160));
+  check("the new session is forced through MFA enrolment",
+    redeem.json?.data?.nextStep === "mfa-setup", redeem.json?.data?.nextStep);
+
+  /* Single-use is a compare-and-set, so the second attempt must fail. */
+  const replay = await call("POST", "/api/access-links/redeem", {
+    token: linkToken,
+    fullName: `E2E Second ${stamped}`,
+    email: `second-${stamped}@example.test`,
+    password: "correct-horse-battery-staple-42",
+  }, "anon");
+  check("a single-use link cannot be redeemed twice", replay.status === 410,
+    `got ${replay.status}`);
+  check("a spent link gives the same message as an unknown one",
+    JSON.stringify(replay.json?.error) === JSON.stringify(
+      (await call("POST", "/api/access-links/redeem", {
+        token: "x".repeat(43),
+        fullName: "Nobody At All",
+        email: `nobody-${stamped}@example.test`,
+        password: "correct-horse-battery-staple-42",
+      }, "anon")).json?.error),
+    replay.json?.error);
+
+  /* An existing account must not be overwritable through a link. */
+  const reuseOwner = await call("POST", "/api/access-links/redeem", {
+    token: linkToken,
+    fullName: "Owner Takeover",
+    email: "gahiredev01@gmail.com",
+    password: "correct-horse-battery-staple-42",
+  }, "anon");
+  check("an existing account cannot be overwritten via a link",
+    reuseOwner.status === 410 || reuseOwner.status === 409, `got ${reuseOwner.status}`);
+
+  /* Device cap. The owner already has a device from login, so this exercises the
+   * eviction path rather than the happy path. */
+  const devices = await call("GET", "/api/devices");
+  check("the owner can list their own devices", devices.status === 200,
+    `got ${devices.status}`);
+  check("the device cap is five", devices.json?.data?.maxDevices === 5,
+    String(devices.json?.data?.maxDevices));
+  check("no device hash is exposed",
+    !JSON.stringify(devices.json).includes("deviceHash"), "clean");
+  check("the current device is identified",
+    devices.json?.data?.items?.some((d: Json) => d.current === true), "marked current");
+  check("the owner cannot revoke the device in use",
+    (await call("POST", `/api/devices/${devices.json?.data?.items?.find((d: Json) => d.current)?.id}/revoke`, {}))
+      .status === 422, "self-revoke refused");
+
+  /* Referral codes: attribution only, and the use cap is enforced atomically. */
+  const referral = await call("POST", "/api/referral-codes", { role: "ADMIN", maxUses: 2 });
+  check("owner can mint a referral code", referral.status === 201,
+    JSON.stringify(referral.json).slice(0, 120));
+  const referralCode: string = referral.json?.data?.code ?? "";
+  check("a referral code avoids look-alike characters",
+    /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(referralCode), referralCode);
+  check("a referral code cannot list access links", (await call("GET", "/api/access-links", undefined, "anon")).status === 401);
+
+  /* Revoking a link cascades to what it created. */
+  const secondLink = await call("POST", "/api/access-links", {
+    role: "ADMIN", label: `E2E cascade ${stamped}`, singleUse: true, expiresInDays: 7,
+  });
+  const cascadeEmail = `cascade-${stamped}@example.test`;
+  const cascadeRedeem = await call("POST", "/api/access-links/redeem", {
+    token: secondLink.json?.data?.token,
+    fullName: `E2E Cascade ${stamped}`,
+    email: cascadeEmail,
+    password: "correct-horse-battery-staple-42",
+  }, "anon");
+  check("a second link redeems", cascadeRedeem.status === 201, `got ${cascadeRedeem.status}`);
+
+  const revokeLink = await call("POST", `/api/access-links/${secondLink.json?.data?.id}/revoke`);
+  check("owner can revoke an access link", revokeLink.status === 200,
+    JSON.stringify(revokeLink.json).slice(0, 160));
+  check("revoking kills the sessions the link created",
+    revokeLink.json?.data?.sessionsKilled >= 1, String(revokeLink.json?.data?.sessionsKilled));
+
+  const afterRevoke = await call("POST", "/api/access-links/redeem", {
+    token: secondLink.json?.data?.token,
+    fullName: "Too Late",
+    email: `late-${stamped}@example.test`,
+    password: "correct-horse-battery-staple-42",
+  }, "anon");
+  check("a revoked link cannot be redeemed", afterRevoke.status === 410,
+    `got ${afterRevoke.status}`);
+
+  /* Clean up the accounts these checks created. */
+  await prisma.user.deleteMany({
+    where: { email: { in: [newEmail, cascadeEmail] } },
+  });
+  await prisma.accessLink.deleteMany({ where: { label: { startsWith: "E2E" } } });
+  await prisma.referralCode.deleteMany({ where: { code: referralCode } });
+
+  /* ── the device binding, proven last because it ends this session ────── */
+
+  /* A copied session cookie with no device cookie beside it must resolve to no
+   * session, without destroying the real one. */
+  const copied = await fetch(`${BASE}/api/auth/me`, { headers: { Cookie: jars.owner } });
+  const copiedJson = (await copied.json()) as Json;
+  check("a session cookie without its device cookie resolves to no session",
+    copiedJson?.data?.user === null, JSON.stringify(copiedJson?.data).slice(0, 80));
+
+  const stillThere = await fetch(`${BASE}/api/auth/me`, {
+    headers: { Cookie: [jars.owner, jars.device].filter(Boolean).join("; ") },
+  });
+  const stillJson = (await stillThere.json()) as Json;
+  check("the refused request did not destroy the real session",
+    stillJson?.data?.user?.role === "OWNER", JSON.stringify(stillJson?.data).slice(0, 80));
+
+  /* Revoking the device must finish the sessions it created — otherwise the cap
+   * would revoke rows while the cookies behind them kept working. */
+  const ownerUser = await prisma.user.findUnique({
+    where: { email: "gahiredev01@gmail.com" },
+    select: { id: true },
+  });
+  const liveDevice = await prisma.deviceSession.findFirst({
+    where: { userId: ownerUser?.id, revokedAt: null },
+    orderBy: { lastSeenAt: "desc" },
+    select: { id: true },
+  });
+  check("the owner has a live device row", Boolean(liveDevice), liveDevice?.id ?? "none");
+
+  const sessionsBefore = await prisma.session.count({ where: { userId: ownerUser!.id } });
+
+  if (liveDevice) {
+    await prisma.deviceSession.update({
+      where: { id: liveDevice.id },
+      data: { revokedAt: new Date() },
+    });
+
+    const afterDeviceRevoke = await call("GET", "/api/auth/me");
+    const afterJson = afterDeviceRevoke.json?.data;
+    check("revoking a device ends its sessions",
+      afterJson?.user === null, JSON.stringify(afterJson).slice(0, 80));
+
+    const sessionsAfter = await prisma.session.count({ where: { userId: ownerUser!.id } });
+    check("the revoked device's session row was cleaned up", sessionsAfter < sessionsBefore,
+      `${sessionsBefore} -> ${sessionsAfter}`);
+
+    /* Leave the fixture usable for whoever runs this next. */
+    await prisma.deviceSession.update({
+      where: { id: liveDevice.id },
+      data: { revokedAt: null },
+    });
+    await prisma.session.deleteMany({ where: { userId: ownerUser!.id } });
+  }
 }
 
 main()

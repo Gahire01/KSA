@@ -469,16 +469,55 @@ VALID with no session and no `@` anywhere in the body -> owner revokes -> same U
 returns REVOKED with the reason -> `/pdf` returns 200, `attachment`,
 `application/pdf`, body starting `%PDF` (5060 bytes).
 
-### Pre-launch blockers
+## Pre-launch blockers
 Verify kigalisafety.dev on Resend before launch: add DKIM/SPF DNS records, then swap EMAIL_FROM.
 
-### Still open after Step 10
+## Step 4 — access links, referral codes, device limit
+
+- `POST /api/access-links` (OWNER) mints `ADMIN`/`TRAINER` links; `OWNER` links are rejected
+  by the enum, and `TRAINER` links must name a real trainer (422 otherwise). The response
+  carries the plaintext token exactly once with `Cache-Control: no-store`; only the SHA-256
+  digest is persisted, and the list response never contains a token.
+- `POST /api/access-links/redeem` is unauthenticated, takes the token in the body, creates
+  the account, consumes the link with a compare-and-set (single-use replay → 410 with the
+  same message as an unknown token), records a device, and returns `mfa-setup` — the session
+  is unusable until TOTP enrolment.
+- `POST /api/access-links/[id]/revoke` (OWNER) cascades: revokes the link, deletes its
+  sessions, revokes its devices, writes an audit record.
+- `POST /api/referral-codes` (OWNER) mints look-alike-free codes (`ABCDEFGHJKLMNPQRSTUVWXYZ23456789`)
+  with `maxUses`/expiry; consumption is one atomic `UPDATE ... WHERE timesUsed < maxUses`.
+- `GET /api/devices` + `POST /api/devices/[id]/revoke` are self-service. Cap is 5: the sixth
+  sign-in evicts the least-recently-seen device rather than failing. Self-revoking the device
+  in use → 422. `deviceHash` never appears in a response.
+- Owner UI: `app/(app)/access/page.tsx`, linked from the sidebar under Team (OWNER only).
+  Public redemption: `app/(auth)/access/[token]/page.tsx`, which posts the token in a body and
+  then routes straight to TOTP enrolment.
+
+`tmp-e2e.ts`: **161/161**, stable across two consecutive runs (up from 131). New coverage
+includes anon→401, token shape/absence, no-store, owner-link and trainer-without-trainer
+rejection, redeem + single-use replay + equal error messages, existing-account takeover
+refusal, device cap/visibility/self-revoke, referral minting and charset, revoke cascade,
+a session cookie without its device cookie resolving to no session *without* destroying the
+real one, and device revocation ending the sessions it created. Two harness bugs fixed along
+the way: the cookie jar only absorbs a session when the request used that jar, and raw
+`fetch` calls now send both cookies.
+
+`getSession()` now resolves the device beside the session and returns one of three outcomes:
+`active` proceeds; `revoked` deletes the session and clears the cookie; `unknown` refuses the
+request but leaves the row alone, so a leaked session cookie cannot sign the real device out.
+The five-device cap is therefore a real cap now, not just a row count.
+
+## Still open after Step 4
 - `app/api/questions/route.ts` returns `isCorrect` to staff; Step 9's blanket grep
-  needs a decision on whether staff question editing gets the answer key back.
-- Access links, referral codes and the 5-device cap (Step 4) untouched.
+  needs a decision on whether staff question editing gets the answer back.
 - No SSE route, heartbeat, client hook or notification centre (Step 6).
 - No PWA manifest/icons/service worker (Step 7), no Lighthouse run (Step 8), no Vercel
   deploy.
+- Password login still rejects non-OWNER accounts in Phase 1 — invited admins/trainers can
+  sign in only once, via their access link, until that gate is lifted.
+- `AccessLink.referralCode` is its own random string and is not a `ReferralCode` row, so a
+  link's companion code and the referral-code table are still two separate things;
+  `consumeReferralCode()` has no route to call it from.
 - Manual gates: real OTP inbox check, six-browser device test, phone PWA install.
 - `NEXT_PUBLIC_APP_URL` is still absent from .env.local; `appUrl()` falls back to
   `APP_URL`, which is correct for localhost but must be set for production.

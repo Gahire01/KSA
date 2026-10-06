@@ -10,6 +10,7 @@ import {
   ClipboardCheckIcon,
   CreditCardIcon,
   FileClockIcon,
+  KeyRoundIcon,
   LayoutDashboardIcon,
   SettingsIcon,
   ShieldCheckIcon,
@@ -51,6 +52,12 @@ export const NAV_SECTIONS: NavSection[] = [
     title: "Team",
     items: [
       { href: "/trainers", label: "Trainers", icon: ShieldCheckIcon, roles: ["OWNER", "ADMIN"] },
+      {
+        href: "/access",
+        label: "Access control",
+        icon: KeyRoundIcon,
+        roles: ["OWNER"],
+      },
     ],
   },
   {

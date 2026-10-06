@@ -4,6 +4,7 @@ import { clientKey, LOGIN_LIMIT, rateLimit } from "@/lib/api/rate-limit";
 import { apiFail, apiOk } from "@/lib/api/response";
 import { loginSchema } from "@/lib/api/schemas";
 import { verifyPassword } from "@/lib/auth/password";
+import { MAX_DEVICES, recordDevice } from "@/lib/auth/devices";
 import { createSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
@@ -89,12 +90,14 @@ export async function POST(request: NextRequest) {
     return apiFail("This system is restricted to the academy owner.", 403);
   }
 
-  await createSession({
-    userId: user.id,
-    mfaPassed: false,
-    ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-    userAgent: request.headers.get("user-agent"),
-  });
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const userAgent = request.headers.get("user-agent");
+
+  await createSession({ userId: user.id, mfaPassed: false, ip, userAgent });
+
+  /* Counted under the same five-device cap as an access-link sign-in, so the cap
+   * cannot be sidestepped by using a password instead of an invite. */
+  const device = await recordDevice({ userId: user.id, ip, userAgent });
 
   await prisma.user.update({
     where: { id: user.id },
@@ -107,5 +110,8 @@ export async function POST(request: NextRequest) {
     totpEnabled: user.totpEnabled,
     /** The client routes to TOTP setup the first time, verify afterwards. */
     nextStep: user.totpEnabled ? "mfa-verify" : "mfa-setup",
+    /** How many devices this account is signed in on, out of the cap. */
+    activeDevices: device.activeCount,
+    maxDevices: device.activeCount > 0 ? MAX_DEVICES : null,
   });
 }

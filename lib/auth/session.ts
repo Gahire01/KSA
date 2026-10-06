@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/db";
+import { deviceState } from "@/lib/auth/devices";
 import {
   SESSION_TTL_SECONDS,
   clearSessionCookie,
@@ -37,6 +38,14 @@ export async function createSession(params: {
   mfaPassed?: boolean;
   ip?: string | null;
   userAgent?: string | null;
+  /**
+   * The access link this session was minted from, when there was one.
+   *
+   * Recorded so that revoking the link can cascade: a withdrawn invitation must also
+   * end the session it created, or the recipient stays signed in after the owner
+   * revoked their access.
+   */
+  accessLinkId?: string | null;
 }): Promise<void> {
   const token = randomBytes(32).toString("base64url");
 
@@ -48,6 +57,7 @@ export async function createSession(params: {
       expiresAt: new Date(Date.now() + SESSION_TTL_SECONDS * 1000),
       ip: params.ip ?? null,
       userAgent: params.userAgent?.slice(0, 500) ?? null,
+      accessLinkId: params.accessLinkId ?? null,
     },
   });
 
@@ -82,6 +92,23 @@ export async function getSession() {
 
   if (!session.user.isActive) {
     await clearSessionCookie();
+    return null;
+  }
+
+  /* A session only travels with the device that was admitted for it. */
+  const device = await deviceState(session.userId);
+
+  if (device === "revoked") {
+    /* The device itself was withdrawn, so the session it created is finished. */
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    await clearSessionCookie();
+    return null;
+  }
+
+  if (device === "unknown") {
+    /* Session cookie without its device identity — refuse this request but leave
+     * the row alone, so a leaked session cookie cannot be used to sign the real
+     * device out. */
     return null;
   }
 

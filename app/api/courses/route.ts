@@ -87,7 +87,6 @@ export async function POST(request: Request) {
       priceRwf: data.priceRwf,
       passMarkPct: data.passMarkPct,
       maxAttempts: data.maxAttempts,
-      validityMonths: data.validityMonths ?? null,
       examDurationMin: data.examDurationMin,
       trainerId: data.trainerId ?? null,
       isActive: data.isActive,

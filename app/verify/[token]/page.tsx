@@ -16,16 +16,16 @@ import { getPublicCertificate } from "@/lib/certificates/verify";
  * A server component, not a client fetch: the result is in the initial HTML, so it
  * works with JavaScript disabled and the token never has to be replayed to an API.
  *
- * `force-dynamic` because the token is in the URL and the answer changes with the
- * clock — a certificate must not be cached as valid and then expire for an employer
- * who reloads from cache.
+ * `force-dynamic` because the token is in the URL and the answer can change — a
+ * certificate must not be cached as valid and then show a later revocation to an
+ * employer who reloads from cache.
  */
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Verify certificate",
-  description: "Confirm that a Kigali Safety Academy certificate is authentic and in date.",
+  description: "Confirm that a Kigali Safety Academy certificate is authentic and still valid.",
   robots: { index: false, follow: false },
 };
 

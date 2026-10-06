@@ -106,7 +106,13 @@ export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const userAgent = request.headers.get("user-agent");
 
-  await createSession({ userId: user.id, mfaPassed: true, ip, userAgent });
+  await createSession({
+    userId: user.id,
+    mfaPassed: true,
+    ip,
+    userAgent,
+    remember: parsed.data.remember,
+  });
 
   /* The session is bound to a device id (see lib/auth/devices.ts): without a
    * DeviceSession row for this browser, getSession() treats the cookie as a

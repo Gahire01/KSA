@@ -72,7 +72,7 @@ const COURSES: SeedCourse[] = [
     durationValue: 3,
     durationUnit: "DAY",
     priceRwf: 120_000,
-    validityMonths: 24,
+    validityMonths: null,
     examDurationMin: 45,
   },
   {
@@ -91,7 +91,7 @@ const COURSES: SeedCourse[] = [
     durationValue: 5,
     durationUnit: "DAY",
     priceRwf: 185_000,
-    validityMonths: 24,
+    validityMonths: null,
     examDurationMin: 60,
   },
   {
@@ -111,7 +111,7 @@ const COURSES: SeedCourse[] = [
     durationValue: 2,
     durationUnit: "DAY",
     priceRwf: 85_000,
-    validityMonths: 12,
+    validityMonths: null,
     examDurationMin: 30,
   },
   {
@@ -130,7 +130,7 @@ const COURSES: SeedCourse[] = [
     durationValue: 4,
     durationUnit: "WEEK",
     priceRwf: 65_000,
-    validityMonths: 12,
+    validityMonths: null,
     examDurationMin: 40,
   },
   {
@@ -149,7 +149,7 @@ const COURSES: SeedCourse[] = [
     durationValue: 5,
     durationUnit: "DAY",
     priceRwf: 210_000,
-    validityMonths: 24,
+    validityMonths: null,
     examDurationMin: 60,
   },
   {
@@ -169,7 +169,7 @@ const COURSES: SeedCourse[] = [
     durationValue: 2,
     durationUnit: "DAY",
     priceRwf: 95_000,
-    validityMonths: 12,
+    validityMonths: null,
     examDurationMin: 45,
   },
   {
@@ -188,7 +188,7 @@ const COURSES: SeedCourse[] = [
     durationValue: 1,
     durationUnit: "WEEK",
     priceRwf: 78_000,
-    validityMonths: 24,
+    validityMonths: null,
     examDurationMin: 40,
     isActive: false,
   },
@@ -208,7 +208,7 @@ const COURSES: SeedCourse[] = [
     durationValue: 3,
     durationUnit: "DAY",
     priceRwf: 110_000,
-    validityMonths: 36,
+    validityMonths: null,
     examDurationMin: 40,
   },
 ];

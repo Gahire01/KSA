@@ -210,6 +210,17 @@ export async function activeDeviceCount(userId: string): Promise<number> {
 export async function enforceDeviceCap(
   userId: string,
 ): Promise<{ activeCount: number; evictedDeviceId: string | null }> {
+  /* The owner is never capped. They must be able to sign in from any PC, phone
+   * or browser they own without an old device silently being evicted — only
+   * access-link accounts (team members) are bounded by MAX_DEVICES. */
+  const owner = await prisma.user.findFirst({
+    where: { id: userId, role: "OWNER" },
+    select: { id: true },
+  });
+  if (owner) {
+    return { activeCount: await activeDeviceCount(userId), evictedDeviceId: null };
+  }
+
   let activeCount = await activeDeviceCount(userId);
 
   if (activeCount <= MAX_DEVICES) {

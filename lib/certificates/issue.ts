@@ -117,11 +117,10 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
   const issuedAt = new Date();
   const durationSnapshot = formatDuration(course.durationValue, course.durationUnit);
 
-  const expiresAt = course.validityMonths
-    ? new Date(
-        issuedAt.getTime() + course.validityMonths * 30.44 * 24 * 60 * 60 * 1000,
-      )
-    : null;
+  /* Certificates never expire: the academy certifies competence, not a validity
+   * window. The column stays for legacy and audit, but issuance always writes
+   * null so no certificate ever reads as expiring or expired. */
+  const expiresAt = null;
 
   /* The canonical snapshot that gets hashed. Keys are sorted by canonicalJson,
    * so this digest is reproducible from these fields alone. */
@@ -134,7 +133,7 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
     trainerName: trainerNameSnapshot,
     trainerTitle: trainerTitleSnapshot,
     issuedAt: issuedAt.toISOString(),
-    expiresAt: expiresAt ? expiresAt.toISOString() : null,
+    expiresAt: null,
   };
 
   /* Allocation: MAX+1, defaulting to SEED_STUDENT_START on an empty table.

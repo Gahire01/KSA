@@ -25,7 +25,6 @@ const KNOWN_TYPES = new Set<string>([
   "payment.recorded",
   "trainee.enrolled",
   "deadline.approaching",
-  "certificate.expiring",
   "certificate.issued",
   "exam.link.expiring",
   "system",

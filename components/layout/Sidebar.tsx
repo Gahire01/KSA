@@ -113,7 +113,7 @@ export function SidebarNav({
         >
           <Logo
             showWordmark={!collapsed}
-            size={collapsed ? 32 : 34}
+            size={32}
             wordmarkClassName="text-white"
           />
         </Link>

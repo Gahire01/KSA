@@ -46,7 +46,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         />
 
         <div className="relative">
-          <Logo size={40} wordmarkClassName="text-white text-[15px]" />
+          <Logo size={48} wordmarkClassName="text-white text-[15px]" />
         </div>
 
         <div className="relative mt-auto max-w-md">

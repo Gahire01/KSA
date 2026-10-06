@@ -58,7 +58,6 @@ const schema = z.object({
   priceRwf: z.coerce.number().int().min(0, "Fee cannot be negative."),
   passMarkPct: z.coerce.number().int().min(1).max(100, "Between 1 and 100."),
   maxAttempts: z.coerce.number().int().min(1).max(10, "Between 1 and 10."),
-  validityMonths: z.coerce.number().int().min(0).max(120),
   examDurationMin: z.coerce.number().int().min(5).max(300),
   /* Trainers are a Phase 2 model, so this stays optional for now. */
   trainerId: z.string(),
@@ -98,7 +97,6 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       priceRwf: 45000,
       passMarkPct: 70,
       maxAttempts: 3,
-      validityMonths: 12,
       examDurationMin: 45,
       trainerId: "",
       isActive: true,
@@ -121,7 +119,6 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       priceRwf: course.priceRwf,
       passMarkPct: course.passMarkPct,
       maxAttempts: course.maxAttempts,
-      validityMonths: course.validityMonths ?? 0,
       examDurationMin: course.examDurationMin,
       trainerId: course.trainerId,
       isActive: course.isActive,
@@ -355,8 +352,7 @@ export function CourseForm({ courseId }: { courseId?: string }) {
             <CardHeader className="gap-1">
               <CardTitle className="text-base">Exam rules</CardTitle>
               <CardDescription>
-                A trainee must reach {Number(passMark) || 0}% to pass. Use 0 months for
-                certificates that never expire.
+                A trainee must reach {Number(passMark) || 0}% to pass.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -407,23 +403,6 @@ export function CourseForm({ courseId }: { courseId?: string }) {
                       onChange={(e) => field.onChange(Number(e.target.value))}
                     />
                     <FormMessage>{form.formState.errors.examDurationMin?.message}</FormMessage>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="validityMonths"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Validity (months)</FormLabel>
-                    <Input
-                      type="number"
-                      min={0}
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                    <FormDescription>0 means no expiry.</FormDescription>
-                    <FormMessage>{form.formState.errors.validityMonths?.message}</FormMessage>
                   </FormItem>
                 )}
               />

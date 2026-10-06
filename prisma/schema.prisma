@@ -94,6 +94,9 @@ model Session {
   userAgent    String?
   accessLinkId String?
   createdAt    DateTime    @default(now())
+  /// Touched at most every few minutes while the session is in use, so the
+  /// sessions list can show "last seen" without a write on every request.
+  lastSeenAt   DateTime?
   user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessLink   AccessLink? @relation(fields: [accessLinkId], references: [id], onDelete: SetNull)
 
@@ -262,6 +265,10 @@ model ExamAttempt {
   submittedAt  DateTime?
   /// Window-focus losses reported by the runner, for staff review.
   blurCount    Int         @default(0)
+  /// JSON array of `{ type, at, reviewed }` integrity flags raised by the
+  /// runner (focus loss, copy attempt, devtools, tab switch, ...). Append-only
+  /// from the client's perspective: the server never lets a flag be deleted.
+  integrityFlags Json?
   ip           String?
   userAgent    String?
   createdAt    DateTime    @default(now())

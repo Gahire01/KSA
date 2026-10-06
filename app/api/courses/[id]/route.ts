@@ -64,9 +64,6 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(data.priceRwf !== undefined ? { priceRwf: data.priceRwf } : {}),
       ...(data.passMarkPct !== undefined ? { passMarkPct: data.passMarkPct } : {}),
       ...(data.maxAttempts !== undefined ? { maxAttempts: data.maxAttempts } : {}),
-      ...(data.validityMonths !== undefined
-        ? { validityMonths: data.validityMonths ?? null }
-        : {}),
       ...(data.examDurationMin !== undefined
         ? { examDurationMin: data.examDurationMin }
         : {}),

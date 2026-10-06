@@ -1,4 +1,4 @@
-import { addMonths, subDays, subMonths } from "date-fns";
+import { subDays, subMonths } from "date-fns";
 
 import { generateCertNo, generateContentHash, generateToken } from "@/lib/utils/ids";
 import type { Certificate } from "@/lib/types";
@@ -61,32 +61,8 @@ function plans(): CertPlan[] {
     });
   });
 
-  /* Two expired + one revoked, per the brief. */
-  const expiredIdx = out.findIndex((p) => p.status === "VALID" && p.issuedOffsetDays > 0);
-  if (expiredIdx >= 0) {
-    const course = courseById.get(out[expiredIdx]!.courseId);
-    out[expiredIdx] = {
-      ...out[expiredIdx]!,
-      issuedOffsetDays: 800,
-      validityMonths: course?.validityMonths ?? 12,
-      status: "EXPIRED",
-    };
-  }
-
-  const expiredIdx2 = out.findIndex((p, i) => i !== expiredIdx && p.status === "VALID");
-  if (expiredIdx2 >= 0) {
-    const course = courseById.get(out[expiredIdx2]!.courseId);
-    out[expiredIdx2] = {
-      ...out[expiredIdx2]!,
-      issuedOffsetDays: 420,
-      validityMonths: course?.validityMonths ?? 12,
-      status: "EXPIRED",
-    };
-  }
-
-  const revokeIdx = out.findIndex(
-    (p, i) => i !== expiredIdx && i !== expiredIdx2 && p.status === "VALID",
-  );
+  /* One revoked, per the brief. Certificates never expire, so the rest stay valid. */
+  const revokeIdx = out.findIndex((p) => p.status === "VALID");
   if (revokeIdx >= 0) {
     out[revokeIdx] = {
       ...out[revokeIdx]!,
@@ -106,16 +82,8 @@ function buildCertificates(): Certificate[] {
     const trainee = traineeById.get(p.traineeId);
     const exam = examByCourseId.get(p.courseId);
     const issuedAt = subDays(MOCK_NOW, p.issuedOffsetDays);
-    const validityMonths = p.validityMonths ?? course?.validityMonths ?? null;
-    const expiresAt = validityMonths ? addMonths(issuedAt, validityMonths) : null;
     const certNo = generateCertNo(MOCK_NOW.getFullYear(), i + 1);
     const verificationToken = generateToken("vfy", certNo);
-
-    let status = p.status;
-    if (status === "VALID" && expiresAt) {
-      const days = Math.round((expiresAt.getTime() - MOCK_NOW.getTime()) / 86_400_000);
-      if (days <= 30) status = "EXPIRING";
-    }
 
     return {
       id: `crt_${String(i + 1).padStart(3, "0")}`,
@@ -126,11 +94,11 @@ function buildCertificates(): Certificate[] {
       examId: attempt?.examId ?? exam?.id ?? "",
       attemptId: attempt?.id ?? "",
       trainerId: course?.trainerId ?? trainerById.get("trn_001")?.id ?? "trn_001",
-      status,
+      status: p.status,
       score: attempt?.score ?? trainee?.examScore ?? 82,
       durationLabel: DURATION_LABELS[p.courseId] ?? "3 days · 21 contact hours",
       issuedAt: issuedAt.toISOString(),
-      expiresAt: expiresAt ? expiresAt.toISOString() : null,
+      expiresAt: null,
       revokedAt: status === "REVOKED" ? subMonths(MOCK_NOW, 2).toISOString() : null,
       revokeReason: p.revokeReason ?? null,
       contentHash: generateContentHash(`${certNo}|${p.traineeId}|${p.courseId}|${issuedAt.toISOString()}`),

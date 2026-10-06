@@ -64,7 +64,7 @@ export function useLoginVerify() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: { email: string; code: string }) =>
+    mutationFn: (input: { email: string; code: string; remember?: boolean }) =>
       api.post<LoginVerifyDTO>("/auth/login/verify", input),
     onSuccess: () => {
       /* The cookie is now set, so the previous "signed out" answer is stale. */

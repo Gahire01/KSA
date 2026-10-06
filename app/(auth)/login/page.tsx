@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRightIcon, InfoIcon, MailIcon } from "lucide-react";
+import { ArrowRightIcon, MailIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -11,9 +11,9 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api/client";
 import { useLogin, useLoginResend, useLoginVerify } from "@/lib/api/hooks";
 import { cn } from "@/lib/utils/cn";
@@ -52,6 +52,8 @@ export default function LoginPage() {
   const [secondsLeft, setSecondsLeft] = React.useState(CODE_TTL_SECONDS);
   const [resendIn, setResendIn] = React.useState(RESEND_COOLDOWN_SECONDS);
   const [lockoutIn, setLockoutIn] = React.useState(0);
+  /** "Remember me": 30 days when ticked (the default), 12 hours when not. */
+  const [remember, setRemember] = React.useState(true);
 
   const boxRefs = React.useRef<Array<HTMLInputElement | null>>([]);
   const joined = otp.join("");
@@ -176,7 +178,7 @@ export default function LoginPage() {
       setCodeError(null);
 
       try {
-        await verify.mutateAsync({ email, code });
+        await verify.mutateAsync({ email, code, remember });
       } catch (error) {
         const status = error instanceof ApiError ? error.status : 0;
 
@@ -211,7 +213,7 @@ export default function LoginPage() {
       router.push("/dashboard");
       router.refresh();
     },
-    [clearCode, email, lockoutIn, router, verify],
+    [clearCode, email, lockoutIn, remember, router, verify],
   );
 
   /* Auto-submit the moment all six are in. The 200ms debounce keeps a paste —
@@ -525,6 +527,20 @@ export default function LoginPage() {
                 </p>
               ) : null}
 
+              <div className="flex items-center gap-2.5">
+                <Checkbox
+                  id="remember"
+                  checked={remember}
+                  onCheckedChange={(value) => setRemember(value === true)}
+                />
+                <label
+                  htmlFor="remember"
+                  className="cursor-pointer text-sm select-none text-ink-2"
+                >
+                  Remember me for 30 days
+                </label>
+              </div>
+
               <Button
                 type="submit"
                 className="w-full gap-1.5"
@@ -535,20 +551,12 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
+
+          <p className="mt-5 text-center text-[10px] text-ink-3">
+            Built by Gahire Abdilillah
+          </p>
         </CardContent>
       </Card>
-
-      <Alert>
-        <InfoIcon className="size-4" />
-        <AlertDescription>
-          <p className="font-medium text-ink">Owner account</p>
-          <p className="mt-1 text-xs">
-            Phase 1 ships a single seeded owner. Sign in with the credentials from{" "}
-            <span className="font-mono">SEED_OWNER_PASSWORD</span> — the 6-digit
-            code arrives by email in a few seconds.
-          </p>
-        </AlertDescription>
-      </Alert>
 
       <p className="text-center text-xs text-ink-3">
         <span className="inline-flex items-center gap-1.5">

@@ -1,12 +1,13 @@
 /**
  * Email templates.
  *
- * Inline CSS only, no external images, no web fonts: mail clients strip
- * <style> blocks, block remote assets, and a blocked image in an exam access
- * email means the trainee never receives the code.
+ * Inline CSS only, no web fonts: mail clients strip <style> blocks and a
+ * blocked image in an exam access email means the trainee never receives the
+ * code. The only remote asset is the academy logo, served from the app origin
+ * and given explicit dimensions so a blocked image leaves the layout intact.
  */
 
-import { sendEmail } from "@/lib/email/send";
+import { appUrl, sendEmail } from "@/lib/email/send";
 
 const NAVY = "#0F2340";
 const ORANGE = "#E8590C";
@@ -49,8 +50,9 @@ ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};padding:24px 12px;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;border:1px solid ${LINE};overflow:hidden;">
-<tr><td style="background:${NAVY};padding:22px 28px;">
-<p style="margin:0;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#F2A65A;">Kigali Safety Academy</p>
+<tr><td style="background:${NAVY};padding:22px 28px;text-align:center;">
+<img src="${escapeHtml(appUrl("/logo.png"))}" alt="Kigali Safety Academy" width="120" height="120" style="display:block;width:120px;height:120px;object-fit:contain;margin:0 auto;border:0;" />
+<p style="margin:12px 0 0;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#F2A65A;">Kigali Safety Academy</p>
 </td></tr>
 <tr><td style="padding:28px;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;color:${INK};">
 ${inner}

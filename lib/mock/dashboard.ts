@@ -20,7 +20,6 @@ import {
 import { MOCK_NOW, courseById, courses } from "./courses";
 import { attempts } from "./attempts";
 import { auditEntries } from "./audit-log";
-import { certificates } from "./certificates";
 import { payments } from "./payments";
 import { trainees } from "./trainees";
 
@@ -78,8 +77,6 @@ export function buildDashboard(trainerId?: string): DashboardData {
     .slice(0, 5);
 
   const alerts: AlertRow[] = [];
-  const expiring = certificates.filter((c) => c.status === "EXPIRING").length;
-  const expired = certificates.filter((c) => c.status === "EXPIRED").length;
   const flagged = attempts.filter((a) => a.integrityFlags.length >= 3).length;
   const unpaid = scoped.filter((t) => t.paymentStatus === "UNPAID").length;
   const dueSoon = deadlines.filter((d) => d.daysLeft <= 7).length;
@@ -102,24 +99,6 @@ export function buildDashboard(trainerId?: string): DashboardData {
       text: `${unpaid} ${plural(unpaid, "enrolment is", "enrolments are")} awaiting payment`,
       at: subDays(MOCK_NOW, 1).toISOString(),
       link: "/payments?status=UNPAID",
-    });
-  }
-  if (expiring > 0) {
-    alerts.push({
-      id: "alt_expiring",
-      severity: "warning",
-      text: `${expiring} ${plural(expiring, "certificate expires", "certificates expire")} within 30 days`,
-      at: subDays(MOCK_NOW, 1).toISOString(),
-      link: "/certificates?status=EXPIRING",
-    });
-  }
-  if (expired > 0) {
-    alerts.push({
-      id: "alt_expired",
-      severity: "critical",
-      text: `${expired} expired ${plural(expired, "certificate")} need renewal scheduling`,
-      at: subDays(MOCK_NOW, 3).toISOString(),
-      link: "/certificates?status=EXPIRED",
     });
   }
   if (flagged > 0) {

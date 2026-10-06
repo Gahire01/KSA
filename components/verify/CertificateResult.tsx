@@ -110,7 +110,6 @@ export function CertificateResult({ cert }: { cert: PublicCertificate }) {
             icon={<CalendarIcon className="size-4" />}
             label="Issued"
             value={formatDate(cert.issuedAt)}
-            sub={cert.expiresAt ? `Valid until ${formatDate(cert.expiresAt)}` : "No expiry date"}
           />
           <Detail
             icon={<BadgeCheckIcon className="size-4" />}

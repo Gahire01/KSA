@@ -48,7 +48,6 @@ const EVENT_LABEL: Record<NotificationType, string> = {
   "payment.recorded": "Payment recorded",
   "trainee.enrolled": "Trainee enrolled",
   "deadline.approaching": "Deadline approaching",
-  "certificate.expiring": "Certificate expiring",
   "certificate.issued": "Certificate issued",
   "exam.link.expiring": "Exam link expiring",
   system: "System announcements",

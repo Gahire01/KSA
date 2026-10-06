@@ -28,7 +28,6 @@ const TYPE_TONE: Record<NotificationType, string> = {
   "payment.recorded": "bg-green-bg text-green",
   "trainee.enrolled": "bg-navy/10 text-navy",
   "deadline.approaching": "bg-amber-bg text-amber",
-  "certificate.expiring": "bg-amber-bg text-amber",
   "certificate.issued": "bg-green-bg text-green",
   "exam.link.expiring": "bg-amber-bg text-amber",
   system: "bg-muted text-ink-2",

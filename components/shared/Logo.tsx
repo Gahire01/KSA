@@ -1,4 +1,4 @@
-import * as React from "react";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -15,14 +15,13 @@ export function Logo({
 }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/logo.svg"
-        alt=""
+      <Image
+        src="/logo.png"
+        alt="Kigali Safety Academy"
         width={size}
         height={size}
         className="shrink-0 rounded-[10px]"
-        aria-hidden
+        priority={false}
       />
       {showWordmark ? (
         <span

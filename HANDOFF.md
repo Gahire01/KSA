@@ -812,3 +812,27 @@ pnpm build: GREEN (Next 15.5.26, all routes compiled; /dashboard 140 kB first-lo
 - next.config.ts: devIndicators: false added (plus optimizePackageImports, see Step 9).
 - Only remaining console.warn is the PWA service-worker registration failure (internal, legit).
 - pnpm lint: 0 errors/warnings. npx tsc --noEmit: 0 errors.
+
+
+## Step 2 — Logo everywhere (2026-10-06 22:xx) 
+- components/shared/Logo.tsx rewritten: next/image on /logo.png, alt "Kigali Safety Academy". Sidebar size 32, auth-layout brand 48.
+- scripts/gen-icons.mjs rewritten to source from public/logo.png; regenerated all PWA/apple/favicon icons and icon.svg (now embeds a 256px PNG).
+- Certificate detail sheet, PDF (lib/certificates/pdf.tsx) and all three email templates (lib/email/templates.ts) now lead with the logo (detail 80px, PDF 60pt, email 120px header). react-pdf Image has no alt prop (eslint suppressed).
+- lib/mock/index.ts logoUrl -> "/logo.png"; app/(app)/payments/[id]/page.tsx already pointed at /logo.png.
+
+## Step 3 — Sessions management (2026-10-06 22:xx)
+- Schema: Session.lastSeenAt DateTime? + ExamAttempt.integrityFlags Json? -> migration `20261006185808_session_last_seen_integrity_flags` applied (EXIT=0); prisma generate re-run.
+- TTLs: SESSION_TTL_SECONDS 30d / SESSION_SHORT_TTL_SECONDS 12h. Login page "Remember me for 30 days" checkbox (default on); createSession({remember}) sizes cookie+row from the same TTL; getSession refreshes lastSeenAt <= every 5 min.
+- Device cap: enforceDeviceCap skips OWNER role (owner never hits the 5-device eviction).
+- New API: GET /api/auth/sessions, DELETE /api/auth/sessions/[id] (self-only, clears cookie when it was the current one), POST /api/auth/sessions/revoke-others. lib/utils/ua.ts (agent parsing) + lib/utils/geo.ts (ipwho.is lookup, 1.2s timeout, private-IP skip, memoized).
+- New UI: /settings/profile — account card + owner-only active-sessions list (per-row sign out + "sign out all other sessions"). Sidebar link lands in Step 8.
+- Removed the SEED_OWNER_PASSWORD hint from the login page; added the developer credit (Step 12, part 1).
+
+## Step 4 — Certificate expiry removal (2026-10-06 22:xx)
+- Certificate.expiresAt column kept, but issuance (lib/certificates/issue.ts) now always writes null; snapshot hashes expiresAt:null. issuedAt = new Date(); issued date shown as DD.MM.YYYY on the sheet + PDF; topics joined with " , ".
+- Register: Expiring/Expired chips, status filters and stat cards removed (only Valid/Revoked remain); "Expires" table column and CSV `expires_at` column removed; "expiring soon" banner deleted.
+- Verify surfaces: /verify and /verify/[token] copy no longer mention expiring/expired/"in date"; CertificateResult "Issued" no longer prints "Valid until … / No expiry date".
+- Notification type "certificate.expiring" removed from the union and all maps (types, settings, notifications page, /api/notifications KNOWN_TYPES, SSE stream key mapping). "exam.link.expiring" kept (exam links genuinely expire). No background jobs/cron exist to remove.
+- Course.validityMonths: now null in seed.ts (all 8 courses) and all mock courses. CourseForm no longer collects a validity field (removed schema field, default, hydration and FormField); course API create/update no longer write it; course detail no longer shows a validity row/pill.
+- mocks: dashboard no longer surfaces expiring/expired certificate alerts; mock certificates are VALID unless revoked (brief's revoked sample retained). Dashboard "Upcoming deadlines" description no longer says "expiring certificates".
+- Verify: pnpm build GREEN, tsc clean, eslint clean (0 warnings).

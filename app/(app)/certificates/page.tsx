@@ -10,9 +10,7 @@ import {
   BadgeCheckIcon,
   DownloadIcon,
   EyeIcon,
-  ShieldAlertIcon,
   ShieldCheckIcon,
-  ShieldXIcon,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -42,7 +40,7 @@ import type { CertificateStatus } from "@/lib/types";
  * hand must read the same today as it did the day it was printed.
  */
 
-const STATUSES: CertificateStatus[] = ["VALID", "EXPIRING", "EXPIRED", "REVOKED"];
+const STATUSES: CertificateStatus[] = ["VALID", "REVOKED"];
 
 const STATUS_LABEL: Record<CertificateStatus, string> = {
   VALID: "Valid",
@@ -98,7 +96,7 @@ export default function CertificatesPage() {
   const debouncedSearch = useDebounce(searchDraft, 300);
   const [hydrated, setHydrated] = React.useState(false);
 
-  /* Dashboard deep links: /certificates?status=EXPIRING,EXPIRED&course=... */
+  /* Dashboard deep links: /certificates?status=…&course=… */
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status");
@@ -175,11 +173,6 @@ export default function CertificatesPage() {
     return out;
   }, [rows]);
 
-  const expiringSoon = React.useMemo(
-    () => rows.filter((c) => c.status === "EXPIRING").slice(0, 5),
-    [rows],
-  );
-
   const columns = React.useMemo<ColumnDef<CertificateRow, unknown>[]>(
     () => [
       {
@@ -246,16 +239,6 @@ export default function CertificatesPage() {
         cell: ({ row }) => (
           <span className="text-sm whitespace-nowrap text-ink-2">
             {formatDate(row.original.issuedAt)}
-          </span>
-        ),
-      },
-      {
-        id: "expiresAt",
-        header: "Expires",
-        accessorFn: (c) => c.expiresAt ?? "9999",
-        cell: ({ row }) => (
-          <span className="text-sm whitespace-nowrap text-ink-2">
-            {row.original.expiresAt ? formatDate(row.original.expiresAt) : "No expiry"}
           </span>
         ),
       },
@@ -349,7 +332,6 @@ export default function CertificatesPage() {
       "duration",
       "issued_by",
       "issued_at",
-      "expires_at",
       "status",
       "revoked_at",
       "revoked_reason",
@@ -367,7 +349,6 @@ export default function CertificatesPage() {
         c.durationSnapshot,
         c.trainerNameSnapshot,
         c.issuedAt.slice(0, 10),
-        c.expiresAt?.slice(0, 10) ?? "",
         c.status,
         c.revokedAt?.slice(0, 10) ?? "",
         c.revokedReason ?? "",
@@ -421,49 +402,12 @@ export default function CertificatesPage() {
           href="/certificates?status=VALID"
         />
         <StatCard
-          label="Expiring in 30 days"
-          value={formatNumber(counts.EXPIRING)}
-          icon={<ShieldAlertIcon className="size-4" />}
-          href="/certificates?status=EXPIRING"
-        />
-        <StatCard
-          label="Expired"
-          value={formatNumber(counts.EXPIRED)}
-          icon={<ShieldXIcon className="size-4" />}
-          href="/certificates?status=EXPIRED"
-        />
-        <StatCard
           label="Revoked"
           value={formatNumber(counts.REVOKED)}
-          icon={<ShieldAlertIcon className="size-4" />}
+          icon={<ShieldCheckIcon className="size-4" />}
           href="/certificates?status=REVOKED"
         />
       </div>
-
-      {expiringSoon.length > 0 ? (
-        <Card className="border-amber/40 bg-amber-bg">
-          <CardContent className="flex flex-wrap items-center gap-3 p-4">
-            <ShieldAlertIcon className="size-5 shrink-0 text-amber" />
-            <p className="flex-1 text-sm text-ink-2">
-              <span className="font-semibold text-ink">
-                {counts.EXPIRING} certificate{counts.EXPIRING === 1 ? "" : "s"} expire within 30
-                days.
-              </span>{" "}
-              {expiringSoon.map((c) => c.trainee.fullName).join(", ")}
-              {expiringSoon.length > 3 ? " and others" : ""} should renew.
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => setFilters((f) => ({ ...f, statuses: ["EXPIRING"] }))}
-            >
-              <DownloadIcon className="size-4" />
-              Show expiring
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
 
       <Card>
         <CardContent className="space-y-3 p-4">

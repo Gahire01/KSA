@@ -205,14 +205,6 @@ export default function CourseDetailPage() {
               </span>
             ) : null}
             <span className="text-ink-2">
-              Certificate valid for{" "}
-              <span className="font-medium text-ink">
-                {course.validityMonths
-                  ? formatDurationLabel(course.validityMonths, "month")
-                  : "no expiry"}
-              </span>
-            </span>
-            <span className="text-ink-2">
               Exam time limit{" "}
               <span className="font-medium text-ink">{course.examDurationMin} minutes</span>
             </span>
@@ -275,14 +267,6 @@ export default function CourseDetailPage() {
                   <Detail label="Pass mark" value={`${course.passMarkPct}%`} />
                   <Detail label="Max attempts" value={formatNumber(course.maxAttempts)} />
                   <Detail label="Exam duration" value={`${course.examDurationMin} min`} />
-                  <Detail
-                    label="Validity"
-                    value={
-                      course.validityMonths
-                        ? formatDurationLabel(course.validityMonths, "month")
-                        : "No expiry"
-                    }
-                  />
                 </dl>
               </div>
             </TabsContent>

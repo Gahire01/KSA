@@ -170,7 +170,7 @@ export default function CertificateDetailPage() {
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge status={cert.status} label={STATUS_LABEL[cert.status]} />
-            <span>issued {formatDate(cert.issuedAt)}</span>
+            <span>issued {formatDate(cert.issuedAt, "dd.MM.yyyy")}</span>
           </span>
         }
         actions={
@@ -216,9 +216,16 @@ export default function CertificateDetailPage() {
                 aria-hidden
               />
               <div className="relative space-y-6 text-center">
-                <div className="flex items-center justify-center gap-2.5">
-                  <Image src="/logo.svg" alt="" width={36} height={36} className="size-9" />
-                  <div className="text-left">
+                <div className="flex flex-col items-center gap-2">
+                  <Image
+                    src="/logo.png"
+                    alt="Kigali Safety Academy"
+                    width={80}
+                    height={80}
+                    className="h-20 w-20 rounded-xl"
+                    priority={false}
+                  />
+                  <div className="text-center">
                     <p className="font-display text-base leading-tight font-semibold text-ink">
                       Kigali Safety Academy
                     </p>
@@ -251,15 +258,14 @@ export default function CertificateDetailPage() {
                 <p className="text-sm text-ink-2">
                   {cert.durationSnapshot}
                   {cert.topicsSnapshot.length > 0
-                    ? ` · covering ${cert.topicsSnapshot.join(", ")}`
+                    ? ` · covering ${cert.topicsSnapshot.join(" , ")}`
                     : ""}
                 </p>
 
                 <div className="mx-auto grid max-w-xl gap-4 pt-2 sm:grid-cols-3">
-                  <SignOff label="Issue date" value={formatDate(cert.issuedAt)} />
                   <SignOff
-                    label="Valid until"
-                    value={cert.expiresAt ? formatDate(cert.expiresAt) : "No expiry"}
+                    label="Issue date"
+                    value={formatDate(cert.issuedAt, "dd.MM.yyyy")}
                   />
                   <SignOff
                     label="Certificate no."
@@ -269,13 +275,17 @@ export default function CertificateDetailPage() {
                 </div>
 
                 <div className="flex flex-col items-center gap-1 pt-2">
-                  <p className="font-display text-sm italic text-ink">
-                    {cert.trainerNameSnapshot}
-                  </p>
+                  <Image
+                    src="/certificate/signature.png"
+                    alt="Signature of the Director"
+                    width={160}
+                    height={120}
+                    className="h-20 w-auto object-contain"
+                    priority={false}
+                  />
+                  <p className="font-display text-sm text-ink">Fredson Niyoniringiye</p>
                   <div className="h-px w-40 bg-line" aria-hidden />
-                  <p className="text-[10px] tracking-wider text-ink-2 uppercase">
-                    {cert.trainerTitleSnapshot} · signature
-                  </p>
+                  <p className="text-[10px] tracking-wider text-ink-2 uppercase">Director</p>
                   <Image
                     src="/stamp-sample.png"
                     alt="Official stamp"
@@ -381,10 +391,6 @@ export default function CertificateDetailPage() {
             <CardContent>
               <dl className="space-y-1.5 text-sm">
                 <Row label="Issued" value={formatDateTime(cert.issuedAt)} />
-                <Row
-                  label="Expires"
-                  value={cert.expiresAt ? formatDateTime(cert.expiresAt) : "No expiry"}
-                />
                 <Row
                   label="Revoked"
                   value={cert.revokedAt ? formatDateTime(cert.revokedAt) : "—"}

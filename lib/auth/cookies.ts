@@ -1,7 +1,9 @@
 import { cookies } from "next/headers";
 
-/** Sessions last 7 days. */
-export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+/** "Remember me" sessions last 30 days. */
+export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
+/** Sessions on a shared machine, when "Remember me" is unticked: 12 hours. */
+export const SESSION_SHORT_TTL_SECONDS = 60 * 60 * 12;
 
 const DEV_COOKIE = "ksa_session";
 /**
@@ -15,14 +17,17 @@ export function sessionCookieName(): string {
   return process.env.NODE_ENV === "production" ? PROD_COOKIE : DEV_COOKIE;
 }
 
-export async function setSessionCookie(token: string): Promise<void> {
+export async function setSessionCookie(
+  token: string,
+  maxAge: number = SESSION_TTL_SECONDS,
+): Promise<void> {
   const store = await cookies();
   store.set(sessionCookieName(), token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_TTL_SECONDS,
+    maxAge,
   });
 }
 

@@ -125,7 +125,6 @@ export interface CourseFormValues {
   priceRwf: number;
   passMarkPct: number;
   maxAttempts: number;
-  validityMonths: number;
   examDurationMin: number;
   trainerId: string;
   isActive: boolean;
@@ -145,7 +144,6 @@ export function toCourseInput(
     priceRwf: values.priceRwf,
     passMarkPct: values.passMarkPct,
     maxAttempts: values.maxAttempts,
-    validityMonths: values.validityMonths > 0 ? values.validityMonths : null,
     examDurationMin: values.examDurationMin,
     isActive: values.isActive,
     trainerId: values.trainerId || null,

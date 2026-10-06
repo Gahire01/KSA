@@ -144,7 +144,7 @@ export default function ReceiptPage() {
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
             <div className="flex items-center gap-3">
-              <Image src="/logo.svg" alt="" width={40} height={40} className="size-10" />
+              <Image src="/logo.png" alt="Kigali Safety Academy" width={40} height={40} className="size-10" />
               <div>
                 <p className="font-display text-base font-semibold text-ink">
                   Kigali Safety Academy

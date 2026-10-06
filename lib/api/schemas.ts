@@ -29,6 +29,8 @@ export const loginVerifySchema = z
       .string()
       .transform((value) => value.replace(/\s+/g, ""))
       .pipe(z.string().regex(/^\d{6}$/, "Enter the six-digit code.")),
+    /** "Remember me": 30-day session when true (the default), 12 hours when not. */
+    remember: z.boolean().optional().default(true),
   })
   .strict();
 
@@ -77,7 +79,6 @@ export const courseCreateSchema = z
     priceRwf: z.coerce.number().int().min(0, "Price cannot be negative.").max(100_000_000),
     passMarkPct: z.coerce.number().int().min(1).max(100).default(50),
     maxAttempts: z.coerce.number().int().min(1).max(10).default(2),
-    validityMonths: z.coerce.number().int().min(1).max(120).optional().nullable(),
     examDurationMin: z.coerce.number().int().min(1).max(600).default(30),
     trainerId: z.string().trim().min(1).max(60).optional().nullable(),
     isActive: z.boolean().default(true),

@@ -38,7 +38,6 @@ function keysFor(type: string): string[][] {
     case "trainee.enrolled":
       return [["trainees"], ["courses"], ["dashboard"]];
     case "certificate.issued":
-    case "certificate.expiring":
       return [["certificates"], ["dashboard"]];
     case "deadline.approaching":
       return [["trainees"], ["dashboard"]];

@@ -61,7 +61,7 @@ export default function VerifyCertificatePage() {
           </h1>
           <p className="mx-auto max-w-lg text-sm text-ink-2">
             Paste the verification link from the certificate or the email to confirm that a
-            Kigali Safety Academy certificate is authentic and in date.
+            Kigali Safety Academy certificate is authentic and current.
           </p>
         </div>
 
@@ -123,7 +123,7 @@ export default function VerifyCertificatePage() {
               <Step
                 n={3}
                 title="Check the status"
-                body="Valid, expiring, expired, or revoked — shown instantly with no login."
+                body="Valid or revoked — shown instantly with no login."
               />
             </ol>
           </CardContent>

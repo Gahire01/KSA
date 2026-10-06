@@ -273,7 +273,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="gap-1">
             <CardTitle className="text-base">Upcoming deadlines</CardTitle>
-            <CardDescription>Next exams and expiring certificates.</CardDescription>
+            <CardDescription>Next exams and certificates.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (

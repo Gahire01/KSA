@@ -1,6 +1,7 @@
 import {
   Document,
   Font,
+  Image,
   Page,
   StyleSheet,
   Text,
@@ -72,8 +73,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   org: { fontSize: 11, letterSpacing: 2.4, color: palette.ink2 },
-  title: { fontSize: 25, marginTop: 12, letterSpacing: 1.2 },
-  rule: {
+  logo: { width: 60, height: 60, alignSelf: "center", marginBottom: 10 },
+  signatureImage: { width: 110, height: 83, marginBottom: 4 },
+  title: { fontSize: 25, marginTop: 12, letterSpacing: 1.2 },  rule: {
     width: 74,
     height: 1.5,
     backgroundColor: palette.green,
@@ -180,11 +182,44 @@ function registerFonts() {
 }
 
 function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${day}.${month}.${date.getFullYear()}`;
+}
+
+/**
+ * Brand assets embedded as data URIs. Read from disk once per process: a PDF
+ * render must not fetch over the network, and a missing file falls back to no
+ * image rather than a failed render.
+ */
+type Asset = { src: string; width: number; height: number } | null;
+
+function loadAsset(relativePath: string): Asset {
+  try {
+    const data = readFileSync(join(process.cwd(), "public", relativePath));
+    const ext = relativePath.split(".").pop()?.toLowerCase();
+    const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
+    return {
+      src: `data:${mime};base64,${data.toString("base64")}`,
+      width: 0,
+      height: 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+let logoAsset: Asset | undefined;
+let signatureAsset: Asset | undefined;
+
+function getLogo(): Asset {
+  if (logoAsset === undefined) logoAsset = loadAsset("logo.png");
+  return logoAsset;
+}
+
+function getSignature(): Asset {
+  if (signatureAsset === undefined) signatureAsset = loadAsset("certificate/signature.png");
+  return signatureAsset;
 }
 
 /** Derived from the library's own `Document` so it cannot drift from the real props. */
@@ -197,6 +232,8 @@ export function CertificateDocument({
 
   const revoked = doc.status === "REVOKED";
   const accent = revoked ? palette.red : palette.green;
+  const logo = getLogo();
+  const signature = getSignature();
 
   return (
     <Document
@@ -208,6 +245,10 @@ export function CertificateDocument({
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={[styles.frame, { borderColor: accent }]}>
           <View style={styles.innerFrame}>
+            {logo ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+              <Image src={logo.src} style={styles.logo} />
+            ) : null}
             <Text style={styles.org}>KIGALI SAFETY ACADEMY</Text>
             <Text style={styles.title}>CERTIFICATE OF COMPLETION</Text>
             <View style={[styles.rule, { backgroundColor: accent }]} />
@@ -221,7 +262,7 @@ export function CertificateDocument({
             </Text>
             <Text style={styles.course}>{doc.courseName}</Text>
             {doc.topics.length > 0 ? (
-              <Text style={styles.topics}>Covering: {doc.topics.join(" · ")}</Text>
+              <Text style={styles.topics}>Covering: {doc.topics.join(" , ")}</Text>
             ) : null}
 
             <View style={styles.facts}>
@@ -236,12 +277,6 @@ export function CertificateDocument({
               <View style={styles.fact}>
                 <Text style={styles.factLabel}>Issued</Text>
                 <Text style={styles.factValue}>{formatDate(doc.issuedAt)}</Text>
-              </View>
-              <View style={styles.fact}>
-                <Text style={styles.factLabel}>Valid until</Text>
-                <Text style={styles.factValue}>
-                  {doc.expiresAt ? formatDate(doc.expiresAt) : "No expiry"}
-                </Text>
               </View>
             </View>
 
@@ -258,7 +293,12 @@ export function CertificateDocument({
                 <Text style={styles.signatureTitle}>{doc.trainerTitle}</Text>
               </View>
               <View style={styles.signature}>
-                <View style={styles.signatureLine} />
+                {signature ? (
+                  // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+                  <Image src={signature.src} style={styles.signatureImage} />
+                ) : (
+                  <View style={styles.signatureLine} />
+                )}
                 <Text style={styles.signatureName}>{doc.directorName}</Text>
                 <Text style={styles.signatureTitle}>{doc.directorTitle}</Text>
               </View>
@@ -271,8 +311,7 @@ export function CertificateDocument({
             Verify this certificate at {doc.verifyUrl}
           </Text>
           <Text style={styles.verifyToken}>
-            Student number {doc.studentNumber} · issued{" "}
-            {doc.issuedAt.toISOString().slice(0, 10)}
+            Student number {doc.studentNumber} · issued {formatDate(doc.issuedAt)}
           </Text>
         </View>
       </Page>

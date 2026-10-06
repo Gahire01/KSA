@@ -131,8 +131,8 @@ export default function VerifyCertificatePage() {
       </main>
 
       <footer className="border-t border-line py-6 text-center text-xs text-ink-3">
-        Kigali Safety Academy · KN 07/MIN/EDUC/2024 · verification is provided as a
-        demonstration service
+        Kigali Safety Academy · KN 07/MIN/EDUC/2024 · public certificate
+        verification
       </footer>
     </div>
   );

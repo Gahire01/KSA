@@ -15,7 +15,6 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
@@ -140,9 +139,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <DemoBanner>
-        These settings are not saved anywhere yet.
-      </DemoBanner>
 
       <PageHeader
         title="Settings"

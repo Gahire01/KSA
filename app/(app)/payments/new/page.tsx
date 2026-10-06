@@ -11,7 +11,6 @@ import { CreditCardIcon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -136,10 +135,6 @@ export default function RecordPaymentPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <DemoBanner>
-        Payment records are demo data. Recording one here does not post to a real
-        ledger or update a stored balance.
-      </DemoBanner>
 
       <PageHeader
         breadcrumbSlot={

@@ -32,7 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/client";
 import { toCourseInput } from "@/lib/api/adapters";
@@ -184,10 +183,6 @@ export function CourseForm({ courseId }: { courseId?: string }) {
           className="space-y-5"
           noValidate
         >
-          <DemoBanner>
-            Everything on this form is saved to the live database. Only the
-            trainer list is still demo data.
-          </DemoBanner>
           <Card>
             <CardHeader className="gap-1">
               <CardTitle className="text-base">Identity</CardTitle>

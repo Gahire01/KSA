@@ -17,7 +17,6 @@ import { SearchInput } from "@/components/shared/SearchInput";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
 import { DataTable } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -274,10 +273,6 @@ export default function CoursesPage() {
         }
       />
 
-      <DemoBanner>
-        Trainer names and question counts are still demo data. Courses,
-        categories, fees and enrolments are read from the live database.
-      </DemoBanner>
     </div>
   );
 }

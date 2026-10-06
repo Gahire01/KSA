@@ -41,6 +41,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   typedRoutes: false,
+  devIndicators: false,
+  experimental: {
+    optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
+  },
   images: {
     remotePatterns: [],
   },

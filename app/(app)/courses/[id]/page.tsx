@@ -20,7 +20,6 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -163,10 +162,6 @@ export default function CourseDetailPage() {
       />
 
       {/* ── Facts ───────────────────────────────────────────────── */}
-      <DemoBanner>
-        Course details and the settings tab are saved to the live database. The
-        question bank and analytics tabs are placeholders until Phase 2.
-      </DemoBanner>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Fact

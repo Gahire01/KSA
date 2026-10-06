@@ -16,7 +16,6 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -144,10 +143,6 @@ export default function ImportTraineesPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <DemoBanner>
-        CSV import is demo-only: the preview is simulated and committing the rows
-        does not write to the database.
-      </DemoBanner>
 
       <PageHeader
         breadcrumbSlot={

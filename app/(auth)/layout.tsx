@@ -106,10 +106,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         <div className="px-6 pb-6 text-center text-xs text-ink-3">
-          <p>
-            This is a front-end demonstration. No real trainee data is used or
-            stored.
-          </p>
+          <p>Kigali Safety Academy · KN 07/MIN/EDUC/2024</p>
         </div>
       </main>
     </div>

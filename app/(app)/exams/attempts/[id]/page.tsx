@@ -17,7 +17,6 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -133,10 +132,6 @@ export default function AttemptReviewPage() {
 
   return (
     <div className="space-y-5">
-      <DemoBanner>
-        This attempt and its answers are demo data. Grading or voiding it here
-        changes nothing on the server.
-      </DemoBanner>
 
       <PageHeader
         breadcrumbSlot={

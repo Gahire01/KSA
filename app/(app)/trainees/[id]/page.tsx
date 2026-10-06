@@ -40,7 +40,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { ApiError } from "@/lib/api/client";
 import { useCourses, useDeleteTrainee, useTrainee } from "@/lib/api/hooks";
 import {
@@ -299,11 +298,6 @@ export default function TraineeDetailPage() {
       ) : null}
 
       {/* ── Tabs ────────────────────────────────────────────────── */}
-      <DemoBanner>
-        Exam attempts, payments, certificates and multi-course enrollments below
-        are empty until the Phase 2 tables exist. The trainee record above is
-        real and saved to the database.
-      </DemoBanner>
 
       <Card>
         <CardContent className="p-5">

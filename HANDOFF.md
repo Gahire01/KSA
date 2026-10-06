@@ -757,3 +757,58 @@ end-to-end runs, not stubs. `pnpm lint` and `pnpm exec tsc --noEmit` are both cl
 25/25 ✅ — no open failures.
 
 
+
+## Session — 2026-10-06 20:38:34 +02:00 — Overnight polish
+
+### git log --oneline -10
+e0843c9 feat(auth): email-OTP sign-in replaces TOTP at login
+2f71745 fix(auth): switch to hash-wasm to avoid native Windows binary block
+37fe7d6 ∩╗┐fix(a11y): reach 100 on Lighthouse a11y audits
+5082e03 chore: drop accidental dev-server.log from tracking
+db97a17 feat(pwa): manifest, icon set, service worker and offline shell
+a3c06b1 feat(notifications): realtime SSE stream, notification centre, and two authz fixes
+9ce7275 ∩╗┐fix(auth): stop charging the login rate limit for successful sign-ins
+b13fc23 ∩╗┐Step 4: access links, referral codes, five-device cap
+e171e2b Step 10: certificates, public verification, revocation and PDF
+2128a9f fix(exams): restore Trainee-Category relation, order /next session check first, harden exam runner
+
+### git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	public/certificate/signature.png
+	public/logo.png
+	public/student/
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+### git diff --stat HEAD
+
+
+### Env check (.env.local)
+DATABASE_URL=po***e (present)
+SESSION_SECRET=Gu***= (present)
+SEED_OWNER_PASSWORD=Ch***! (present)
+RESEND_API_KEY=re***u (present)
+EMAIL_FROM=Ki***> (present)
+APP_URL=htt***00 (present)
+NEXT_PUBLIC_APP_URL = MISSING (only needed for Vercel — Step 16)
+TWILIO_* = MISSING (WhatsApp lookup will fall back to email-only — Step 6)
+
+### Assets
+public/logo.png: present
+public/certificate/signature.png: present
+public/student/: present (KIGALI SAFETY ACADEMY STUDENTS LIST.docx, 29405 bytes)
+
+### Step 0 verification
+pnpm build: GREEN (Next 15.5.26, all routes compiled; /dashboard 140 kB first-load JS -> Step 9 target)
+
+
+## Step 1 — Demo/dev indicators removed (2026-10-06 20:47:03)
+- DemoBanner usages removed from 17 files; components/shared/DemoBanner.tsx deleted. Zero 'DemoBanner'/'demo data' matches in app/, components/, lib/ source.
+- Removed the auth-layout 'front-end demonstration' footer, both verify-page 'demonstration service' footers, and the AppShell 'Other sections still show demo data' sentence.
+- next.config.ts: devIndicators: false added (plus optimizePackageImports, see Step 9).
+- Only remaining console.warn is the PWA service-worker registration failure (internal, legit).
+- pnpm lint: 0 errors/warnings. npx tsc --noEmit: 0 errors.

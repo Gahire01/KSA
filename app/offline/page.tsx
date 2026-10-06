@@ -19,7 +19,11 @@ export const metadata = {
  */
 export default function OfflinePage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-paper px-6">
+    <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-dvh items-center justify-center bg-paper px-6 outline-none"
+      >
       <div className="w-full max-w-sm text-center">
         <span className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl bg-navy">
           <CloudOffIcon className="size-7 text-white" aria-hidden />

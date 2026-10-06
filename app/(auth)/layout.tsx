@@ -89,7 +89,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </p>
       </aside>
 
-      <main className="flex min-h-dvh flex-col bg-paper">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-dvh flex-col bg-paper outline-none"
+      >
         <div className="flex items-center justify-between p-4 lg:justify-end">
           <div className="lg:hidden">
             <Logo size={32} />

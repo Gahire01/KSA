@@ -50,7 +50,11 @@ export default function VerifyCertificatePage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-5 px-4 py-10">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto max-w-3xl space-y-5 px-4 py-10 outline-none"
+      >
         <div className="space-y-1 text-center">
           <h1 className="font-display text-3xl font-semibold text-ink">
             Certificate verification

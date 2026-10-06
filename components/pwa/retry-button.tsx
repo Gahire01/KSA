@@ -12,7 +12,7 @@ export function RetryButton() {
     <button
       type="button"
       onClick={() => window.location.reload()}
-      className="mt-6 inline-flex items-center gap-2 rounded-lg bg-orange px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-d focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2 focus-visible:outline-none"
+      className="mt-6 inline-flex items-center gap-2 rounded-lg bg-orange-strong px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-stronger focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2 focus-visible:outline-none"
     >
       <RefreshCwIcon className="size-4" aria-hidden />
       Try again

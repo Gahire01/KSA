@@ -13,6 +13,8 @@
   --navy-2: #1b3a63;
   --orange: #e85d25;
   --orange-d: #b7430f;
+  --orange-strong: #c64a19;
+  --orange-stronger: #aa3c10;
 
   /* Surfaces */
   --paper: #f4f2ec;
@@ -60,6 +62,8 @@
   --navy-2: #1b3a63;
   --orange: #f07038;
   --orange-d: #ff9160;
+  --orange-strong: #c94a18;
+  --orange-stronger: #a83a10;
 
   /* Surfaces inverted */
   --paper: #101823;

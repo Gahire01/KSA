@@ -98,7 +98,7 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
       attemptNumber: attempt.attemptNumber,
       maxAttempts: attempt.course.maxAttempts,
       startedAt: attempt.startedAt?.toISOString() ?? null,
-      linkExpiresAt: attempt.linkExpiresAt.toISOString(),
+
     },
   });
 }

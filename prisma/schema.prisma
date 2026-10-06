@@ -1,4 +1,4 @@
-// KSA launch schema — auth, trainees, courses, exams, certificates,
+// KSA launch schema â€” auth, trainees, courses, exams, certificates,
 // access links and notifications.
 generator client {
   provider = "prisma-client"
@@ -204,7 +204,7 @@ model Trainee {
   @@index([courseId, status])
 }
 
-/// An exam question. `isCorrect` never leaves the server — see app/api/exams/*.
+/// An exam question. `isCorrect` never leaves the server â€” see app/api/exams/*.
 model Question {
   id          String           @id @default(cuid())
   courseId    String
@@ -257,7 +257,7 @@ model ExamAttempt {
   attemptNumber Int        @default(1)
   durationMin  Int
   /// When the emailed link itself stops working.
-  linkExpiresAt DateTime
+  linkExpiresAt DateTime?
   scorePct     Int?
   correctCount Int?
   totalCount   Int?
@@ -334,7 +334,7 @@ model Certificate {
 /// A shareable sign-in link minted by the owner.
 ///
 /// The plain 32-byte token is returned exactly once, at creation, and never
-/// stored — `tokenHash` holds a SHA-256 of it.
+/// stored â€” `tokenHash` holds a SHA-256 of it.
 model AccessLink {
   id           String   @id @default(cuid())
   tokenHash    String   @unique
@@ -378,7 +378,7 @@ model ReferralCode {
 
 /// A device that has redeemed a link or referral code.
 ///
-/// Logout deliberately leaves this row alone — it is what makes the
+/// Logout deliberately leaves this row alone â€” it is what makes the
 /// "already-registered device" check work on the next sign-in. Only the owner
 /// can revoke one.
 model DeviceSession {

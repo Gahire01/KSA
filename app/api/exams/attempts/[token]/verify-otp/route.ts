@@ -67,7 +67,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     return apiFail(GENERIC, 401);
   }
 
-  if (attempt.linkExpiresAt <= new Date() || attempt.otpExpiresAt <= new Date()) {
+  if (attempt.otpExpiresAt <= new Date()) {
     return apiFail(GENERIC, 401);
   }
 
@@ -131,7 +131,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       passMarkPct: attempt.course.passMarkPct,
       questionCount: manifest.questionIds.length,
       startedAt: now.toISOString(),
-      linkExpiresAt: attempt.linkExpiresAt.toISOString(),
+
     },
   });
 }

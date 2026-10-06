@@ -56,8 +56,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     attempt.status === "PASSED" ||
     attempt.status === "FAILED" ||
     attempt.status === "VOID" ||
-    attempt.status === "STARTED" ||
-    attempt.linkExpiresAt <= new Date()
+    attempt.status === "STARTED"
   ) {
     return apiFail(GENERIC, 401);
   }

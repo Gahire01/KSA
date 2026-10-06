@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { canonicalJson, sha256Hex } from "@/lib/exams/manifest";
 import { certificateEmail } from "@/lib/email/templates";
 import { appUrl, sendEmail } from "@/lib/email/send";
+import { REGISTER_NEXT_STUDENT_NUMBER } from "../../scripts/student-list/register-numbers";
 
 /**
  * Certificate issuance.
@@ -26,15 +27,38 @@ export const DIRECTOR_NAME = "Fredson Niyoniringiye";
 export const DIRECTOR_TITLE = "Director";
 
 /**
- * First student number when the table is empty.
+ * First student number when the certificate table is empty.
  *
- * The owner will supply the real starting number; override with
- * SEED_STUDENT_START in the environment without a code change.
+ * Certificate numbers continue past the academy's register (KIGALI SAFETY
+ * ACADEMY STUDENTS LIST.docx, max slot 456), so the default start is 457.
+ * The owner can still force a start with SEED_STUDENT_START in the
+ * environment without a code change.
  */
 export function studentNumberStart(): number {
-  const raw = process.env.SEED_STUDENT_START ?? "263";
+  const raw = process.env.SEED_STUDENT_START ?? String(REGISTER_NEXT_STUDENT_NUMBER);
   const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 263;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : REGISTER_NEXT_STUDENT_NUMBER;
+}
+
+/**
+ * Highest register student number currently held by a trainee (traineeNo is
+ * the plain register number), or REGISTER_MAX_STUDENT_NUMBER when nothing
+ * has been seeded yet.
+ *
+ * Trainee numbers that are not plain digits (e.g. "KSA-0001") are ignored so
+ * they cannot drag the certificate sequence backwards.
+ */
+async function highestRegisterNumber(): Promise<number> {
+  const rows = await prisma.trainee.findMany({
+    select: { traineeNo: true },
+  });
+
+  let max = REGISTER_NEXT_STUDENT_NUMBER - 1;
+  for (const row of rows) {
+    const n = /^\d+$/.test(row.traineeNo) ? Number.parseInt(row.traineeNo, 10) : Number.NaN;
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return max;
 }
 
 export function formatDuration(value: number, unit: string): string {
@@ -136,9 +160,10 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
     expiresAt: null,
   };
 
-  /* Allocation: MAX+1, defaulting to SEED_STUDENT_START on an empty table.
-   * Two certificates issued at the same instant can pick the same number; the
-   * unique index rejects the loser, which retries once with +1. */
+  /* Allocation: MAX+1, defaulting to just past the register on an empty
+   * table (SEED_STUDENT_START overrides that fallback). Two certificates
+   * issued at the same instant can pick the same number; the unique index
+   * rejects the loser, which retries once with +1. */
   let allocated: {
     id: string;
     studentNumber: number;
@@ -154,8 +179,10 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
       select: { studentNumber: true },
     });
 
-    const next =
-      (highest?.studentNumber ?? studentNumberStart() - 1) + 1 + attempt;
+    const first = highest
+      ? 0
+      : Math.max(studentNumberStart(), await highestRegisterNumber());
+    const next = (highest?.studentNumber ?? first) + 1 + attempt;
 
     const verificationToken = randomBytes(32).toString("base64url");
 

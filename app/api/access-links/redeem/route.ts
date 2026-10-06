@@ -23,10 +23,10 @@ import { prisma } from "@/lib/db";
  *
  * 1. **The token arrives in the body, not the path.** A token in a URL lands in
  *    `Referer` headers, proxy access logs and browser history. This way it does not.
- * 2. **`mfaPassed` is false on the new session.** A freshly minted account has never
- *    seen a TOTP secret, so granting an MFA-complete session would hand out an
- *    account whose entire second factor is one the holder chooses later. They are
- *    forced through enrolment before `guard()` will let them touch anything.
+ * 2. **The session is complete on creation.** Sign-in is email OTP from /login and
+ *    nothing branches on `Session.mfaPassed` anymore, so an invited account lands on
+ *    the dashboard the moment it is minted. The column is kept for a possible TOTP
+ *    return, and `User.totpSecret` stays empty until then.
  * 3. **The single-use link is spent before the account exists.** `consumeAccessLink`
  *    is a compare-and-set, so two simultaneous redemptions cannot both get in. The
  *    trade-off is that a failure *after* the spend burns the link; that is the right
@@ -91,8 +91,8 @@ export async function POST(request: Request) {
       name: fullName,
       passwordHash: await hashPassword(password),
       role: resolved.link.role,
-      /* No TOTP secret yet: the new session starts without MFA passed, and
-       * `guard()` refuses every protected route until enrolment is done. */
+      /* No TOTP secret: this account signs in with its password and, from /login,
+       * an emailed code. Enrolment is not part of the flow. */
       totpEnabled: false,
       lastLoginAt: new Date(),
     },
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
   await createSession({
     userId: user.id,
-    mfaPassed: false,
+    mfaPassed: true,
     accessLinkId: resolved.link.id,
     ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
     userAgent: request.headers.get("user-agent"),
@@ -134,9 +134,9 @@ export async function POST(request: Request) {
       email: user.email,
       role: user.role,
       totpEnabled: user.totpEnabled,
-      /* Forced through enrolment: an account that has never seen a TOTP secret has no
-       * second factor at all until it does. */
-      nextStep: "mfa-setup" as const,
+      /* There is no second factor in the sign-in path anymore, so the invited
+       * account goes straight through. */
+      nextStep: "dashboard" as const,
       activeDevices: device.activeCount,
     },
     201,

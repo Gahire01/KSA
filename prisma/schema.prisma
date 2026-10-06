@@ -70,6 +70,7 @@ model User {
   emailNotifications Boolean @default(true)
   createdAt    DateTime       @default(now())
   sessions     Session[]
+  loginOtps    LoginOtp[]
   recoveryCodes RecoveryCode[]
   notifications Notification[]
   deviceSessions DeviceSession[]
@@ -99,6 +100,27 @@ model Session {
   @@index([userId])
   @@index([accessLinkId])
   @@index([expiresAt])
+}
+
+/// One pending email sign-in code.
+///
+/// Only the argon2id hash of the six-digit code is stored, exactly one row may
+/// be live per user (`/login` deletes the previous one before writing a new
+/// one), and the row is removed the moment it is redeemed, expires or burns
+/// through its attempt budget. Nothing here can be turned back into a code.
+model LoginOtp {
+  id         String   @id @default(cuid())
+  userId     String
+  codeHash   String
+  expiresAt  DateTime
+  /// Failed verifications against this code; the row dies at 5.
+  attempts   Int      @default(0)
+  resendCount Int     @default(0)
+  lastSentAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model RecoveryCode {

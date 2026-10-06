@@ -26,7 +26,10 @@ export interface SendEmailInput {
 
 export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
+  /* EMAIL_FROM is the single switch for the sender identity. Until the KSA
+   * domain is verified in Resend it is unset or points at the sandbox
+   * onboarding address, so the fallback keeps mail flowing either way. */
+  const from = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
 
   if (!apiKey) {
     return { ok: false, reason: "RESEND_API_KEY is not configured" };

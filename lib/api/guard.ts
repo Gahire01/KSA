@@ -7,16 +7,14 @@ export type GuardResult =
   | { ok: false; response: ReturnType<typeof apiFail> };
 
 /**
- * Session + role + MFA gate for API routes.
+ * Session + role gate for API routes.
  *
- * Every route that touches real data goes through here. `requireMfa` defaults to
- * true: a password alone must not be enough to read or write academy data.
+ * Every route that touches real data goes through here. There is no second
+ * factor to wait for any more: sign-in is email OTP, and a session is only ever
+ * minted once that code has been redeemed (lib/auth/session.ts). `Session.mfa`
+ * columns are retained for a possible TOTP return, but nothing branches on them.
  */
-export async function guard(
-  action: AuthzAction,
-  options: { requireMfa?: boolean } = {},
-): Promise<GuardResult> {
-  const { requireMfa = true } = options;
+export async function guard(action: AuthzAction): Promise<GuardResult> {
   const session = await getSession();
 
   if (!session) {
@@ -34,10 +32,6 @@ export async function guard(
 
   if (!decision.ok) {
     return { ok: false, response: apiFail(decision.error, decision.status) };
-  }
-
-  if (requireMfa && !session.mfaPassed) {
-    return { ok: false, response: apiFail("Second factor required.", 403) };
   }
 
   return { ok: true, session };

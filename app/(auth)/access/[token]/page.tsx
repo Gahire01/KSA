@@ -24,8 +24,8 @@ import { useQueryClient } from "@tanstack/react-query";
  * credential in a query string ends up in `Referer` headers and proxy logs, and this
  * one creates an account.
  *
- * The new session starts with `mfaPassed: false`, so redeeming lands on the TOTP
- * enrolment screen and nothing in the app is readable until that is done.
+ * Redeeming mints a complete session and drops the visitor straight into the app —
+ * there is no second factor to enrol anymore (sign-in is email OTP from /login).
  */
 
 const schema = z.object({
@@ -63,11 +63,12 @@ export default function RedeemAccessLinkPage() {
         token,
         ...values,
       })
-      .then(async (result) => {
-        /* Hydrate the store with the new session before routing, so the MFA screen
-         * does not bounce on a stale `user: null`. */
+      .then(async () => {
+        /* Hydrate the store with the new session before routing, so the app
+         * shell does not bounce on a stale `user: null`. */
         await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
-        router.replace(result.nextStep === "mfa-setup" ? "/login/mfa/setup" : "/login/mfa");
+        router.replace("/dashboard");
+        router.refresh();
       })
       .catch((error: unknown) => {
         setServerError(
@@ -90,8 +91,8 @@ export default function RedeemAccessLinkPage() {
         <Alert>
           <ShieldCheckIcon />
           <AlertDescription>
-            You will set up an authenticator app next. Nothing in the system is readable
-            until that is done.
+            Accepting activates your account and signs you in — your courses,
+            exams and certificates are waiting on the dashboard.
           </AlertDescription>
         </Alert>
 

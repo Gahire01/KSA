@@ -25,6 +25,18 @@ export const LOGIN_LIMIT = {
   windowMs: WINDOW_MS,
 } as const;
 
+/**
+ * Email-OTP sign-in. `perIp` bounds how hard one address can push the mailer,
+ * `perEmail` bounds how hard one account can be guessed once the code step is
+ * reached. Both are spent on every request: a limiter that only charges
+ * failures lets an attacker keep probing for free between them.
+ */
+export const LOGIN_VERIFY_LIMIT = { perIp: 30, perEmail: 10, windowMs: WINDOW_MS } as const;
+
+/** Issuing a fresh code to the same inbox. The 60s per-code cooldown is
+ *  enforced server-side by the LoginOtp row as well — this is the outer bound. */
+export const LOGIN_RESEND_LIMIT = { perEmail: 3, windowMs: WINDOW_MS } as const;
+
 /** Second-factor guessing, counted per session rather than per IP. */
 export const MFA_LIMIT = { perSession: 5, windowMs: WINDOW_MS } as const;
 

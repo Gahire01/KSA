@@ -645,3 +645,115 @@ as JavaScript with the `/api` never-cache guard in it, and that `/offline` rende
 - `NEXT_PUBLIC_APP_URL` is still absent from .env.local; `appUrl()` falls back to
   `APP_URL`, which is correct for localhost but must be set for production.
 
+## Login — Locked In (2026-10-06 16:37:49 +02:00)
+
+Flow: email + password → 6-digit email code → dashboard. No TOTP, no authenticator app,
+no QR scan. All 25 edge cases green (matrix below).
+
+### What shipped
+
+- **Schema** — `LoginOtp` (migration `20261006125609_login_otp_email`): one live code per
+  user, argon2id-hashed, 10-minute expiry, `attempts` capped at 5, `resendCount`/`lastSentAt`
+  for the resend cooldown.
+- **`POST /api/auth/login`** — validate (400) → per-IP 20/15 min (charged for every request)
+  → lookup with a dummy argon2 verify for unknown addresses → identical `401 Invalid email
+  or password` → `403` disabled → `423` locked → per-account 5/15 min → single active code →
+  mail. Send failure deletes the row and returns `500 Could not send code. Try again in a
+  moment.` The body never carries the code, the hash or a user id.
+- **`POST /api/auth/login/verify`** — format check first (`400` even before any lookup) →
+  per-IP 30 → per-email 10 → one identical `401 Invalid or expired code` for unknown
+  address / no code on file / expired / wrong → `429 Too many attempts. Request a new code.`
+  at attempt 6 → on success: row destroyed, session + device record minted, `lastLoginAt`
+  set, body is only `{ role, email, name }`.
+- **`POST /api/auth/login/resend`** — 3/15 min, a silent 60 s cooldown from `lastSentAt`,
+  `{ ok: true }` for unknown addresses (nothing leaks), row rolled back if the mail fails.
+- **`app/(auth)/login/page.tsx`** — one page, two phases: credentials, then six `otp-0…otp-5`
+  boxes with auto-advance, backspace/arrow handling, paste, a 200 ms-debounced auto-submit,
+  a 10-minute expiry countdown, a 60-second resend cooldown, and `Use a different email`.
+  The pending address survives a refresh via `localStorage` (`ksa:login:pending-email`) and is
+  dropped on back-navigation so returning from the dashboard lands on a clean Phase A.
+- **Email** — `loginOtpEmail()` / `sendLoginOtpEmail()` in `lib/email/templates.ts` (throws
+  on failure so the route can answer 500), `EMAIL_FROM` falls back to `onboarding@resend.dev`.
+- **`GET /api/auth/me`** — `401` when signed out, `{ id, email, role, name }` when not.
+- **Unlinked TOTP** — no redirect into `/login/mfa*` from anywhere; `/login/mfa` and
+  `/login/mfa/setup` now `redirect("/login")`; `guard()` lost its `requireMfa` option; the
+  app layout no longer branches on `mfaPassed`; invite redemption mints a complete session
+  and goes straight to `/dashboard`. `User.totpSecret`/`totpEnabled` and the MFA endpoints
+  are untouched for a possible return of the feature.
+
+### Recovery
+
+If login breaks, run `pnpm dlx tsx scripts/reset-owner.ts` to reset the owner password and
+clear sessions/OTP rows. Add `--reset-password` to also rewrite the password to
+`SEED_OWNER_PASSWORD`, `--password <value>` for a specific one, `--email <addr>` for a
+different account, `--keep-sessions` to leave sessions alone. `prisma/seed.ts` is idempotent,
+takes the password from `SEED_OWNER_PASSWORD`, has no TOTP requirement, and clears any
+outstanding code on every run.
+
+### Email sender
+
+`onboarding@resend.dev` for now; swap to `onboarding@kigalisafety.dev` after the domain is
+verified.
+
+### Deliberate deviations
+
+- Session rows keep the existing `createSession` scheme (DB id = `HMAC(token)`, cookie holds
+  the 32-byte base64url token) instead of "the row id *is* the 32 bytes". Same cookie names
+  (`ksa_session` / `__Host-ksa_session`), same flags (httpOnly, secure in prod, sameSite lax,
+  7 days) and the database never stores the token itself.
+- `verify` also calls `recordDevice()` — without a device cookie `getSession()` treats the
+  session as a copied half-credential and refuses it.
+- Test 5 was executed by backdating `LoginOtp.expiresAt` (`tmp-backdate-otp.ts`) rather than
+  sitting out 11 real minutes: the row, its attempts and the code stay exactly as the server
+  wrote them, so `verify` takes the same branch it would after 11 minutes.
+
+### Two bugs the matrix caught (both fixed)
+
+1. `clearCode()` also reset `codeError`, so the 401/429 message was set and wiped in the same
+   batch — a wrong code showed no error at all. Fixed by clearing the boxes *before* stating
+   the reason.
+2. The code fieldset was disabled while `verifying`, so the "focus back to box 1" call after a
+   401 hit a disabled input and focus fell to `<body>`. The fieldset is now disabled only
+   during the post-429 lockout (the submit button stays disabled while a request is in flight).
+
+### How the 25 were run
+
+Playwright (Chromium via the installed Edge channel, headless) against
+`http://localhost:3000`, in five groups — 1–5, 6–8, 9–14, 15–17, 18–25 — with the dev server
+restarted before each group so the in-memory rate-limit buckets start empty. Every code was
+read back out of the delivered mail through the Resend API, so the browser tests are true
+end-to-end runs, not stubs. `pnpm lint` and `pnpm exec tsc --noEmit` are both clean.
+
+## Login — Edge Case Matrix
+
+| # | Test | Result | Notes |
+|---|------|--------|-------|
+| 1 | Happy path: email + password → code → dashboard | ✅ | code delivered 10.0s after the click (7.6–10.0s across runs, visible in the inbox 0.9s after Resend accepted it); /dashboard reached |
+| 2 | Wrong password → 401, no email sent | ✅ | error "Invalid email or password"; newest sign-in-code email id unchanged after 5s |
+| 3 | Nonexistent email → same generic 401, no email | ✅ | byte-identical message to test 2; no code email |
+| 4 | Correct password, wrong code (000000) → 401 | ✅ | "Invalid or expired code"; all six boxes cleared; focus back on box 1 |
+| 5 | Correct password, code expired (11 min) → 401 | ✅ | `expiresAt` backdated to −60s, real code rejected with the same generic 401 (row deleted server-side) |
+| 6 | Wrong code ×5 → 6th attempt 429 | ✅ | verify statuses 401,401,401,401,401,429; UI shows "Too many attempts. Request a new code." |
+| 7 | Resend: new mail, old code dead, new code works | ✅ | old code → 401, new code → dashboard; toast "New code sent" |
+| 8 | Resend cooldown: link disabled with 60s countdown | ✅ | `disabled=true`, link reads "Didn't get it? Resend in 60s" |
+| 9 | Paste 6 digits → all boxes fill and auto-submit | ✅ | paste of "482913" filled `["4","8","2","9","1","3"]` and fired the verify POST; real code then signed in |
+| 10 | Auto-advance: typing moves focus right | ✅ | focus path `otp-1 → otp-2 → otp-3` |
+| 11 | Backspace on empty box 4 → box 3 focused and cleared | ✅ | focus `otp-2`, its value cleared, later boxes untouched |
+| 12 | Arrow keys move focus without changing values | ✅ | ArrowRight → `otp-3`, ArrowLeft ×2 → `otp-1`; values identical before/after |
+| 13 | Refresh on Phase B | ✅ | stays on Phase B, boxes empty, email kept in `localStorage` |
+| 14 | Back button from dashboard | ✅ | lands on fresh Phase A (0 code boxes, email field empty, `ksa:login:pending-email` cleared) |
+| 15 | Login → logout → login again | ✅ | sign-out → /login with `/me` 401; second sign-in → /dashboard with `/me` 200 |
+| 16 | Login on browser A and browser B | ✅ | both sessions valid (`/me` 200 in each context) |
+| 17 | Logout on A → B unaffected | ✅ | A `/me` 401 after sign-out, B still `/me` 200 on `/dashboard` |
+| 18 | 25 rapid logins from one IP | ✅ | requests 1–20 → 401, request 21 onwards → 429 |
+| 19 | `/login` with missing body fields → 400 | ✅ | `{}`, `{email}`, `{password}` all 400 |
+| 20 | `/login` with malformed email → 400 | ✅ | `"not-an-email"` and `"a@b"` both 400 |
+| 21 | `/login/verify` with code `abc123` → 400 | ✅ | non-numeric rejected before any lookup |
+| 22 | `/login/verify` with code shorter than 6 → 400 | ✅ | `"12345"` → 400, `"1234567"` → 400 |
+| 23 | `/login/verify` with no prior `/login` → 401 | ✅ | 401 "Invalid or expired code" (no `LoginOtp` row), code not echoed back |
+| 24 | No `console.log` carrying code/otp in the login route | ✅ | 1 console statement in the route (`console.error` on send failure, no code/otp), 0 `console.log/info/debug` |
+| 25 | `mfaPassed` only remains in non-login paths | ✅ | 20 hits total; 19 outside login (store, SessionBridge, layout, MFA endpoints, session helper); the single login-path hit is the `mfaPassed: true` **write** at `app/api/auth/login/verify/route.ts:109`, not a check |
+
+25/25 ✅ — no open failures.
+
+

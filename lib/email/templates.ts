@@ -6,6 +6,8 @@
  * email means the trainee never receives the code.
  */
 
+import { sendEmail } from "@/lib/email/send";
+
 const NAVY = "#0F2340";
 const ORANGE = "#E8590C";
 const INK = "#1B2430";
@@ -13,7 +15,28 @@ const INK_2 = "#5A6675";
 const PAPER = "#F4F2EC";
 const LINE = "#E3E0D8";
 
-function shell(inner: string): string {
+/**
+ * How long a sign-in code stays valid. Exported because the same number has to
+ * agree in three places: the row written by /api/auth/login, the resend that
+ * replaces it, and the sentence inside the mail itself.
+ */
+export const OTP_EXPIRY_MINUTES = 10;
+
+interface ShellOptions {
+  /** One-line summary shown in the inbox preview before the mail is opened. */
+  preheader?: string;
+  /** Footer strip under the body. Defaults to the exam-request notice. */
+  footer?: string;
+}
+
+const DEFAULT_FOOTER =
+  "Kigali Safety Academy &middot; This message was sent because an exam was requested for your enrolment. If you were not expecting it, you can ignore it.";
+
+function shell(inner: string, options: ShellOptions = {}): string {
+  const preheader = options.preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:transparent;opacity:0;">${options.preheader}</div>`
+    : "";
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -22,6 +45,7 @@ function shell(inner: string): string {
 <title>Kigali Safety Academy</title>
 </head>
 <body style="margin:0;padding:0;background:${PAPER};">
+${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};padding:24px 12px;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;border:1px solid ${LINE};overflow:hidden;">
@@ -33,7 +57,7 @@ ${inner}
 </td></tr>
 <tr><td style="background:${PAPER};padding:16px 28px;border-top:1px solid ${LINE};">
 <p style="margin:0;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:11px;color:${INK_2};">
-Kigali Safety Academy &middot; This message was sent because an exam was requested for your enrolment. If you were not expecting it, you can ignore it.
+${options.footer ?? DEFAULT_FOOTER}
 </p>
 </td></tr>
 </table>
@@ -171,6 +195,80 @@ You passed <strong style="color:${NAVY};">${escapeHtml(input.courseName)}</stron
   ].join("\n");
 
   return { subject: "Your Kigali Safety Academy certificate", html: shell(inner), text };
+}
+
+export interface LoginOtpEmailInput {
+  /** The six digits, in the clear — this is the one place they exist. */
+  code: string;
+  expiryMinutes: number;
+  /**
+   * Where the code is going. Accepted here so the sender and the template can
+   * never disagree about the recipient, but deliberately not rendered: the mail
+   * already sits in that person's inbox, so printing the address back is pure
+   * risk with no benefit.
+   */
+  recipientEmail: string;
+}
+
+/** Subject, HTML and plain text for the sign-in code mail. */
+export function loginOtpEmail(input: LoginOtpEmailInput): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = "Your Kigali Safety Academy sign-in code";
+  const preheader = `Your sign-in code is ${input.code} — expires in ${input.expiryMinutes} minutes`;
+
+  const inner = `
+<p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:${INK_2};">Sign-in code</p>
+<h1 style="margin:0 0 14px;font-size:22px;line-height:1.25;color:${NAVY};">Sign in to Kigali Safety Academy</h1>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:${INK};">
+Enter this code on the sign-in page to finish signing in.
+</p>
+
+<div style="margin:0 0 8px;text-align:center;font-size:36px;letter-spacing:12px;font-family:'Courier New',Courier,monospace;font-weight:700;color:${NAVY};">${escapeHtml(input.code)}</div>
+
+<p style="margin:22px 0 6px;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMinutes} minutes.</p>
+<p style="margin:0;font-size:14px;color:${INK_2};">If you didn&rsquo;t request this, ignore this email.</p>`;
+
+  const text = [
+    `Your Kigali Safety Academy sign-in code is: ${input.code}`,
+    `Expires in ${input.expiryMinutes} minutes.`,
+    `If you didn't request this, ignore this email.`,
+  ].join("\n");
+
+  return {
+    subject,
+    html: shell(inner, {
+      preheader,
+      footer: "Kigali Safety Academy &middot; kigalisafetyacademy.com",
+    }),
+    text,
+  };
+}
+
+/**
+ * Mails a sign-in code and throws when Resend does not accept it.
+ *
+ * Throws rather than returning a status because a code that was not sent must
+ * not be treated as one that was: the login endpoint deletes the row and
+ * answers 500, so there is never a code sitting in the database that nobody
+ * received. The error message carries Resend's status only — `sendEmail` never
+ * returns the payload, so nothing thrown here can contain the code.
+ */
+export async function sendLoginOtpEmail(input: LoginOtpEmailInput): Promise<void> {
+  const message = loginOtpEmail(input);
+
+  const result = await sendEmail({
+    to: input.recipientEmail,
+    subject: message.subject,
+    html: message.html,
+    text: message.text,
+  });
+
+  if (!result.ok) {
+    throw new Error(`Resend did not accept the sign-in code email (${result.reason ?? "unknown reason"})`);
+  }
 }
 
 /** Escape untrusted values before they go into an attribute or text node. */

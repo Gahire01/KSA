@@ -8,11 +8,14 @@
 
 export class ApiError extends Error {
   readonly status: number;
+  /** Parsed `Retry-After` on a 429, so a caller can count the wait down. */
+  readonly retryAfterSeconds: number | null;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, retryAfterSeconds: number | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 
   /** True when the caller should be bounced to the sign-in page. */
@@ -60,7 +63,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ? envelope.error
         : `Request failed (${response.status}).`;
 
-    throw new ApiError(message, response.status);
+    const retryAfterHeader = response.headers.get("retry-after");
+    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : null;
+
+    throw new ApiError(
+      message,
+      response.status,
+      retryAfterSeconds !== null && Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : null,
+    );
   }
 
   return envelope.data as T;

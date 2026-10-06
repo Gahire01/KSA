@@ -8,16 +8,16 @@ import { getSession } from "@/lib/auth/session";
 /**
  * Server-side session + role gate for the authenticated area.
  *
- * This runs on the server on every request, so an unauthenticated or
- * MFA-incomplete visitor never receives the page HTML — the old client-side
- * Zustand guard is gone as the security boundary. Role checks happen here too;
- * `SessionBridge` only mirrors the result into client components.
+ * This runs on the server on every request, so an unauthenticated visitor never
+ * receives the page HTML — the old client-side Zustand guard is gone as the
+ * security boundary. Role checks happen here too; `SessionBridge` only mirrors
+ * the result into client components. Sign-in already proved the visitor with
+ * email OTP, so there is no second gate to sit behind.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
 
   if (!session) redirect("/login");
-  if (!session.mfaPassed) redirect("/login/mfa");
 
   const user = {
     id: session.user.id,

@@ -5,6 +5,17 @@
  *   health -> login -> TOTP enrol -> TOTP verify -> course CRUD -> trainee CRUD
  *
  * Run with: npx tsx tmp-e2e.ts [baseUrl]
+ *
+ * STALE (2026-10-06): sign-in is now email + password -> 6-digit emailed code,
+ * so every assertion that describes the retired TOTP path is wrong on current
+ * main: `GET /api/auth/me` answers 401 (not 200 + `user: null`) when signed out,
+ * `POST /api/auth/login` answers `nextStep: "email-otp"` (not "mfa-setup" /
+ * "mfa-verify"), sessions are minted with `mfaPassed: true` so nothing is gated
+ * on MFA any more, and `/api/access-links/redeem` lands on "dashboard". The
+ * sections that exercise TOTP enrolment, recovery codes, replay probes and the
+ * MFA brute-force bucket therefore fail by design. Sign-in coverage moved to
+ * the 25-case matrix in HANDOFF.md ("Login — Edge Case Matrix"); the course,
+ * trainee, certificate, device and health sections below are still valid.
  */
 import { generate } from "otplib";
 import { readFileSync } from "node:fs";

@@ -14,6 +14,30 @@ export const loginSchema = z
   })
   .strict();
 
+/**
+ * The email sign-in code.
+ *
+ * Spaces are stripped before validation so a code copied as "482 913" still
+ * lands, but the result must then be exactly six digits — `abc123` and a
+ * five-digit stub are rejected as a 400 before any database work happens, so a
+ * malformed code is never confused with a wrong one.
+ */
+export const loginVerifySchema = z
+  .object({
+    email: z.string().trim().min(1, "Enter your email.").email("Enter a valid email address."),
+    code: z
+      .string()
+      .transform((value) => value.replace(/\s+/g, ""))
+      .pipe(z.string().regex(/^\d{6}$/, "Enter the six-digit code.")),
+  })
+  .strict();
+
+export const loginResendSchema = z
+  .object({
+    email: z.string().trim().min(1, "Enter your email.").email("Enter a valid email address."),
+  })
+  .strict();
+
 export const totpCodeSchema = z
   .object({
     code: z

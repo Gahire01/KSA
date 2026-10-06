@@ -17,7 +17,7 @@ import { prisma } from "@/lib/db";
  */
 
 export async function GET() {
-  const gate = await guard("device.self", { requireMfa: true });
+  const gate = await guard("device.self");
   if (!gate.ok) return gate.response;
 
   const userId = gate.session.user.id;

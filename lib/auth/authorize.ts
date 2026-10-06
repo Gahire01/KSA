@@ -80,7 +80,10 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
   "category.read": ALL_ROLES,
   "category.create": STAFF_ROLES,
 
-  "question.read": ALL_ROLES,
+  /* The question bank returns the answer key (`isCorrect`) so staff can set the
+   * paper, so trainers are excluded from the grant itself rather than relying on
+   * the missing-resource trap. */
+  "question.read": STAFF_ROLES,
   "question.write": STAFF_ROLES,
 
   "exam.read": ALL_ROLES,

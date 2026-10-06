@@ -9,6 +9,8 @@ import type {
   CourseFilters,
   CourseInput,
   LoginResultDTO,
+  LoginResendDTO,
+  LoginVerifyDTO,
   MeDTO,
   MfaConfirmDTO,
   MfaSetupDTO,
@@ -50,9 +52,31 @@ export function useLogin() {
     mutationFn: (input: { email: string; password: string }) =>
       api.post<LoginResultDTO>("/auth/login", input),
     onSuccess: () => {
+      /* Nothing is signed in yet — the code screen comes next — but any stale
+       * answer from an earlier session is no longer interesting. */
+      void queryClient.invalidateQueries({ queryKey: keys.me });
+    },
+  });
+}
+
+/** Redeems the six-digit emailed code and sets the session cookie. */
+export function useLoginVerify() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { email: string; code: string }) =>
+      api.post<LoginVerifyDTO>("/auth/login/verify", input),
+    onSuccess: () => {
       /* The cookie is now set, so the previous "signed out" answer is stale. */
       void queryClient.invalidateQueries({ queryKey: keys.me });
     },
+  });
+}
+
+/** Asks for a fresh code for the same sign-in. */
+export function useLoginResend() {
+  return useMutation({
+    mutationFn: (email: string) => api.post<LoginResendDTO>("/auth/login/resend", { email }),
   });
 }
 

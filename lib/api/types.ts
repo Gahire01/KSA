@@ -72,21 +72,26 @@ export interface Paginated<T> {
 }
 
 export interface MeDTO {
-  user: {
-    id: string;
-    email: string;
-    role: Role;
-    name: string;
-    totpEnabled: boolean;
-  } | null;
-  mfaPassed: boolean;
+  id: string;
+  email: string;
+  role: Role;
+  name: string;
 }
 
 export interface LoginResultDTO {
+  /** Echoed back so the code screen can show where the code was sent. */
   email: string;
+  nextStep: "email-otp";
+}
+
+export interface LoginVerifyDTO {
   role: Role;
-  totpEnabled: boolean;
-  nextStep: "mfa-setup" | "mfa-verify";
+  email: string;
+  name: string;
+}
+
+export interface LoginResendDTO {
+  sent: boolean;
 }
 
 export interface MfaSetupDTO {

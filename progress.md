@@ -81,3 +81,21 @@
 
 E2E: will run tmp-e2e.ts against dev server once started (per instructions).
 
+## Session - 2026-10-06 - Email-OTP login locked in
+
+- [x] Email-OTP login flow (`/login` email+password → 6-digit emailed code → `/dashboard`;
+      `LoginOtp` schema + `/login`, `/login/verify`, `/login/resend`, `loginOtpEmail()` template)
+- [x] Rate limits (IP + user): login 20/15min per IP and 5/15min per account, verify 30/15min
+      per IP and 10/15min per email, resend 3/15min per email — all at the API layer with
+      `Retry-After`
+- [x] Resend with cooldown (60s from `lastSentAt`, silent `{ok:true}`, rollback on send failure)
+- [x] All 25 edge cases tested and passing (18 browser + 7 API — see
+      "Login — Edge Case Matrix" in HANDOFF.md; 25/25 ✅)
+- [x] Old TOTP paths unlinked (`/login/mfa` and `/login/mfa/setup` redirect to `/login`,
+      `guard()`'s `requireMfa` gone, layout no longer branches on `mfaPassed`, invite
+      redemption lands on `/dashboard`; TOTP columns/endpoints kept for later)
+- [x] `scripts/reset-owner.ts` created and run (clears lockout, sessions, devices, OTP rows;
+      optional password rewrite); `prisma/seed.ts` idempotent, no TOTP requirement
+- [x] `pnpm lint` clean, `pnpm exec tsc --noEmit` clean
+
+

@@ -227,9 +227,13 @@ async function main() {
       passwordHash,
       role: "OWNER",
       isActive: true,
-      /* Forces TOTP enrolment on the owner's next sign-in. */
+      /* TOTP is not part of sign-in anymore (the second factor is an emailed
+       * code from /login), so the owner never gets an authenticator secret. */
       totpEnabled: false,
       totpSecret: null,
+      /* Re-seeding also unwinds any lockout left over from failed sign-ins. */
+      failedLogins: 0,
+      lockedAt: null,
     },
     create: {
       email: OWNER_EMAIL,
@@ -243,10 +247,17 @@ async function main() {
 
   console.log(`  owner  ${owner.email} (password from SEED_OWNER_PASSWORD)`);
 
-  /* No recovery codes here. They are issued — and shown exactly once — by
-   * POST /api/auth/mfa/confirm when the owner enrols their authenticator, so
-   * seeding them would only leave unreachable codes in the table. */
+  /* No recovery codes here either: they are issued — and shown exactly once — by
+   * POST /api/auth/mfa/confirm, which nothing calls until TOTP returns. */
   await prisma.recoveryCode.deleteMany({ where: { userId: owner.id } });
+
+  /* A reseed is a fresh start: codes outstanding from an earlier attempt are
+   * killed rather than left to expire, which also drops their attempt counter
+   * and resend cooldowns. */
+  const clearedOtps = await prisma.loginOtp.deleteMany({ where: { userId: owner.id } });
+  if (clearedOtps.count > 0) {
+    console.log(`  cleared ${clearedOtps.count} outstanding sign-in code(s)`);
+  }
 
   const categoryByName = new Map<string, string>();
 

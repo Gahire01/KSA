@@ -493,19 +493,36 @@ Verify kigalisafety.dev on Resend before launch: add DKIM/SPF DNS records, then 
   Public redemption: `app/(auth)/access/[token]/page.tsx`, which posts the token in a body and
   then routes straight to TOTP enrolment.
 
-`tmp-e2e.ts`: **161/161**, stable across two consecutive runs (up from 131). New coverage
+`tmp-e2e.ts`: **168/168**, stable across two consecutive runs (up from 131). New coverage
 includes anon→401, token shape/absence, no-store, owner-link and trainer-without-trainer
 rejection, redeem + single-use replay + equal error messages, existing-account takeover
-refusal, device cap/visibility/self-revoke, referral minting and charset, revoke cascade,
-a session cookie without its device cookie resolving to no session *without* destroying the
-real one, and device revocation ending the sessions it created. Two harness bugs fixed along
-the way: the cookie jar only absorbs a session when the request used that jar, and raw
-`fetch` calls now send both cookies.
+refusal, an invited admin signing back in with a password, password-only sessions being
+refused by data routes, seven consecutive correct sign-ins never rate limiting, device
+cap/visibility/self-revoke, referral minting and charset, revoke cascade, a session cookie
+without its device cookie resolving to no session *without* destroying the real one, and
+device revocation ending the sessions it created. Two harness bugs fixed along the way: the
+cookie jar only absorbs a session when the request used that jar, and raw `fetch` calls now
+send both cookies.
 
 `getSession()` now resolves the device beside the session and returns one of three outcomes:
 `active` proceeds; `revoked` deletes the session and clears the cookie; `unknown` refuses the
 request but leaves the row alone, so a leaked session cookie cannot sign the real device out.
 The five-device cap is therefore a real cap now, not just a row count.
+
+## Step 4 follow-up — the two defects it exposed
+
+- **Phase 1 single-tenant login gate removed.** It rejected every non-OWNER password, which
+  meant an admin or trainer invited by a link could sign in exactly once and then never again.
+  Safe to lift because `guard()` requires `mfaPassed` on every data route and Step 4 makes TOTP
+  enrolment the mandatory first step, so a password still reads nothing on its own.
+- **Login rate limiter charged successes.** `rateLimit()` checked and incremented in one call,
+  and it ran *before* the password was tested — so every successful sign-in spent one unit of a
+  five-attempt budget. Twenty staff behind one office NAT would have locked the building out,
+  and an attacker who already knew a valid password could have starved the real user out of
+  their own account. Split into `rateLimit(..., { consume: false })` for the check and
+  `rateLimitHit()` on the failure path only; a correct password also clears the address's own
+  bucket. Every other caller keeps the default `consume: true`, so OTP/MFA/autosave limits are
+  unchanged. Regression checks: seven correct sign-ins all 200, then a wrong password still 401.
 
 ## Still open after Step 4
 - `app/api/questions/route.ts` returns `isCorrect` to staff; Step 9's blanket grep
@@ -513,8 +530,6 @@ The five-device cap is therefore a real cap now, not just a row count.
 - No SSE route, heartbeat, client hook or notification centre (Step 6).
 - No PWA manifest/icons/service worker (Step 7), no Lighthouse run (Step 8), no Vercel
   deploy.
-- Password login still rejects non-OWNER accounts in Phase 1 — invited admins/trainers can
-  sign in only once, via their access link, until that gate is lifted.
 - `AccessLink.referralCode` is its own random string and is not a `ReferralCode` row, so a
   link's companion code and the referral-code table are still two separate things;
   `consumeReferralCode()` has no route to call it from.

@@ -309,6 +309,31 @@ async function main() {
   check("login response leaks no password hash or TOTP secret",
     !/passwordHash|totpSecret|argon2id|postgresql:\/\//.test(loginBody));
 
+  /* Success must not spend the failure budget. The per-account limit is 5, so if
+   * check-and-increment ran before the password was even tested, the sixth
+   * correct sign-in would 429 — which behind one office NAT means the fifth
+   * colleague locks the building out. */
+  const successes: number[] = [];
+  for (let i = 0; i < 7; i += 1) {
+    const again = await call("POST", "/api/auth/login", {
+      email: "gahiredev01@gmail.com",
+      password: PASSWORD,
+    });
+    successes.push(again.status);
+  }
+  check("repeated correct sign-ins are never rate limited",
+    successes.every((s) => s === 200), successes.join(","));
+  check("the owner session still works after those sign-ins",
+    (await call("GET", "/api/auth/me")).json?.data?.user?.role === "OWNER");
+
+  /* Failures still spend: one wrong password after that run must not slip past. */
+  const wrongAfter = await call("POST", "/api/auth/login", {
+    email: "gahiredev01@gmail.com",
+    password: "definitely-not-the-password",
+  });
+  check("a wrong password is still rejected", wrongAfter.status === 401,
+    `got ${wrongAfter.status}`);
+
   /* Security headers apply to page responses too, not just the API. */
   const loginPage = await fetch(`${BASE}/login`, { redirect: "manual" });
   const h = (name: string) => loginPage.headers.get(name) ?? "";
@@ -1009,6 +1034,34 @@ async function runExamSuite(seed: { courseId: string; traineeId: string; categor
   }, "anon");
   check("an existing account cannot be overwritten via a link",
     reuseOwner.status === 410 || reuseOwner.status === 409, `got ${reuseOwner.status}`);
+
+  /* An invited admin must be able to sign in again with their password — a link
+   * that works once and strands the account would not be access control. */
+  const inviteeRes = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: newEmail,
+      password: "correct-horse-battery-staple-42",
+    }),
+  });
+  const inviteeJson = (await inviteeRes.json()) as Json;
+  check("an invited admin can sign in with their password", inviteeRes.status === 200,
+    `got ${inviteeRes.status}`);
+  check("the invited admin is still pushed through MFA",
+    inviteeJson?.data?.nextStep === "mfa-setup", inviteeJson?.data?.nextStep);
+  check("the invited admin is not an owner",
+    inviteeJson?.data?.role === "ADMIN", inviteeJson?.data?.role);
+
+  /* A password alone must still read nothing: the session it produces has not
+   * passed a second factor, so guard() refuses it. */
+  const inviteeCookies = (inviteeRes.headers.getSetCookie?.() ?? [])
+    .map((c) => c.split(";")[0]);
+  const inviteeData = await fetch(`${BASE}/api/courses`, {
+    headers: { Cookie: inviteeCookies.join("; ") },
+  });
+  check("password-only sessions are refused by data routes",
+    inviteeData.status === 403, `got ${inviteeData.status}`);
 
   /* Device cap. The owner already has a device from login, so this exercises the
    * eviction path rather than the happy path. */

@@ -61,17 +61,32 @@ export function clientKey(request: Request, scope: string): string {
   return `${scope}:${ip}`;
 }
 
+/**
+ * Checks a bucket, optionally spending one unit of it.
+ *
+ * `consume: false` is what a caller wants when the outcome is not yet known: login
+ * must be able to *reject* an address that has already burned through its attempts
+ * without charging the current one, because charging up front means every
+ * successful sign-in also spends the budget. Behind one office NAT that would lock
+ * out the whole office after `perIp` legitimate logins, and would let an attacker
+ * who knows a valid password starve the real user out of their own account.
+ *
+ * The correct split is: check with `consume: false`, then call {@link rateLimitHit}
+ * only on the failure path.
+ */
 export function rateLimit(
   key: string,
   limit: number = AUTH_LIMIT.max,
   windowMs: number = AUTH_LIMIT.windowMs,
+  options: { consume?: boolean } = {},
 ): RateLimitResult {
+  const consume = options.consume ?? true;
   const now = Date.now();
   const existing = buckets.get(key);
 
   if (!existing || existing.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return { ok: true, remaining: limit - 1 };
+    if (consume) buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { ok: true, remaining: limit - (consume ? 1 : 0) };
   }
 
   if (existing.count >= limit) {
@@ -81,8 +96,25 @@ export function rateLimit(
     };
   }
 
-  existing.count += 1;
+  if (consume) existing.count += 1;
   return { ok: true, remaining: limit - existing.count };
+}
+
+/** Spends one unit against a bucket that {@link rateLimit} has already accepted. */
+export function rateLimitHit(
+  key: string,
+  limit: number = AUTH_LIMIT.max,
+  windowMs: number = AUTH_LIMIT.windowMs,
+): void {
+  const now = Date.now();
+  const existing = buckets.get(key);
+
+  if (!existing || existing.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return;
+  }
+
+  if (existing.count < limit) existing.count += 1;
 }
 
 export function clearRateLimit(key: string): void {

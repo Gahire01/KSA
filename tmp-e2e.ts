@@ -152,6 +152,10 @@ const PASSWORD = process.env.SEED_OWNER_PASSWORD ?? "ChangeMe123!";
 /** Unique per run so a re-run never collides with the previous run's rows. */
 const RUN = Date.now().toString(36).toUpperCase().slice(-5);
 
+/** Every row this run inserts into Notification is older than this, so cleanup
+ * can delete exactly what the run produced and nothing else. */
+const RUN_STARTED_AT = new Date();
+
 /**
  * The harness enrols a fresh TOTP secret on every run, because section 15 burns
  * the owner's rate-limit buckets and the previous run left TOTP enabled. Clearing
@@ -1115,12 +1119,118 @@ async function runExamSuite(seed: { courseId: string; traineeId: string; categor
   check("a revoked link cannot be redeemed", afterRevoke.status === 410,
     `got ${afterRevoke.status}`);
 
+  /* ── notifications: list, mark-read, scoping, and the live stream ─────── */
+
+  const noteList = await call("GET", "/api/notifications");
+  check("the owner can list notifications", noteList.status === 200,
+    `got ${noteList.status}`);
+  check("the notification list carries an unread count",
+    typeof noteList.json?.data?.unread === "number",
+    JSON.stringify(noteList.json?.data).slice(0, 120));
+
+  /* The exam send above ran emit("exam.sent"), so a real row must be there. */
+  const sentNote = (noteList.json?.data?.items as Json[] | undefined)?.find(
+    (n) => n.type === "exam.sent",
+  );
+  check("sending an exam persisted an exam.sent notification", Boolean(sentNote),
+    sentNote ? String(sentNote.id) : "none found");
+
+  /* A row belonging to somebody else must never surface in this list. */
+  const noteOwner = await prisma.user.findUnique({
+    where: { email: "gahiredev01@gmail.com" },
+    select: { id: true },
+  });
+  const otherUser = await prisma.user.findFirst({
+    where: { id: { not: noteOwner!.id } },
+    select: { id: true, email: true },
+  });
+  let foreignNoteId = "";
+  if (otherUser) {
+    const foreign = await prisma.notification.create({
+      data: { userId: otherUser.id, type: "system", title: "Foreign note", body: "not yours" },
+      select: { id: true },
+    });
+    foreignNoteId = foreign.id;
+    const ids = ((noteList.json?.data?.items as Json[] | undefined) ?? []).map((n) => n.id);
+    check("another user's notification is not in this list", !ids.includes(foreignNoteId),
+      `${otherUser.email}`);
+  }
+
+  /* Marking read is scoped by userId, so a guessed foreign id matches nothing
+   * and leaves the other account untouched. */
+  if (foreignNoteId) {
+    const foreignAttempt = await call("POST", "/api/notifications", { id: foreignNoteId });
+    check("marking a foreign notification read touches nothing",
+      foreignAttempt.status === 200 && foreignAttempt.json?.data?.updated === 0,
+      JSON.stringify(foreignAttempt.json?.data));
+    const stillUnread = await prisma.notification.findUnique({
+      where: { id: foreignNoteId },
+      select: { readAt: true },
+    });
+    check("the other user's notification is still unread", stillUnread?.readAt === null,
+      String(stillUnread?.readAt));
+    await prisma.notification.deleteMany({ where: { id: foreignNoteId } });
+  }
+
+  if (sentNote) {
+    const markOne = await call("POST", "/api/notifications", { id: sentNote.id });
+    check("marking one notification read reports the update",
+      markOne.status === 200 && markOne.json?.data?.updated === 1,
+      JSON.stringify(markOne.json?.data));
+  }
+
+  const markAll = await call("POST", "/api/notifications", { all: true });
+  check("marking everything read reports the update", markAll.status === 200,
+    `got ${markAll.status}`);
+  check("no notification is left unread", markAll.json?.data?.unread === 0,
+    String(markAll.json?.data?.unread));
+
+  const anonNotes = await call("GET", "/api/notifications", undefined, "anon");
+  check("an anonymous caller cannot list notifications", anonNotes.status === 401,
+    `got ${anonNotes.status}`);
+
+  /* The stream must be an authenticated SSE response, not an HTML shell — the
+   * browser only recognises it as a stream if the content type is exact. */
+  const sseControl = new AbortController();
+  const sseRes = await fetch(`${BASE}/api/notifications/stream`, {
+    headers: { Cookie: [jars.owner, jars.device].filter(Boolean).join("; ") },
+    signal: sseControl.signal,
+  }).catch(() => null);
+  check("the notification stream answers with text/event-stream",
+    sseRes?.status === 200 &&
+      (sseRes.headers.get("content-type") ?? "").startsWith("text/event-stream"),
+    sseRes ? `${sseRes.status} ${sseRes.headers.get("content-type")}` : "no response");
+  sseControl.abort();
+
+  const sseAnon = await fetch(`${BASE}/api/notifications/stream`, {
+    headers: {}, signal: AbortSignal.timeout(3000),
+  }).catch(() => null);
+  check("the notification stream refuses anonymous callers",
+    sseAnon?.status === 401, sseAnon ? `got ${sseAnon.status}` : "no response");
+  sseAnon?.body?.cancel().catch(() => {});
+
+  /* Regression guards for the two authorisation bugs found while building this:
+   * `notification.read` and `device.self` are self-scoped, so a TRAINER must be
+   * allowed them with no course resource attached. */
+  const { authorize } = await import("@/lib/auth/authorize");
+  const trainerSubject = { id: "probe", role: "TRAINER" as const, isActive: true };
+  check("a trainer may read their own notifications",
+    authorize(trainerSubject, "notification.read").ok,
+    JSON.stringify(authorize(trainerSubject, "notification.read")));
+  check("a trainer may manage their own devices",
+    authorize(trainerSubject, "device.self").ok,
+    JSON.stringify(authorize(trainerSubject, "device.self")));
+  check("a trainer still needs a resource for course-scoped work",
+    !authorize(trainerSubject, "trainee.read").ok, "resource still required");
+
   /* Clean up the accounts these checks created. */
   await prisma.user.deleteMany({
     where: { email: { in: [newEmail, cascadeEmail] } },
   });
   await prisma.accessLink.deleteMany({ where: { label: { startsWith: "E2E" } } });
   await prisma.referralCode.deleteMany({ where: { code: referralCode } });
+  /* Notification rows this run emitted, so a re-run starts from a known count. */
+  await prisma.notification.deleteMany({ where: { createdAt: { gte: RUN_STARTED_AT } } });
 
   /* ── the device binding, proven last because it ends this session ────── */
 

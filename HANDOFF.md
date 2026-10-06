@@ -524,12 +524,79 @@ The five-device cap is therefore a real cap now, not just a row count.
   bucket. Every other caller keeps the default `consume: true`, so OTP/MFA/autosave limits are
   unchanged. Regression checks: seven correct sign-ins all 200, then a wrong password still 401.
 
-## Still open after Step 4
+## Step 6 — realtime notifications
+
+The mock SSE loop is gone. Notifications now come off the database and reach the browser over a
+real stream.
+
+**Routes added**
+
+| Route | What it does |
+| --- | --- |
+| `GET /api/notifications` | The signed-in user's rows, plus `total` and `unread`. Scoped by `session.user.id` only — no query parameter can widen it. `Cache-Control: private, no-store`. |
+| `POST /api/notifications` | Marks one `{ id }` or everything `{ all: true }` read. Both filters carry `userId`, so a guessed foreign id matches nothing rather than marking it read. |
+| `GET /api/notifications/stream` | SSE. Same `guard()` as everything else, so there is no separate unauthenticated path into the bus. |
+
+The stream does the three things a naive SSE route skips: `request.signal` **and** the stream's
+`cancel()` both run one teardown (an unsubscribe that never fired would leak one EventEmitter
+listener per reconnect attempt); a `: ping` comment every 25s keeps proxies from dropping an idle
+connection; and `Cache-Control: no-cache, no-transform` plus `X-Accel-Buffering: no` stop nginx
+accumulating events and delivering them in a burst long after they happened. `retry: 3000` and a
+named `open` event let the client tell "authenticated and listening" apart from "connected but
+rejected".
+
+**Client**
+
+- `lib/hooks/use-notification-stream.ts` — `useNotificationStream()` opens the `EventSource` and
+  folds events into the store; `useNotificationHydration()` replaces the store with the server's
+  copy on mount. `onerror` distinguishes `CONNECTING` (the browser is already retrying — stay out
+  of its way) from `CLOSED` (it gave up, e.g. on a 401 — reconnect ourselves with capped
+  exponential backoff), and a `visibilitychange` reconnect gets a usable stream back immediately
+  after a backgrounded tab wakes. Each event also invalidates the query keys it affects, so a
+  "certificate issued" push refreshes the certificate list.
+- `components/layout/AppShell.tsx` mounts both instead of the deleted `use-realtime-events.ts`.
+- `lib/stores/notification-store.ts` gained `hydrate()` and **no longer seeds from
+  `lib/mock/notifications.ts`** (deleted). It starts empty, so a persisted copy of demo rows can
+  never be mistaken for real ones. `hydrate()` keeps anything that arrived over SSE while the
+  fetch was in flight.
+- `NotificationBell` drops its "restore demo notifications" button and persists read state to
+  the server (optimistic, self-correcting on the next hydration).
+- New `app/(app)/notifications/page.tsx` — the notification centre, with an unread filter, a
+  mark-all control, per-row type chips and a live/offline indicator. Reads the same store as the
+  bell, so the two cannot disagree. Linked from the sidebar under Main.
+
+**Two authorisation defects found and fixed while building this**
+
+1. `authorize()` applied the `TRAINER_SCOPED` resource check to *every* action, so a trainer
+   calling `guard("notification.read")` with no course to name was denied their own notifications
+   (`403 Trainers can only work on the courses assigned to them`). Added a `SELF_SCOPED` set —
+   actions whose rows are already scoped by `session.user.id` — which currently holds
+   `notification.read` and `device.self`. Missing from the set still requires a resource, so it
+   stays closed by default.
+2. The devices routes borrowed `guard("notification.read")`, which was never the right action.
+   Added `device.self` (`ALL_ROLES`, self-scoped) and switched both routes to it, leaving
+   `device.manage` for the owner acting on somebody else's device.
+
+`NotificationType` was also missing `exam.sent`, `exam.passed` and `exam.failed` — types
+`emit()` has been writing all along — which made `Record<NotificationType, …>` in settings and the
+mock matrix incomplete. The list route checks the stored string against the known union and falls
+back to `"system"` rather than casting, so an unexpected value cannot reach a `switch` that
+silently matches nothing.
+
+**Verification**: `npx tsc --noEmit` clean, `pnpm lint` clean, `pnpm build` green with
+`/notifications`, `/api/notifications` and `/api/notifications/stream` in the output, and
+`npx tsx tmp-e2e.ts` at **183/183** across two consecutive runs. The new checks cover list,
+unread count, an `exam.sent` row actually written by the send flow, cross-user isolation on both
+list and mark-read, anonymous 401s, the stream's content type, and direct assertions that a trainer
+is allowed `notification.read` / `device.self` and still denied course-scoped work.
+
+## Still open after Step 6
 - `app/api/questions/route.ts` returns `isCorrect` to staff; Step 9's blanket grep
   needs a decision on whether staff question editing gets the answer back.
-- No SSE route, heartbeat, client hook or notification centre (Step 6).
 - No PWA manifest/icons/service worker (Step 7), no Lighthouse run (Step 8), no Vercel
   deploy.
+- The broadcaster is in-process (`EventEmitter`), so a multi-instance deploy would only deliver
+  each event to the instance that produced it. Fine for one Vercel function; revisit on scale-out.
 - `AccessLink.referralCode` is its own random string and is not a `ReferralCode` row, so a
   link's companion code and the referral-code table are still two separate things;
   `consumeReferralCode()` has no route to call it from.

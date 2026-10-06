@@ -23,7 +23,7 @@ import { prisma } from "@/lib/db";
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
-  const gate = await guard("notification.read", { requireMfa: true });
+  const gate = await guard("device.self", { requireMfa: true });
   if (!gate.ok) return gate.response;
 
   const userId = gate.session.user.id;

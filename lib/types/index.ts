@@ -80,7 +80,10 @@ export type ReportType =
   | "revenue-summary";
 
 export type NotificationType =
+  | "exam.sent"
   | "exam.submitted"
+  | "exam.passed"
+  | "exam.failed"
   | "payment.recorded"
   | "trainee.enrolled"
   | "deadline.approaching"

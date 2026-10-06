@@ -30,6 +30,7 @@ export type AuthzAction =
   | "certificate.issue"
   | "certificate.revoke"
   | "notification.read"
+  | "device.self"
   | "access.manage"
   | "device.manage"
   | "audit.read"
@@ -92,6 +93,11 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
 
   "notification.read": ALL_ROLES,
 
+  /* Listing and revoking your own devices — scoped by `session.user.id` in the
+   * route, so no course resource exists to name. Distinct from `device.manage`,
+   * which is the owner acting on somebody else's device. */
+  "device.self": ALL_ROLES,
+
   /* Minting a way in is the most privileged action in the product. */
   "access.manage": new Set<Role>(["OWNER"]),
   "device.manage": new Set<Role>(["OWNER"]),
@@ -102,6 +108,20 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
 export function isWriteAction(action: AuthzAction): boolean {
   return GRANTS[action] ? !GRANTS[action].has("TRAINER") && !GRANTS[action].has("ADMIN") : true;
 }
+
+/**
+ * Actions a TRAINER may perform without a resource, because they can only ever
+ * touch rows already scoped to the caller by `session.user.id`.
+ *
+ * `notification.read` is the case that matters: a trainer reading their own
+ * notifications has no course to name, so requiring one would deny them the
+ * feature entirely. A missing entry still requires a resource, so this list stays
+ * closed by default — a new self-scoped action has to be added deliberately.
+ */
+const SELF_SCOPED: ReadonlySet<AuthzAction> = new Set<AuthzAction>([
+  "notification.read",
+  "device.self",
+]);
 
 /**
  * Decides whether `user` may perform `action` on `resource`.
@@ -133,7 +153,7 @@ export function authorize(
     };
   }
 
-  if (TRAINER_SCOPED.has(user.role)) {
+  if (TRAINER_SCOPED.has(user.role) && !SELF_SCOPED.has(action)) {
     if (!resource) {
       return {
         ok: false,

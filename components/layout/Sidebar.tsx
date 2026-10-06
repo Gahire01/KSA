@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   AwardIcon,
   BarChart3Icon,
+  BellIcon,
   BookOpenIcon,
   ClipboardCheckIcon,
   CreditCardIcon,
@@ -46,6 +47,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: "/exams", label: "Exams", icon: ClipboardCheckIcon },
       { href: "/certificates", label: "Certificates", icon: AwardIcon },
       { href: "/payments", label: "Payments", icon: CreditCardIcon, roles: ["OWNER", "ADMIN"] },
+      { href: "/notifications", label: "Notifications", icon: BellIcon },
     ],
   },
   {

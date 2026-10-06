@@ -8,12 +8,13 @@ import { Topbar } from "@/components/layout/Topbar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useUiStore } from "@/lib/stores/ui-store";
-import { useRealtimeEvents } from "@/lib/hooks/use-realtime-events";
+import { useNotificationHydration, useNotificationStream } from "@/lib/hooks/use-notification-stream";
 import { cn } from "@/lib/utils/cn";
 
 /**
  * Authenticated application chrome: collapsible desktop sidebar, sticky topbar,
- * slide-over mobile navigation, command palette (⌘K) and the mock SSE loop.
+ * slide-over mobile navigation, command palette (⌘K) and the live notification
+ * stream.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/dashboard";
@@ -23,7 +24,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
   const pushRecentPage = useUiStore((s) => s.pushRecentPage);
 
-  useRealtimeEvents(true);
+  useNotificationHydration(true);
+  useNotificationStream(true);
 
   /* ⌘K / Ctrl+K opens the palette, "/" is reserved by page search fields. */
   React.useEffect(() => {

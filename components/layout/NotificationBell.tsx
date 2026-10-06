@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { BellIcon, CheckCheckIcon, RotateCcwIcon } from "lucide-react";
+import { BellIcon, CheckCheckIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { api } from "@/lib/api/client";
 import { cn } from "@/lib/utils/cn";
 import { unreadCount, useNotificationStore } from "@/lib/stores/notification-store";
 
@@ -18,7 +19,6 @@ export function NotificationBell() {
   const items = useNotificationStore((s) => s.items);
   const markRead = useNotificationStore((s) => s.markRead);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
-  const reset = useNotificationStore((s) => s.reset);
   const connected = useNotificationStore((s) => s.connected);
 
   const sorted = React.useMemo(
@@ -26,6 +26,15 @@ export function NotificationBell() {
     [items],
   );
   const unread = unreadCount(items);
+
+  /* The store flips the flag first so the UI answers instantly; the API call is
+   * best-effort. A failure leaves the server stale but the next hydration
+   * corrects it, which is a better trade than a spinner on every click. */
+  const persistRead = (id?: string) => {
+    void api.post("/notifications", id ? { id } : { all: true }).catch(() => {
+      /* Offline — the optimistic update stands. */
+    });
+  };
 
   return (
     <Popover>
@@ -73,21 +82,15 @@ export function NotificationBell() {
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={markAllRead}
+              onClick={() => {
+                markAllRead();
+                persistRead();
+              }}
               disabled={unread === 0}
               aria-label="Mark all as read"
               title="Mark all read"
             >
               <CheckCheckIcon className="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={reset}
-              aria-label="Restore demo notifications"
-              title="Restore demo notifications"
-            >
-              <RotateCcwIcon className="size-4" />
             </Button>
           </div>
         </div>
@@ -102,7 +105,10 @@ export function NotificationBell() {
                   <button
                     type="button"
                     onClick={() => {
-                      markRead(n.id);
+                      if (!n.read) {
+                        markRead(n.id);
+                        persistRead(n.id);
+                      }
                       if (n.link && n.link !== pathname) router.push(n.link);
                     }}
                     className={cn(

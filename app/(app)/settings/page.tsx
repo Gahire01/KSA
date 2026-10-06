@@ -42,7 +42,10 @@ import type { AcademySettings, NotificationChannel, NotificationType } from "@/l
 const CHANNELS: NotificationChannel[] = ["inapp", "email", "whatsapp"];
 
 const EVENT_LABEL: Record<NotificationType, string> = {
+  "exam.sent": "Exam link sent",
   "exam.submitted": "Exam submitted",
+  "exam.passed": "Exam passed",
+  "exam.failed": "Exam failed",
   "payment.recorded": "Payment recorded",
   "trainee.enrolled": "Trainee enrolled",
   "deadline.approaching": "Deadline approaching",

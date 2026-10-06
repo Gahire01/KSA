@@ -10,7 +10,6 @@ import { generateCertNo, generateContentHash, generateReceiptNo, generateToken }
 import { shuffle } from "@/lib/utils/shuffle";
 import type {
   AcademySettings,
-  AppNotification,
   AttemptFilters,
   AuditEntry,
   AuditFilters,
@@ -43,7 +42,6 @@ import { exams, examById } from "./exams";
 import { attemptByToken, attempts } from "./attempts";
 import { certificates } from "./certificates";
 import { payments, recorderNames } from "./payments";
-import { notifications } from "./notifications";
 import { auditEntries } from "./audit-log";
 import { buildDashboard } from "./dashboard";
 
@@ -118,7 +116,10 @@ export function changesSince(msAgo: number): number {
    ═══════════════════════════════════════════════════════════════ */
 
 const defaultMatrix: Record<NotificationType, Record<"inapp" | "email" | "whatsapp", boolean>> = {
+  "exam.sent": { inapp: true, email: true, whatsapp: true },
   "exam.submitted": { inapp: true, email: true, whatsapp: false },
+  "exam.passed": { inapp: true, email: true, whatsapp: false },
+  "exam.failed": { inapp: true, email: true, whatsapp: false },
   "payment.recorded": { inapp: true, email: true, whatsapp: true },
   "trainee.enrolled": { inapp: true, email: false, whatsapp: false },
   "deadline.approaching": { inapp: true, email: true, whatsapp: true },
@@ -1011,33 +1012,8 @@ export const mockApi = {
   },
 
   /* ── Notifications ─────────────────────────────────────────── */
-  notifications: {
-    async list(params: { tab?: "all" | "unread" | "mentions"; page?: number; pageSize?: number } = {}): Promise<Paginated<AppNotification>> {
-      return withLatency(() => {
-        let rows = notifications.slice();
-        if (params.tab === "unread") rows = rows.filter((n) => !n.read);
-        if (params.tab === "mentions") rows = rows.filter((n) => n.mention);
-        return paginate(rows, params.page, params.pageSize ?? 20);
-      });
-    },
-    async markRead(id: string): Promise<void> {
-      return withLatency(() => {
-        const n = notifications.find((x) => x.id === id);
-        if (n) n.read = true;
-      });
-    },
-    async markAllRead(): Promise<void> {
-      return withLatency(() => {
-        for (const n of notifications) n.read = true;
-      });
-    },
-    async push(n: AppNotification): Promise<void> {
-      return withLatency(() => {
-        notifications.unshift(n);
-        if (notifications.length > 200) notifications.pop();
-      });
-    },
-  },
+  /* Removed: the notification list is served by /api/notifications and hydrated
+   * into the zustand store. Nothing reads `mockApi.notifications` any more. */
 
   /* ── Audit log ─────────────────────────────────────────────── */
   audit: {
@@ -1237,7 +1213,7 @@ export const mockApi = {
 
 /* ── Convenience exports ───────────────────────────────────────── */
 
-export { courses, trainers, questions, trainees, exams, attempts, certificates, payments, notifications, auditEntries, MOCK_NOW };
+export { courses, trainers, questions, trainees, exams, attempts, certificates, payments, auditEntries, MOCK_NOW };
 export { reportDefinitions } from "./courses";
 export { AUDIT_ACTIONS, AUDIT_ACTORS, AUDIT_ENTITY_TYPES } from "./audit-log";
 export { balanceFor } from "./payments";

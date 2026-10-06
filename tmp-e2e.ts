@@ -1119,6 +1119,58 @@ async function runExamSuite(seed: { courseId: string; traineeId: string; categor
   check("a revoked link cannot be redeemed", afterRevoke.status === 410,
     `got ${afterRevoke.status}`);
 
+  /* ── PWA: manifest, icons, service worker and offline shell ───────────── */
+
+  const manifest = await fetch(`${BASE}/manifest.webmanifest`).catch(() => null);
+  if (manifest) {
+    const body = (await manifest.json()) as Json;
+    check("the web manifest is served", manifest.status === 200,
+      `got ${manifest.status}`);
+    check("the manifest declares a standalone display", body?.display === "standalone",
+      String(body?.display));
+    check("the manifest points at a dashboard start_url", body?.start_url === "/dashboard",
+      String(body?.start_url));
+    const iconSrcs = body?.icons?.map((i: Json) => i.src) as string[] | undefined;
+    check("the manifest lists 192 and 512 icons",
+      (iconSrcs ?? []).includes("/icons/icon-192.png") &&
+        (iconSrcs ?? []).includes("/icons/icon-512.png") &&
+        (iconSrcs ?? []).some((s) => String(s).includes("maskable")),
+      JSON.stringify(iconSrcs));
+    const iconCheck = await fetch(`${BASE}/icons/icon-512.png`).catch(() => null);
+    check("the 512 icon exists and is a PNG",
+      iconCheck?.status === 200 &&
+        (iconCheck.headers.get("content-type") ?? "").includes("png"),
+      iconCheck ? `${iconCheck.status} ${iconCheck.headers.get("content-type")}` : "no response");
+    iconCheck?.body?.cancel().catch(() => {});
+  } else {
+    check("the web manifest is served", false, "no response");
+  }
+
+  const sw = await fetch(`${BASE}/sw.js`).catch(() => null);
+  check("the service worker is served as JavaScript",
+    sw?.status === 200 &&
+      (["text/javascript", "application/javascript"]).includes(
+        (sw.headers.get("content-type") ?? "").replace(/;.*/, "").trim(),
+      ),
+    sw ? `${sw.status} ${sw.headers.get("content-type")}` : "no response");
+  if (sw) {
+    const swBody = await sw.text();
+    check("the service worker routes /api as never-cached",
+      swBody.includes('"/api/"'), "NEVER guard present");
+  }
+
+  const offline = await fetch(`${BASE}/offline`, {
+    headers: { Cookie: [jars.owner, jars.device].filter(Boolean).join("; ") },
+  }).catch(() => null);
+  if (offline) {
+    const offlineHtml = await offline.text();
+    check("the offline page renders without a session",
+      offline.status === 200 && offlineHtml.includes("offline"),
+      `got ${offline.status}`);
+  } else {
+    check("the offline page renders without a session", false, "no response");
+  }
+
   /* ── notifications: list, mark-read, scoping, and the live stream ─────── */
 
   const noteList = await call("GET", "/api/notifications");

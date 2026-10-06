@@ -1,0 +1,733 @@
+   ▲ Next.js 15.5.26
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.70:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 4s
+ ○ Compiling /api/auth/me ...
+ ✓ Compiled /api/auth/me in 1502ms (326 modules)
+ GET /api/auth/me 200 in 1852ms
+ ○ Compiling /api/health ...
+ ✓ Compiled /api/health in 581ms (328 modules)
+(node:25080) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ GET /api/health 200 in 2457ms
+ ○ Compiling /api/courses ...
+ ✓ Compiled /api/courses in 713ms (343 modules)
+ GET /api/courses 401 in 854ms
+ ✓ Compiled /api/trainees in 141ms (345 modules)
+ GET /api/trainees 401 in 244ms
+ ✓ Compiled /api/categories in 154ms (347 modules)
+ GET /api/categories 401 in 257ms
+ ✓ Compiled /api/courses/[id] in 345ms (349 modules)
+ GET /api/courses/e2e-1 401 in 1479ms
+ ✓ Compiled /api/trainees/[id] in 151ms (351 modules)
+ GET /api/trainees/e2e-1 401 in 926ms
+ PATCH /api/courses/e2e-1 401 in 52ms
+ PATCH /api/trainees/e2e-1 401 in 41ms
+ DELETE /api/courses/e2e-1 401 in 40ms
+ ✓ Compiled /api/auth/mfa/setup in 390ms (434 modules)
+ POST /api/auth/mfa/setup 401 in 540ms
+ ✓ Compiled /api/auth/mfa/confirm in 316ms (436 modules)
+ POST /api/auth/mfa/confirm 401 in 417ms
+ ✓ Compiled /api/auth/mfa/verify in 251ms (439 modules)
+ POST /api/auth/mfa/verify 401 in 326ms
+ GET /api/auth/me 200 in 44ms
+ ✓ Compiled /api/auth/logout in 215ms (441 modules)
+ POST /api/auth/logout 200 in 279ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 3.9s (2489 modules)
+ GET /dashboard 200 in 4706ms
+ ○ Compiling /api/auth/login ...
+ ✓ Compiled /api/auth/login in 1193ms (2491 modules)
+ POST /api/auth/login 401 in 3154ms
+ POST /api/auth/login 401 in 251ms
+ POST /api/auth/login 200 in 2098ms
+ POST /api/auth/login 200 in 1369ms
+ POST /api/auth/login 200 in 1394ms
+ POST /api/auth/login 200 in 1365ms
+ POST /api/auth/login 200 in 1411ms
+ POST /api/auth/login 200 in 1396ms
+ POST /api/auth/login 200 in 1376ms
+ POST /api/auth/login 200 in 1372ms
+ GET /api/auth/me 200 in 698ms
+ POST /api/auth/login 401 in 487ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 1458ms (2571 modules)
+ GET /login 200 in 2323ms
+ ✓ Compiled in 843ms (1119 modules)
+ GET /api/courses 403 in 838ms
+ POST /api/auth/mfa/setup 200 in 1011ms
+ POST /api/auth/mfa/confirm 200 in 2357ms
+ GET /api/courses 200 in 2176ms
+ GET /api/categories 200 in 1096ms
+ POST /api/courses 201 in 2559ms
+ POST /api/courses 409 in 919ms
+ PATCH /api/courses/cmuwewozn000bcoe5u93isdvj 200 in 2000ms
+ POST /api/trainees 201 in 2866ms
+ POST /api/trainees 409 in 1117ms
+ GET /api/trainees?pageSize=10 200 in 1125ms
+ GET /api/trainees?status=ACTIVE,PENDING&categoryId=cmuv1wofo000ftse5osbqlaxo&pageSize=10 200 in 1146ms
+ GET /api/trainees?search=Umutoni 200 in 1117ms
+ GET /api/trainees?search=KSA-0005 200 in 1117ms
+ PATCH /api/trainees/cmuwewti5000ccoe5x6ol0wu4 200 in 2286ms
+ POST /api/trainees 422 in 685ms
+ GET /api/trainees?pageSize=500 422 in 685ms
+ GET /api/trainees/does-not-exist 404 in 935ms
+ GET /api/auth/me 200 in 678ms
+ POST /api/auth/logout 200 in 295ms
+ POST /api/auth/login 200 in 1395ms
+ POST /api/auth/mfa/verify 200 in 1828ms
+ POST /api/auth/logout 200 in 271ms
+ POST /api/auth/login 200 in 1390ms
+ POST /api/auth/mfa/verify 401 in 1461ms
+ POST /api/auth/mfa/verify 200 in 1570ms
+ POST /api/auth/logout 200 in 1563ms
+ POST /api/auth/login 200 in 1444ms
+ POST /api/auth/mfa/verify 200 in 1559ms
+ POST /api/auth/logout 200 in 255ms
+ POST /api/auth/login 200 in 1363ms
+ POST /api/auth/mfa/verify 401 in 1447ms
+ GET /api/courses 403 in 673ms
+ POST /api/auth/mfa/verify 401 in 1580ms
+ POST /api/auth/mfa/verify 401 in 1425ms
+ POST /api/auth/mfa/verify 401 in 1415ms
+ POST /api/auth/mfa/verify 401 in 1619ms
+ POST /api/auth/mfa/verify 429 in 763ms
+ POST /api/auth/mfa/verify 429 in 902ms
+ POST /api/auth/logout 200 in 419ms
+ POST /api/auth/login 200 in 1533ms
+ POST /api/auth/mfa/verify 200 in 1547ms
+ ○ Compiling /api/questions ...
+ ✓ Compiled /api/questions in 909ms (1281 modules)
+ POST /api/questions 201 in 3523ms
+ POST /api/questions 201 in 2442ms
+ POST /api/questions 201 in 2421ms
+ POST /api/questions 201 in 2432ms
+ GET /api/questions?courseId=cmuwewozn000bcoe5u93isdvj 200 in 1113ms
+ POST /api/questions 422 in 697ms
+ ✓ Compiled /api/exams/[courseId]/send in 482ms (1302 modules)
+ POST /api/exams/cmuwewozn000bcoe5u93isdvj/send 422 in 2149ms
+ POST /api/exams/cmuwewozn000bcoe5u93isdvj/send 401 in 50ms
+ ✓ Compiled /api/courses/[id] in 111ms (185 modules)
+ PATCH /api/courses/cmuwewozn000bcoe5u93isdvj 200 in 2235ms
+ ✓ Compiled /api/trainees/[id] in 153ms (188 modules)
+ PATCH /api/trainees/cmuwewti5000ccoe5x6ol0wu4 200 in 2645ms
+ POST /api/exams/cmuwewozn000bcoe5u93isdvj/send 201 in 3457ms
+ ✓ Compiled /api/exams/attempts/[token]/verify-otp in 409ms (1296 modules)
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/verify-otp 401 in 3289ms
+ ✓ Compiled /api/exams/attempts/[token]/next in 344ms (1298 modules)
+ GET /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/next 401 in 1534ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/verify-otp 200 in 894ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/verify-otp 409 in 620ms
+ GET /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/next 200 in 1079ms
+ ✓ Compiled /api/exams/attempts/[token]/answer in 358ms (1300 modules)
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 200 in 1783ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 200 in 686ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 200 in 697ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 200 in 701ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 422 in 478ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 200 in 697ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 200 in 691ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 200 in 668ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/answer 200 in 711ms
+ ✓ Compiled /api/exams/attempts/[token]/submit in 473ms (1303 modules)
+[notifications] emit exam.submitted failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:190:3)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+[notifications] emit exam.passed failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:198:5)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+[notifications] emit certificate.issued failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:208:7)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/submit 200 in 10649ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/verify-otp 401 in 1770ms
+ GET /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/next 401 in 477ms
+ POST /api/exams/attempts/FNfC8LLtEucAK1smD_wMGvmEFggcNt_a_ZDjSnwFeNg/submit 200 in 1112ms
+ ✓ Compiled /api/certificates in 460ms (1305 modules)
+ GET /api/certificates 200 in 1677ms
+ ✓ Compiled /api/verify/[token] in 330ms (1309 modules)
+ GET /api/verify/rzmwxre2JHWMw5PKAG59Ab3McvAp2xUEsaE2m8z9rhQ 200 in 1496ms
+ GET /api/verify/rzmwxre2JHWMw5PKAG59Ab3McvAp2xUEsaE2m8z9rhQ 200 in 468ms
+ GET /api/verify/definitely-not-a-real-token 404 in 19ms
+ ✓ Compiled /api/certificates/[id]/revoke in 300ms (1311 modules)
+ POST /api/certificates/cmuweza4c0018coe54gv4o7h3/revoke 200 in 3509ms
+ GET /api/verify/rzmwxre2JHWMw5PKAG59Ab3McvAp2xUEsaE2m8z9rhQ 200 in 476ms
+ ○ Compiling /api/certificates/[id]/pdf ...
+ ✓ Compiled /api/certificates/[id]/pdf in 517ms (1297 modules)
+ GET /api/certificates/cmuweza4c0018coe54gv4o7h3/pdf 200 in 3526ms
+ ○ Compiling /api/access-links ...
+ ✓ Compiled /api/access-links in 551ms (1315 modules)
+ GET /api/access-links 401 in 633ms
+ POST /api/access-links 201 in 1173ms
+ POST /api/access-links 422 in 786ms
+ POST /api/access-links 422 in 686ms
+ GET /api/access-links 200 in 1126ms
+ ✓ Compiled /api/access-links/redeem in 357ms (1303 modules)
+ POST /api/access-links/redeem 201 in 2430ms
+ POST /api/access-links/redeem 410 in 467ms
+ POST /api/access-links/redeem 410 in 466ms
+ POST /api/access-links/redeem 410 in 469ms
+ ✓ Compiled /api/auth/login in 197ms (200 modules)
+ POST /api/auth/login 200 in 1640ms
+ ○ Compiling /api/courses ...
+ ✓ Compiled /api/courses in 747ms (202 modules)
+ GET /api/courses 403 in 1529ms
+ ✓ Compiled /api/devices in 326ms (1309 modules)
+ GET /api/devices 200 in 1708ms
+ ✓ Compiled /api/devices/[id]/revoke in 347ms (1304 modules)
+ POST /api/devices/cmuwew73q0000coe5edia2054/revoke 422 in 2025ms
+ ✓ Compiled /api/referral-codes in 301ms (1307 modules)
+ POST /api/referral-codes 201 in 1478ms
+ GET /api/access-links 401 in 45ms
+ POST /api/access-links 201 in 1137ms
+ POST /api/access-links/redeem 201 in 2039ms
+ ○ Compiling /api/access-links/[id]/revoke ...
+ ✓ Compiled /api/access-links/[id]/revoke in 582ms (1321 modules)
+ POST /api/access-links/cmuwf03ts001scoe5qvui4xxm/revoke 200 in 4278ms
+ POST /api/access-links/redeem 410 in 449ms
+ ○ Compiling /offline ...
+ ✓ Compiled /offline in 1560ms (1666 modules)
+ GET /offline 200 in 2092ms
+ ✓ Compiled /api/notifications in 412ms (1668 modules)
+ GET /api/notifications 200 in 2646ms
+ POST /api/notifications 200 in 1121ms
+ POST /api/notifications 200 in 1121ms
+ POST /api/notifications 200 in 1276ms
+ GET /api/notifications 401 in 46ms
+ ✓ Compiled /api/notifications/stream in 464ms (1670 modules)
+ GET /api/notifications/stream 200 in 1301ms
+ GET /api/notifications/stream 401 in 62ms
+ ✓ Compiled /api/auth/me in 290ms (562 modules)
+ GET /api/auth/me 200 in 864ms
+ GET /api/auth/me 200 in 749ms
+ GET /api/auth/me 200 in 924ms
+ ✓ Compiled in 372ms (1122 modules)
+ ✓ Compiled /api/health in 199ms (532 modules)
+ GET /api/health 200 in 1731ms
+ GET /api/courses 401 in 78ms
+ ✓ Compiled /api/trainees in 305ms (534 modules)
+ GET /api/trainees 401 in 450ms
+ ✓ Compiled /api/categories in 195ms (536 modules)
+ GET /api/categories 401 in 282ms
+ ✓ Compiled /api/courses/[id] in 266ms (538 modules)
+ GET /api/courses/e2e-1 401 in 465ms
+ ✓ Compiled /api/trainees/[id] in 253ms (540 modules)
+ GET /api/trainees/e2e-1 401 in 367ms
+ PATCH /api/courses/e2e-1 401 in 39ms
+ PATCH /api/trainees/e2e-1 401 in 23ms
+ DELETE /api/courses/e2e-1 401 in 41ms
+ ✓ Compiled /api/auth/mfa/setup in 505ms (620 modules)
+ POST /api/auth/mfa/setup 401 in 726ms
+ ✓ Compiled /api/auth/mfa/confirm in 362ms (622 modules)
+ POST /api/auth/mfa/confirm 401 in 473ms
+ ✓ Compiled /api/auth/mfa/verify in 261ms (624 modules)
+ POST /api/auth/mfa/verify 401 in 363ms
+ GET /api/auth/me 200 in 38ms
+ ✓ Compiled /api/auth/logout in 315ms (626 modules)
+ POST /api/auth/logout 200 in 477ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 1228ms (1446 modules)
+ GET /dashboard 200 in 2225ms
+ POST /api/auth/login 401 in 721ms
+ POST /api/auth/login 401 in 238ms
+ POST /api/auth/login 200 in 2152ms
+ POST /api/auth/login 200 in 1360ms
+ POST /api/auth/login 200 in 1322ms
+ POST /api/auth/login 200 in 1431ms
+ POST /api/auth/login 200 in 1305ms
+ POST /api/auth/login 200 in 1319ms
+ POST /api/auth/login 200 in 1317ms
+ POST /api/auth/login 200 in 1367ms
+ GET /api/auth/me 200 in 691ms
+ POST /api/auth/login 401 in 471ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 535ms (1472 modules)
+ GET /login 200 in 1051ms
+ GET /api/courses 403 in 717ms
+ POST /api/auth/mfa/setup 200 in 971ms
+ POST /api/auth/mfa/confirm 200 in 2227ms
+ GET /api/courses 200 in 2169ms
+ GET /api/categories 200 in 904ms
+ POST /api/courses 201 in 1916ms
+ POST /api/courses 409 in 872ms
+ PATCH /api/courses/cmuwf1qw6002acoe5kb43fha3 200 in 1941ms
+ POST /api/trainees 201 in 2755ms
+ POST /api/trainees 409 in 1086ms
+ GET /api/trainees?pageSize=10 200 in 2566ms
+ GET /api/trainees?status=ACTIVE,PENDING&categoryId=cmuv1wofo000ftse5osbqlaxo&pageSize=10 200 in 1247ms
+ GET /api/trainees?search=Umutoni 200 in 1266ms
+ GET /api/trainees?search=KSA-0005 200 in 1366ms
+ PATCH /api/trainees/cmuwf1v1i002bcoe59ce9xv3z 200 in 2444ms
+ POST /api/trainees 422 in 676ms
+ GET /api/trainees?pageSize=500 422 in 709ms
+ GET /api/trainees/does-not-exist 404 in 932ms
+ GET /api/auth/me 200 in 688ms
+ POST /api/auth/logout 200 in 273ms
+ POST /api/auth/login 200 in 1401ms
+ POST /api/auth/mfa/verify 200 in 1820ms
+ POST /api/auth/logout 200 in 281ms
+ POST /api/auth/login 200 in 1587ms
+ POST /api/auth/mfa/verify 401 in 1515ms
+ POST /api/auth/mfa/verify 200 in 1548ms
+ POST /api/auth/logout 200 in 1963ms
+ POST /api/auth/login 200 in 1488ms
+ POST /api/auth/mfa/verify 200 in 1629ms
+ POST /api/auth/logout 200 in 302ms
+ POST /api/auth/login 200 in 1504ms
+ POST /api/auth/mfa/verify 401 in 2257ms
+ GET /api/courses 403 in 765ms
+ POST /api/auth/mfa/verify 401 in 2490ms
+ POST /api/auth/mfa/verify 401 in 2235ms
+ POST /api/auth/mfa/verify 401 in 1987ms
+ POST /api/auth/mfa/verify 401 in 2103ms
+ POST /api/auth/mfa/verify 429 in 893ms
+ POST /api/auth/mfa/verify 429 in 763ms
+ POST /api/auth/logout 200 in 473ms
+ POST /api/auth/login 200 in 1521ms
+ POST /api/auth/mfa/verify 200 in 1578ms
+ ○ Compiling /api/questions ...
+ ✓ Compiled /api/questions in 2s (171 modules)
+ POST /api/questions 201 in 5750ms
+ POST /api/questions 201 in 2469ms
+ POST /api/questions 201 in 2501ms
+ POST /api/questions 201 in 2869ms
+ GET /api/questions?courseId=cmuwf1qw6002acoe5kb43fha3 200 in 1412ms
+ POST /api/questions 422 in 762ms
+ ✓ Compiled /api/exams/[courseId]/send in 493ms (183 modules)
+ POST /api/exams/cmuwf1qw6002acoe5kb43fha3/send 422 in 1551ms
+ POST /api/exams/cmuwf1qw6002acoe5kb43fha3/send 401 in 68ms
+ ✓ Compiled /api/courses/[id] in 260ms (185 modules)
+ PATCH /api/courses/cmuwf1qw6002acoe5kb43fha3 200 in 2548ms
+ ✓ Compiled /api/trainees/[id] in 484ms (188 modules)
+ PATCH /api/trainees/cmuwf1v1i002bcoe59ce9xv3z 200 in 3352ms
+ POST /api/exams/cmuwf1qw6002acoe5kb43fha3/send 201 in 3172ms
+ ○ Compiling /api/exams/attempts/[token]/verify-otp ...
+ ✓ Compiled /api/exams/attempts/[token]/verify-otp in 983ms (191 modules)
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/verify-otp 401 in 3363ms
+ ○ Compiling /api/exams/attempts/[token]/next ...
+ ✓ Compiled /api/exams/attempts/[token]/next in 1147ms (193 modules)
+ GET /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/next 401 in 1859ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/verify-otp 200 in 860ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/verify-otp 409 in 488ms
+ GET /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/next 200 in 1220ms
+ ✓ Compiled /api/exams/attempts/[token]/answer in 460ms (195 modules)
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 200 in 1380ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 200 in 699ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 200 in 764ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 200 in 738ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 422 in 590ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 200 in 957ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 200 in 865ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 200 in 953ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/answer 200 in 863ms
+ ○ Compiling /api/exams/attempts/[token]/submit ...
+ ✓ Compiled /api/exams/attempts/[token]/submit in 1048ms (198 modules)
+[notifications] emit exam.submitted failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:190:3)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+[notifications] emit exam.passed failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:198:5)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+[notifications] emit certificate.issued failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:208:7)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/submit 200 in 12452ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/verify-otp 401 in 1864ms
+ GET /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/next 401 in 569ms
+ POST /api/exams/attempts/OVJpVjYn4en2AKzVDtF0txnV6Y7r6R0r3fB0sA5ecds/submit 200 in 1207ms
+ ○ Compiling /api/certificates ...
+ ✓ Compiled /api/certificates in 2.4s (179 modules)
+ GET /api/certificates 200 in 3752ms
+ ✓ Compiled /api/verify/[token] in 422ms (183 modules)
+ GET /api/verify/So_XV-RCOcChpp06wGJYrw9L9ZwAzF7EWa4iT0zRiJM 200 in 1172ms
+ GET /api/verify/So_XV-RCOcChpp06wGJYrw9L9ZwAzF7EWa4iT0zRiJM 200 in 580ms
+ GET /api/verify/definitely-not-a-real-token 404 in 154ms
+ ○ Compiling /api/certificates/[id]/revoke ...
+ ✓ Compiled /api/certificates/[id]/revoke in 1091ms (185 modules)
+ POST /api/certificates/cmuwf4ld20037coe5kxddbwbu/revoke 200 in 3902ms
+ GET /api/verify/So_XV-RCOcChpp06wGJYrw9L9ZwAzF7EWa4iT0zRiJM 200 in 604ms
+ ○ Compiling /api/certificates/[id]/pdf ...
+ ✓ Compiled /api/certificates/[id]/pdf in 2.3s (192 modules)
+ GET /api/certificates/cmuwf4ld20037coe5kxddbwbu/pdf 200 in 5022ms
+ ○ Compiling /api/access-links ...
+ ✓ Compiled /api/access-links in 2.6s (194 modules)
+ GET /api/access-links 401 in 2909ms
+ POST /api/access-links 201 in 1261ms
+ POST /api/access-links 422 in 838ms
+ POST /api/access-links 422 in 770ms
+ GET /api/access-links 200 in 1165ms
+ ✓ Compiled /api/access-links/redeem in 272ms (190 modules)
+ POST /api/access-links/redeem 201 in 2503ms
+ POST /api/access-links/redeem 410 in 473ms
+ POST /api/access-links/redeem 410 in 470ms
+ POST /api/access-links/redeem 410 in 463ms
+ ✓ Compiled /api/auth/login in 414ms (193 modules)
+ POST /api/auth/login 200 in 1953ms
+ ○ Compiling /api/courses ...
+ ✓ Compiled /api/courses in 1693ms (193 modules)
+ GET /api/courses 403 in 2534ms
+ ✓ Compiled /api/devices in 256ms (195 modules)
+ GET /api/devices 200 in 1731ms
+ ✓ Compiled /api/devices/[id]/revoke in 327ms (197 modules)
+ POST /api/devices/cmuwf1aqr001zcoe5fm28d4ng/revoke 422 in 1372ms
+ ✓ Compiled /api/referral-codes in 246ms (200 modules)
+ POST /api/referral-codes 201 in 1458ms
+ GET /api/access-links 401 in 35ms
+ POST /api/access-links 201 in 1114ms
+ POST /api/access-links/redeem 201 in 2190ms
+ ✓ Compiled /api/access-links/[id]/revoke in 232ms (202 modules)
+ POST /api/access-links/cmuwf5m0x003rcoe5yus405iu/revoke 200 in 3482ms
+ POST /api/access-links/redeem 410 in 545ms
+ ○ Compiling /offline ...
+ ✓ Compiled /offline in 993ms (558 modules)
+ GET /offline 200 in 1662ms
+ ✓ Compiled /api/notifications in 315ms (560 modules)
+ GET /api/notifications 200 in 2710ms
+ POST /api/notifications 200 in 1130ms
+ POST /api/notifications 200 in 1265ms
+ POST /api/notifications 200 in 1492ms
+ GET /api/notifications 401 in 64ms
+ ✓ Compiled /api/notifications/stream in 303ms (560 modules)
+ GET /api/notifications/stream 200 in 1249ms
+ GET /api/notifications/stream 401 in 31ms
+ ✓ Compiled /api/auth/me in 295ms (562 modules)
+ GET /api/auth/me 200 in 824ms
+ GET /api/auth/me 200 in 692ms
+ GET /api/auth/me 200 in 913ms
+ ✓ Compiled /api/health in 179ms (523 modules)
+ GET /api/health 200 in 1745ms
+ ✓ Compiled /api/courses in 149ms (526 modules)
+ GET /api/courses 401 in 259ms
+ ✓ Compiled /api/trainees in 267ms (528 modules)
+ GET /api/trainees 401 in 486ms
+ ✓ Compiled /api/categories in 239ms (530 modules)
+ GET /api/categories 401 in 344ms
+ ✓ Compiled /api/courses/[id] in 279ms (532 modules)
+ GET /api/courses/e2e-1 401 in 532ms
+ ✓ Compiled /api/trainees/[id] in 253ms (534 modules)
+ GET /api/trainees/e2e-1 401 in 409ms
+ PATCH /api/courses/e2e-1 401 in 49ms
+ PATCH /api/trainees/e2e-1 401 in 29ms
+ DELETE /api/courses/e2e-1 401 in 38ms
+ ○ Compiling /api/auth/mfa/setup ...
+ ✓ Compiled /api/auth/mfa/setup in 548ms (614 modules)
+ POST /api/auth/mfa/setup 401 in 747ms
+ ✓ Compiled /api/auth/mfa/confirm in 229ms (616 modules)
+ POST /api/auth/mfa/confirm 401 in 346ms
+ ✓ Compiled /api/auth/mfa/verify in 246ms (618 modules)
+ POST /api/auth/mfa/verify 401 in 400ms
+ GET /api/auth/me 200 in 45ms
+ ✓ Compiled /api/auth/logout in 319ms (620 modules)
+ POST /api/auth/logout 200 in 478ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 1745ms (1440 modules)
+ GET /dashboard 200 in 4234ms
+ ○ Compiling /api/auth/login ...
+ ✓ Compiled /api/auth/login in 1846ms (1415 modules)
+ POST /api/auth/login 401 in 3755ms
+ POST /api/auth/login 401 in 230ms
+ POST /api/auth/login 200 in 1942ms
+ POST /api/auth/login 200 in 1349ms
+ POST /api/auth/login 200 in 1327ms
+ POST /api/auth/login 200 in 1308ms
+ POST /api/auth/login 200 in 1313ms
+ POST /api/auth/login 200 in 1317ms
+ POST /api/auth/login 200 in 1334ms
+ POST /api/auth/login 200 in 1327ms
+ GET /api/auth/me 200 in 702ms
+ POST /api/auth/login 401 in 471ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 765ms (1452 modules)
+ GET /login 200 in 1472ms
+ GET /api/courses 403 in 839ms
+ POST /api/auth/mfa/setup 200 in 1165ms
+ POST /api/auth/mfa/confirm 200 in 2576ms
+ GET /api/courses 200 in 2142ms
+ GET /api/categories 200 in 894ms
+ POST /api/courses 201 in 1924ms
+ POST /api/courses 409 in 862ms
+ PATCH /api/courses/cmuwf7pb10049coe5v82f492c 200 in 1956ms
+ POST /api/trainees 201 in 2869ms
+ POST /api/trainees 409 in 1060ms
+ GET /api/trainees?pageSize=10 200 in 2433ms
+ GET /api/trainees?status=ACTIVE,PENDING&categoryId=cmuv1wofo000ftse5osbqlaxo&pageSize=10 200 in 1110ms
+ GET /api/trainees?search=Umutoni 200 in 1122ms
+ GET /api/trainees?search=KSA-0005 200 in 1197ms
+ PATCH /api/trainees/cmuwf7tjx004acoe5p9m0x78v 200 in 2221ms
+ POST /api/trainees 422 in 687ms
+ GET /api/trainees?pageSize=500 422 in 685ms
+ GET /api/trainees/does-not-exist 404 in 911ms
+ GET /api/auth/me 200 in 703ms
+ POST /api/auth/logout 200 in 265ms
+ POST /api/auth/login 200 in 1419ms
+ POST /api/auth/mfa/verify 200 in 1816ms
+ POST /api/auth/logout 200 in 269ms
+ POST /api/auth/login 200 in 1374ms
+ POST /api/auth/mfa/verify 401 in 1482ms
+ POST /api/auth/mfa/verify 200 in 1545ms
+ POST /api/auth/logout 200 in 1613ms
+ POST /api/auth/login 200 in 1424ms
+ POST /api/auth/mfa/verify 200 in 1704ms
+ POST /api/auth/logout 200 in 426ms
+ POST /api/auth/login 200 in 1544ms
+ POST /api/auth/mfa/verify 401 in 1799ms
+ GET /api/courses 403 in 713ms
+ POST /api/auth/mfa/verify 401 in 1542ms
+ POST /api/auth/mfa/verify 401 in 1432ms
+ POST /api/auth/mfa/verify 401 in 1457ms
+ POST /api/auth/mfa/verify 401 in 1528ms
+ POST /api/auth/mfa/verify 429 in 711ms
+ POST /api/auth/mfa/verify 429 in 718ms
+ POST /api/auth/logout 200 in 256ms
+ POST /api/auth/login 200 in 1376ms
+ POST /api/auth/mfa/verify 200 in 1565ms
+ ○ Compiling /api/questions ...
+ ✓ Compiled /api/questions in 804ms (177 modules)
+ POST /api/questions 201 in 3534ms
+ POST /api/questions 201 in 2432ms
+ POST /api/questions 201 in 2456ms
+ POST /api/questions 201 in 2559ms
+ GET /api/questions?courseId=cmuwf7pb10049coe5v82f492c 200 in 1331ms
+ POST /api/questions 422 in 807ms
+ ✓ Compiled /api/exams/[courseId]/send in 142ms (183 modules)
+ POST /api/exams/cmuwf7pb10049coe5v82f492c/send 422 in 982ms
+ POST /api/exams/cmuwf7pb10049coe5v82f492c/send 401 in 36ms
+ ✓ Compiled /api/courses/[id] in 112ms (185 modules)
+ PATCH /api/courses/cmuwf7pb10049coe5v82f492c 200 in 2330ms
+ ✓ Compiled /api/trainees/[id] in 109ms (188 modules)
+ PATCH /api/trainees/cmuwf7tjx004acoe5p9m0x78v 200 in 2625ms
+ POST /api/exams/cmuwf7pb10049coe5v82f492c/send 201 in 3485ms
+ ✓ Compiled /api/exams/attempts/[token]/verify-otp in 187ms (191 modules)
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/verify-otp 401 in 2384ms
+ ✓ Compiled /api/exams/attempts/[token]/next in 218ms (193 modules)
+ GET /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/next 401 in 892ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/verify-otp 200 in 766ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/verify-otp 409 in 488ms
+ GET /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/next 200 in 1128ms
+ ✓ Compiled /api/exams/attempts/[token]/answer in 165ms (195 modules)
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 200 in 923ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 200 in 703ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 200 in 703ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 200 in 676ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 422 in 476ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 200 in 686ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 200 in 729ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 200 in 691ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/answer 200 in 675ms
+ ✓ Compiled /api/exams/attempts/[token]/submit in 310ms (198 modules)
+[notifications] emit exam.submitted failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:190:3)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+[notifications] emit exam.passed failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:198:5)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+[notifications] emit certificate.issued failed Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.notification.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `Notification_userId_fkey`
+    at async emit (lib\notifications\emit.ts:64:19)
+    at async POST (app\api\exams\attempts\[token]\submit\route.ts:208:7)
+  62 |
+  63 |     try {
+> 64 |       const row = await prisma.notification.create({
+     |                   ^
+  65 |         data: {
+  66 |           userId: target.userId,
+  67 |           type, {
+  code: 'P2003',
+  meta: [Object],
+  clientVersion: '7.10.0'
+}
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/submit 200 in 9966ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/verify-otp 401 in 1732ms
+ GET /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/next 401 in 471ms
+ POST /api/exams/attempts/f_h0eI6kCYKevHhaN-PSyoVC0y0s8D-UPuj3qa3j2hE/submit 200 in 1138ms
+ ✓ Compiled /api/certificates in 336ms (202 modules)
+ GET /api/certificates 200 in 1672ms
+ ✓ Compiled /api/verify/[token] in 138ms (204 modules)
+ GET /api/verify/DSH50Sa48sRF9TzR5b2tfBn6CyGk7ZhbOsBlB5VrmvI 200 in 650ms
+ GET /api/verify/DSH50Sa48sRF9TzR5b2tfBn6CyGk7ZhbOsBlB5VrmvI 200 in 467ms
+ GET /api/verify/definitely-not-a-real-token 404 in 33ms
+ ✓ Compiled /api/certificates/[id]/revoke in 163ms (206 modules)
+ POST /api/certificates/cmuwfa8m20056coe523o1nix3/revoke 200 in 2668ms
+ GET /api/verify/DSH50Sa48sRF9TzR5b2tfBn6CyGk7ZhbOsBlB5VrmvI 200 in 493ms
+ ✓ Compiled /api/certificates/[id]/pdf in 514ms (213 modules)
+ GET /api/certificates/cmuwfa8m20056coe523o1nix3/pdf 200 in 1987ms
+ ✓ Compiled /api/access-links in 476ms (213 modules)
+ GET /api/access-links 401 in 576ms
+ POST /api/access-links 201 in 1141ms
+ POST /api/access-links 422 in 820ms
+ POST /api/access-links 422 in 684ms
+ GET /api/access-links 200 in 1138ms
+ ✓ Compiled /api/access-links/redeem in 175ms (215 modules)
+ POST /api/access-links/redeem 201 in 2255ms
+ POST /api/access-links/redeem 410 in 466ms
+ POST /api/access-links/redeem 410 in 491ms
+ POST /api/access-links/redeem 410 in 481ms
+ ✓ Compiled /api/auth/login in 155ms (200 modules)
+ POST /api/auth/login 200 in 1580ms
+ ○ Compiling /api/courses ...
+ ✓ Compiled /api/courses in 841ms (202 modules)
+ GET /api/courses 403 in 1678ms
+ ✓ Compiled /api/devices in 184ms (204 modules)
+ GET /api/devices 200 in 1596ms
+ ✓ Compiled /api/devices/[id]/revoke in 163ms (206 modules)
+ POST /api/devices/cmuwf78g4003ycoe5qpwj05xx/revoke 422 in 1139ms
+ ✓ Compiled /api/referral-codes in 190ms (209 modules)
+ POST /api/referral-codes 201 in 1373ms
+ GET /api/access-links 401 in 47ms
+ POST /api/access-links 201 in 1115ms
+ POST /api/access-links/redeem 201 in 2017ms
+ ✓ Compiled /api/access-links/[id]/revoke in 159ms (207 modules)
+ POST /api/access-links/cmuwfayt5005qcoe5ob1sbiuq/revoke 200 in 3262ms
+ POST /api/access-links/redeem 410 in 498ms
+ ○ Compiling /offline ...
+ ✓ Compiled /offline in 1496ms (563 modules)
+ GET /offline 200 in 2416ms
+ ○ Compiling /api/notifications ...
+ ✓ Compiled /api/notifications in 569ms (565 modules)
+ GET /api/notifications 200 in 2935ms
+ POST /api/notifications 200 in 1121ms
+ POST /api/notifications 200 in 1282ms
+ POST /api/notifications 200 in 1283ms
+ GET /api/notifications 401 in 51ms
+ ✓ Compiled /api/notifications/stream in 243ms (562 modules)
+ GET /api/notifications/stream 200 in 1021ms
+ GET /api/notifications/stream 401 in 30ms
+ ✓ Compiled /api/auth/me in 303ms (564 modules)
+ GET /api/auth/me 200 in 971ms
+ GET /api/auth/me 200 in 1091ms
+ GET /api/auth/me 200 in 914ms
+ ✓ Compiled in 1845ms (1122 modules)
+ ✓ Compiled in 707ms (1122 modules)

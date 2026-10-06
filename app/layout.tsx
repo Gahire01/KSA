@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Suspense } from "react";
 
 import { Providers } from "@/components/providers";
+import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -36,6 +37,25 @@ export const metadata: Metadata = {
   applicationName: "Kigali Safety Academy",
   authors: [{ name: "Kigali Safety Academy" }],
   robots: { index: false, follow: false },
+  /* PWA. The manifest carries the icon list, so metadata only points at it —
+   * keeping one source for the icons rather than two lists that drift. */
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/icon.svg", type: "image/svg+xml", sizes: "any" },
+      { url: "/icons/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icons/favicon-16.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  /* iOS ignores the manifest; it wants its own meta tags, and it installs from
+   * the home screen only when these are present. */
+  appleWebApp: {
+    capable: true,
+    title: "KSA",
+    statusBarStyle: "default",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -64,6 +84,7 @@ export default function RootLayout({
           <Providers>{children}</Providers>
         </Suspense>
         <Toaster />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

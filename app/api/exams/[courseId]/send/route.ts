@@ -36,7 +36,7 @@ export async function POST(request: Request, context: { params: Promise<{ course
   const parsed = examSendSchema.safeParse(body);
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
-  const { traineeIds, expiresInHours } = parsed.data;
+  const { traineeIds } = parsed.data;
 
   const course = await prisma.course.findUnique({
     where: { id: courseId },
@@ -82,8 +82,8 @@ export async function POST(request: Request, context: { params: Promise<{ course
 
   const usedMap = new Map(priorCounts.map((row) => [row.traineeId, row._count._all]));
 
-  const linkHours = Math.min(24, Math.max(1, expiresInHours ?? 24));
-  const linkExpiresAt = new Date(Date.now() + linkHours * 60 * 60 * 1000);
+
+  const linkExpiresAt: Date | null = null;
   const ip = await requestIp();
 
   const sent: Array<{

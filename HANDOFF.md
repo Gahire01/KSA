@@ -1,4 +1,4 @@
-## Session � 2026-10-05 17:03:07 +02:00 � Resume after PC crash
+## Session � 2026-10-05 17:03:07 +02:00 � Resume after PC crash
 
 ### git log --oneline -10
 835ad9d chore: fix certificate folder name, add progress and handoff docs
@@ -384,3 +384,102 @@ submit grades 100% -> PASSED -> certificate issued at studentNumber 263.
 - Access links, referrals and the 5-device cap are untouched (Step 4).
 - No PWA manifest/icons/service worker, no Lighthouse run, no Vercel deploy.
 - `NEXT_PUBLIC_APP_URL` is still absent from .env.local.
+
+---
+
+## Session: Step 10 certificates, public verification, revocation and PDF
+
+### Routes added
+- `app/api/certificates/route.ts` — staff register. `certificate.read`, MFA required.
+  Search across trainee name, enrolment number, course name/code and the numeric
+  student number; status is filtered in memory because it is derived, not stored.
+- `app/api/certificates/[id]/route.ts` — staff detail, including `contentHash` and
+  the originating attempt so a certificate can be traced back to its exam.
+- `app/api/certificates/[id]/revoke/route.ts` — `certificate.revoke`, which is
+  OWNER-only in `lib/auth/authorize.ts`. Idempotent: revoking twice returns the
+  certificate rather than erroring, so a double-clicked button is not a failure.
+  Writes an `auditLog` row with the actor, reason and IP.
+- `app/api/certificates/[id]/pdf/route.ts` — `private, no-store`, `attachment`
+  disposition. `certificate.read` rather than a new grant: an actor who may revoke
+  already holds read.
+- `app/api/verify/[token]/route.ts` — unauthenticated, deliberately. Returns 200 with
+  `status: "REVOKED"` rather than an error so the public page can show the reason;
+  only a token matching nothing is a 404.
+
+### Public payload is deliberately thin
+`lib/certificates/verify.ts` is the single projection used by both the API route and
+the server-rendered page, so the two cannot drift. It carries the holder's name, the
+course, the topics, the dates, the printed student number and the revocation reason —
+and nothing else. No email, no phone, no internal id, no enrolment number, and no
+`contentHash`. The old mock page printed the content hash on the public card, which
+would have handed anyone holding a leaked token enough to confirm a forged row.
+
+The token helpers live in `lib/certificates/token.ts` rather than `verify.ts` so the
+search box in `/verify` can parse a pasted link in the browser without pulling Prisma
+and the `pg` driver into the client bundle — that split is what first broke the build.
+
+### Status is derived, never stored
+`lib/certificates/status.ts` computes VALID / EXPIRING / EXPIRED / REVOKED from
+`revokedAt` and `expiresAt` on read. Revoked wins over expired: "we withdrew this" is
+the more important message to an employer. Storing the state would need a nightly job
+to keep it honest.
+
+### Revocation keeps the row
+Revoking never deletes. A revoked certificate that quietly vanished would leave an
+employer holding a PDF with no way to learn it was withdrawn, and it would destroy
+the audit trail. The PDF still renders, stamped REVOKED.
+
+### PDF
+`@react-pdf/renderer` 4.9.0 added. `lib/certificates/pdf.tsx` builds the document and
+`lib/certificates/render.ts` renders the buffer. Both read only the snapshot columns,
+so a renamed course or trainee never rewrites an already-issued certificate. Fonts are
+read from `public/fonts` if present and fall back to base-14 Helvetica rather than
+fetching from a CDN, so a cold render cannot block on the network.
+
+The score is deliberately **not** printed on the certificate. A pass mark is an
+internal judgement; printing it turns a competence record into a permanent grade
+sheet. The old mock page printed it, along with a fake `pdfKey`.
+
+### Fixed: certificates could be lost permanently
+`app/api/exams/attempts/[token]/submit/route.ts` set the attempt to PASSED and marked
+the trainee COMPLETED *before* allocating a student number. If allocation then failed —
+a number clash that outlasts the retry, or a process death in between — the attempt
+stayed PASSED, nothing retried it, and the trainee was permanently without their
+certificate.
+
+A transaction is not the fix: the MAX+1 allocation relies on catching a P2002 unique
+violation, and a failed statement aborts a Postgres transaction, so the retry loop
+cannot run inside one. Made it self-healing instead:
+
+- Allocation failure on the first path now logs loudly with the attempt, trainee and
+  course ids, instead of failing quietly.
+- The replay path (any re-submit of an already-graded attempt) attempts issuance again
+  when the attempt is PASSED. `issueCertificate` returns the existing row without
+  re-sending the email, so this repairs the hole and cannot spam the holder.
+
+### Verification
+`npx tsc --noEmit` clean, `pnpm lint` clean, `pnpm build` green.
+`tmp-e2e.ts`: **131/131**, stable across two consecutive runs. The first run showed one
+failure, which was cold route compilation on the newly added endpoints.
+
+### Verified end to end
+send -> OTP -> paper -> autosave -> submit grades 100% -> PASSED -> certificate
+issued at studentNumber 263 -> register lists it -> `/api/verify/<token>` returns
+VALID with no session and no `@` anywhere in the body -> owner revokes -> same URL
+returns REVOKED with the reason -> `/pdf` returns 200, `attachment`,
+`application/pdf`, body starting `%PDF` (5060 bytes).
+
+### Pre-launch blockers
+Verify kigalisafety.dev on Resend before launch: add DKIM/SPF DNS records, then swap EMAIL_FROM.
+
+### Still open after Step 10
+- `app/api/questions/route.ts` returns `isCorrect` to staff; Step 9's blanket grep
+  needs a decision on whether staff question editing gets the answer key back.
+- Access links, referral codes and the 5-device cap (Step 4) untouched.
+- No SSE route, heartbeat, client hook or notification centre (Step 6).
+- No PWA manifest/icons/service worker (Step 7), no Lighthouse run (Step 8), no Vercel
+  deploy.
+- Manual gates: real OTP inbox check, six-browser device test, phone PWA install.
+- `NEXT_PUBLIC_APP_URL` is still absent from .env.local; `appUrl()` falls back to
+  `APP_URL`, which is correct for localhost but must be set for production.
+

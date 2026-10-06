@@ -5,8 +5,16 @@ export type ApiSuccess<T> = { ok: true; data: T };
 export type ApiFailure = { ok: false; error: string; requestId?: string };
 export type ApiEnvelope<T> = ApiSuccess<T> | ApiFailure;
 
-export function apiOk<T>(data: T, status = 200): NextResponse<ApiSuccess<T>> {
-  return NextResponse.json({ ok: true, data }, { status });
+/**
+ * Success envelope. `headers` exists for the rare route that needs a cache policy
+ * alongside the payload; leaving it off keeps the JSON responses uncached by default.
+ */
+export function apiOk<T>(
+  data: T,
+  status = 200,
+  headers?: Record<string, string>,
+): NextResponse<ApiSuccess<T>> {
+  return NextResponse.json({ ok: true, data }, { status, headers });
 }
 
 /**

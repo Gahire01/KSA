@@ -18,7 +18,6 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -30,10 +29,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { mockApi } from "@/lib/mock";
+import { api } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { formatDate, formatDateTime, formatNumber } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 import type { CertificateStatus } from "@/lib/types";
+
+/**
+ * /certificates/:id — one certificate, with the printed sheet previewed in place.
+ *
+ * The preview and the PDF are generated from the same snapshot columns, so what
+ * staff see here is what the holder receives. Score and attempt number are shown in
+ * the side panel as an audit aid, but they are **not** printed on the certificate:
+ * a pass mark is an internal judgement, and printing it turns a competence record
+ * into a grade sheet that reads as a permanent score.
+ */
 
 const STATUS_LABEL: Record<CertificateStatus, string> = {
   VALID: "Valid",
@@ -50,12 +59,41 @@ const REVOKE_REASONS = [
   "Requested by holder",
 ] as const;
 
+interface CertificateDetail {
+  id: string;
+  traineeId: string;
+  courseId: string;
+  attemptId: string | null;
+  studentNumber: number;
+  verificationToken: string;
+  contentHash: string;
+  topicsSnapshot: string[];
+  durationSnapshot: string;
+  trainerNameSnapshot: string;
+  trainerTitleSnapshot: string;
+  issuedAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  revokedReason: string | null;
+  status: CertificateStatus;
+  trainee: {
+    id: string;
+    fullName: string;
+    traineeNo: string;
+    categoryName: string | null;
+    email: string;
+  };
+  course: { id: string; code: string; name: string; topics: string[] };
+}
+
 export default function CertificateDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const queryClient = useQueryClient();
   const role = useAuthStore((s) => s.currentUser?.role ?? "ADMIN");
-  const canManage = role === "OWNER" || role === "ADMIN";
+  /* Mirrors the server's `certificate.revoke` grant, which is owner-only. Showing
+   * the button to an admin who would only get a 403 is worse than not showing it. */
+  const canRevoke = role === "OWNER";
 
   const [revokeOpen, setRevokeOpen] = React.useState(false);
   const [revokeReason, setRevokeReason] = React.useState<string>(REVOKE_REASONS[0]);
@@ -66,33 +104,20 @@ export default function CertificateDetailPage() {
 
   const certQuery = useQuery({
     queryKey: ["certificate", id],
-    queryFn: () => mockApi.certificates.get(id),
+    queryFn: () => api.get<CertificateDetail>(`/certificates/${id}`),
     enabled: Boolean(id),
-  });
-  const coursesQuery = useQuery({
-    queryKey: ["courses", "options"],
-    queryFn: () => mockApi.courses.list(),
-    staleTime: 5 * 60_000,
-  });
-  const trainersQuery = useQuery({
-    queryKey: ["trainers", "options"],
-    queryFn: () => mockApi.trainers.list(),
-    staleTime: 5 * 60_000,
-  });
-  const traineesQuery = useQuery({
-    queryKey: ["trainees", "roster-map"],
-    queryFn: () => mockApi.trainees.all(),
-    staleTime: 60_000,
   });
 
   const cert = certQuery.data;
-  const trainee = traineesQuery.data?.find((t) => t.id === cert?.traineeId);
-  const course = coursesQuery.data?.find((c) => c.id === cert?.courseId);
-  const trainer = trainersQuery.data?.find((t) => t.id === cert?.trainerId);
-  const verifyUrl = origin ? `${origin}/verify?token=${cert?.verificationToken ?? ""}` : "";
+  const verifyUrl = origin && cert ? `${origin}/verify/${cert.verificationToken}` : "";
 
   const revokeMutation = useMutation({
-    mutationFn: () => mockApi.certificates.revoke(id, revokeReason, revokeNotes.trim()),
+    mutationFn: () =>
+      api.post<CertificateDetail>(`/certificates/${id}/revoke`, {
+        reason: revokeNotes.trim()
+          ? `${revokeReason} — ${revokeNotes.trim()}`
+          : revokeReason,
+      }),
     onSuccess: () => {
       toast.success("Certificate revoked", {
         description: "The public verification page now shows it as revoked.",
@@ -102,7 +127,7 @@ export default function CertificateDetailPage() {
       void queryClient.invalidateQueries({ queryKey: ["certificate", id] });
       void queryClient.invalidateQueries({ queryKey: ["certificates"] });
     },
-    onError: () => toast.error("Could not revoke this certificate."),
+    onError: (error: Error) => toast.error(error.message || "Could not revoke this certificate."),
   });
 
   if (certQuery.isLoading) {
@@ -132,11 +157,6 @@ export default function CertificateDetailPage() {
 
   return (
     <div className="space-y-5">
-      <DemoBanner>
-        This certificate record is demo data. Printing and revoking it have no
-        effect on stored records.
-      </DemoBanner>
-
       <PageHeader
         breadcrumbSlot={
           <Link
@@ -146,7 +166,7 @@ export default function CertificateDetailPage() {
             ← Certificates
           </Link>
         }
-        title={cert.certNo}
+        title={`Certificate ${cert.studentNumber}`}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge status={cert.status} label={STATUS_LABEL[cert.status]} />
@@ -164,20 +184,13 @@ export default function CertificateDetailPage() {
               <PrinterIcon className="size-4" />
               Print
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 print:hidden"
-              onClick={() => {
-                toast.message("PDF export", {
-                  description: "In production this streams the signed PDF from storage.",
-                });
-              }}
-            >
-              <DownloadIcon className="size-4" />
-              Download PDF
+            <Button asChild variant="outline" size="sm" className="gap-1.5 print:hidden">
+              <a href={`/api/certificates/${cert.id}/pdf`} download>
+                <DownloadIcon className="size-4" />
+                Download PDF
+              </a>
             </Button>
-            {canManage && !isVoided ? (
+            {canRevoke && !isVoided ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -223,39 +236,45 @@ export default function CertificateDetailPage() {
                     This certifies that
                   </p>
                   <p className="mt-3 font-display text-3xl font-semibold text-ink sm:text-4xl">
-                    {trainee?.name ?? "—"}
+                    {cert.trainee.fullName}
                   </p>
-                  {trainee ? (
-                    <p className="mt-1 font-mono text-xs text-ink-3">
-                      {trainee.traineeNo} · {trainee.category}
-                    </p>
-                  ) : null}
+                  <p className="mt-1 font-mono text-xs text-ink-3">
+                    {cert.trainee.traineeNo}
+                    {cert.trainee.categoryName ? ` · ${cert.trainee.categoryName}` : ""}
+                  </p>
                 </div>
 
                 <p className="mx-auto max-w-lg text-sm leading-relaxed text-ink-2">
                   has satisfied every requirement of the approved training programme
                 </p>
-                <p className="font-display text-2xl font-semibold text-ink">
-                  {course?.name ?? "—"}
-                </p>
+                <p className="font-display text-2xl font-semibold text-ink">{cert.course.name}</p>
                 <p className="text-sm text-ink-2">
-                  {cert.durationLabel} · assessed on site · score{" "}
-                  <span className="font-semibold text-ink">{cert.score}%</span>
+                  {cert.durationSnapshot}
+                  {cert.topicsSnapshot.length > 0
+                    ? ` · covering ${cert.topicsSnapshot.join(", ")}`
+                    : ""}
                 </p>
 
                 <div className="mx-auto grid max-w-xl gap-4 pt-2 sm:grid-cols-3">
                   <SignOff label="Issue date" value={formatDate(cert.issuedAt)} />
-                  <SignOff label="Valid until" value={cert.expiresAt ? formatDate(cert.expiresAt) : "No expiry"} />
-                  <SignOff label="Certificate no." value={cert.certNo} mono />
+                  <SignOff
+                    label="Valid until"
+                    value={cert.expiresAt ? formatDate(cert.expiresAt) : "No expiry"}
+                  />
+                  <SignOff
+                    label="Certificate no."
+                    value={String(cert.studentNumber)}
+                    mono
+                  />
                 </div>
 
                 <div className="flex flex-col items-center gap-1 pt-2">
                   <p className="font-display text-sm italic text-ink">
-                    {trainer?.name ?? "—"}
+                    {cert.trainerNameSnapshot}
                   </p>
                   <div className="h-px w-40 bg-line" aria-hidden />
                   <p className="text-[10px] tracking-wider text-ink-2 uppercase">
-                    Lead trainer · signature
+                    {cert.trainerTitleSnapshot} · signature
                   </p>
                   <Image
                     src="/stamp-sample.png"
@@ -267,7 +286,7 @@ export default function CertificateDetailPage() {
                 </div>
 
                 <p className="font-mono text-[10px] text-ink-3">
-                  Content hash {cert.contentHash} · PDF ref {cert.pdfKey}
+                  Verify at {verifyUrl || "…"}
                 </p>
               </div>
 
@@ -304,11 +323,16 @@ export default function CertificateDetailPage() {
                   {verifyUrl || "…"}
                 </span>
                 {verifyUrl ? (
-                  <CopyButton value={verifyUrl} label="link" size={15} toastMessage="Verification link copied" />
+                  <CopyButton
+                    value={verifyUrl}
+                    label="link"
+                    size={15}
+                    toastMessage="Verification link copied"
+                  />
                 ) : null}
               </div>
               <Button asChild variant="outline" size="sm" className="w-full gap-1.5">
-                <Link href={`/verify?token=${cert.verificationToken}`} target="_blank">
+                <Link href={`/verify/${cert.verificationToken}`} target="_blank">
                   <ShieldCheckIcon className="size-4" />
                   Open verification page
                 </Link>
@@ -325,22 +349,24 @@ export default function CertificateDetailPage() {
                 href={`/trainees/${cert.traineeId}`}
                 className="flex items-center gap-2.5 rounded-lg border border-line px-3 py-2 transition-colors hover:bg-paper"
               >
-                <AvatarInitials name={trainee?.name ?? "?"} size="sm" />
+                <AvatarInitials name={cert.trainee.fullName} size="sm" />
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-ink">
-                    {trainee?.name ?? cert.traineeId}
+                    {cert.trainee.fullName}
                   </span>
                   <span className="block font-mono text-xs text-ink-3">
-                    {trainee?.traineeNo ?? "—"}
+                    {cert.trainee.traineeNo}
                   </span>
                 </span>
               </Link>
               <dl className="space-y-1.5 text-sm">
-                <Row label="Course" value={course?.name ?? "—"} />
-                <Row label="Lead trainer" value={trainer?.name ?? "—"} />
-                <Row label="Score" value={`${cert.score}%`} />
-                <Row label="Attempt" value={<span className="font-mono text-xs">{cert.attemptId || "—"}</span>} />
-                <Row label="Exam" value={<span className="font-mono text-xs">{cert.examId || "—"}</span>} />
+                <Row label="Course" value={cert.course.name} />
+                <Row label="Course code" value={<span className="font-mono text-xs">{cert.course.code}</span>} />
+                <Row label="Issued by" value={`${cert.trainerNameSnapshot}, ${cert.trainerTitleSnapshot}`} />
+                <Row
+                  label="Attempt"
+                  value={<span className="font-mono text-xs">{cert.attemptId || "—"}</span>}
+                />
               </dl>
             </CardContent>
           </Card>
@@ -363,9 +389,11 @@ export default function CertificateDetailPage() {
                   label="Revoked"
                   value={cert.revokedAt ? formatDateTime(cert.revokedAt) : "—"}
                 />
-                <Row label="Reason" value={cert.revokeReason ?? "—"} />
-                <Row label="Hash" value={<span className="font-mono text-xs">{cert.contentHash}</span>} />
-                <Row label="PDF ref" value={<span className="font-mono text-xs">{cert.pdfKey}</span>} />
+                <Row label="Reason" value={cert.revokedReason ?? "—"} />
+                <Row
+                  label="Content hash"
+                  value={<span className="font-mono text-xs">{cert.contentHash}</span>}
+                />
               </dl>
               {isVoided ? (
                 <p className="mt-3 rounded-lg bg-red-bg px-3 py-2 text-xs text-red">
@@ -375,11 +403,6 @@ export default function CertificateDetailPage() {
               ) : null}
             </CardContent>
           </Card>
-
-          <p className="text-xs text-ink-3">
-            {formatNumber(cert.score)}% score · certificate duration label{" "}
-            {cert.durationLabel}
-          </p>
         </div>
       </div>
 
@@ -390,7 +413,15 @@ export default function CertificateDetailPage() {
         description="Revocation is permanent and shows on the public verification page. The record is kept for audit."
         confirmLabel="Revoke certificate"
         destructive
-        onConfirm={() => revokeMutation.mutate()}
+        onConfirm={async () => {
+          /* Returning the promise lets ConfirmDialog disable itself for the round
+           * trip. The rejection is swallowed here because `onError` already toasts. */
+          try {
+            await revokeMutation.mutateAsync();
+          } catch {
+            /* handled in onError */
+          }
+        }}
       />
 
       {revokeOpen ? (
@@ -421,7 +452,7 @@ export default function CertificateDetailPage() {
             />
             <p className="flex items-start gap-1.5 text-xs text-ink-3">
               <CopyIcon className="mt-0.5 size-3" />
-              Notes are stored in the audit log only.
+              Notes are appended to the public reason on the verification page.
             </p>
           </div>
         </div>
@@ -451,7 +482,13 @@ function SignOff({
   return (
     <div>
       <p className="text-[10px] tracking-wider text-ink-2 uppercase">{label}</p>
-      <p className={mono ? "mt-0.5 font-mono text-xs text-ink" : "mt-0.5 text-sm font-medium text-ink"}>
+      <p
+        className={
+          mono
+            ? "mt-0.5 font-mono text-xs text-ink"
+            : "mt-0.5 text-sm font-medium text-ink"
+        }
+      >
         {value}
       </p>
     </div>

@@ -869,7 +869,7 @@ async function runExamSuite(seed: { courseId: string; traineeId: string; categor
   const verifyToken: string = submitted.json?.data?.certificate?.verificationToken;
   const verifyOk = await call("GET", `/api/verify/${verifyToken}`);
   check("public verification succeeds with no session",
-    verifyOk.status === 200 && verifyOk.json?.data?.status === "valid",
+    verifyOk.status === 200 && ["VALID", "EXPIRING"].includes(verifyOk.json?.data?.status),
     JSON.stringify(verifyOk.json).slice(0, 200));
   check("verification reports the trainee and course",
     typeof verifyOk.json?.data?.traineeName === "string" &&
@@ -898,7 +898,7 @@ async function runExamSuite(seed: { courseId: string; traineeId: string; categor
 
   const verifyRevoked = await call("GET", `/api/verify/${verifyToken}`);
   check("verification reports revoked after revocation",
-    verifyRevoked.json?.data?.status === "revoked", verifyRevoked.json?.data?.status);
+    verifyRevoked.json?.data?.status === "REVOKED", verifyRevoked.json?.data?.status);
   check("verification includes the revocation reason",
     typeof verifyRevoked.json?.data?.revokedReason === "string",
     verifyRevoked.json?.data?.revokedReason);

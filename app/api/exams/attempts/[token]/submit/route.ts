@@ -29,6 +29,22 @@ export async function POST(request: Request, context: { params: Promise<{ token:
    * regrading, so a double-tapped submit button cannot change the outcome. */
   if (attempt.status !== "STARTED") {
     if (attempt.status === "SUBMITTED" || attempt.status === "PASSED" || attempt.status === "FAILED") {
+      /* Self-healing. Certificate allocation can fail — a student-number clash that
+       * outlasts the retry, or a process death between the attempt status write and
+       * the certificate insert — and the attempt is already PASSED, so nothing else
+       * would ever retry it and the trainee would be permanently without their
+       * certificate. Re-running submit repairs that. `issueCertificate` returns the
+       * existing row without re-sending the email when one is already there, so this
+       * is safe to call unconditionally on a replay. */
+      const certificate =
+        attempt.status === "PASSED"
+          ? await issueCertificate({
+              traineeId: attempt.traineeId,
+              courseId: attempt.courseId,
+              attemptId: attempt.id,
+            })
+          : null;
+
       return NextResponse.json({
         ok: true,
         data: {
@@ -38,6 +54,14 @@ export async function POST(request: Request, context: { params: Promise<{ token:
           correctCount: attempt.correctCount,
           totalCount: attempt.totalCount,
           passMarkPct: attempt.course.passMarkPct,
+          certificate: certificate
+            ? {
+                id: certificate.certificate.id,
+                studentNumber: certificate.certificate.studentNumber,
+                verificationToken: certificate.certificate.verificationToken,
+                issuedAt: certificate.certificate.issuedAt.toISOString(),
+              }
+            : null,
         },
       });
     }
@@ -148,6 +172,14 @@ export async function POST(request: Request, context: { params: Promise<{ token:
         verificationToken: issued.certificate.verificationToken,
         issuedAt: issued.certificate.issuedAt.toISOString(),
       };
+    } else {
+      /* The trainee is now COMPLETED with no certificate. This must not pass
+       * silently: log loudly and let the replay path above repair it on the next
+       * submit rather than leaving a silent hole in the compliance record. */
+      console.error(
+        `[certificates] allocation failed for attempt ${attempt.id} (trainee ${attempt.traineeId}, course ${attempt.courseId}); ` +
+          "the attempt is PASSED with no certificate and must be re-issued",
+      );
     }
   }
 

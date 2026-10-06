@@ -10,14 +10,12 @@ import {
   BadgeCheckIcon,
   DownloadIcon,
   EyeIcon,
-  PrinterIcon,
   ShieldAlertIcon,
   ShieldCheckIcon,
   ShieldXIcon,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DemoBanner } from "@/components/shared/DemoBanner";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { FilterChips, type Chip } from "@/components/shared/FilterChips";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
@@ -27,15 +25,22 @@ import { StatCard } from "@/components/shared/StatCard";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { mockApi } from "@/lib/mock";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { api } from "@/lib/api/client";
 import { formatDate, formatNumber } from "@/lib/utils/format";
-import type { Certificate, CertificateStatus } from "@/lib/types";
+import type { CertificateStatus } from "@/lib/types";
 
-const FETCH_SIZE = 500;
+/**
+ * /certificates — the register.
+ *
+ * Everything on this page comes from `/api/certificates`. Trainee and course names
+ * arrive already joined on the row, and the trainer is shown as the *snapshot* taken
+ * at issue time rather than the course's current owner: a certificate in a trainee's
+ * hand must read the same today as it did the day it was printed.
+ */
 
 const STATUSES: CertificateStatus[] = ["VALID", "EXPIRING", "EXPIRED", "REVOKED"];
 
@@ -46,6 +51,32 @@ const STATUS_LABEL: Record<CertificateStatus, string> = {
   REVOKED: "Revoked",
 };
 
+/** One row of `/api/certificates`, plus the status derived server-side. */
+interface CertificateRow {
+  id: string;
+  courseId: string;
+  studentNumber: number;
+  verificationToken: string;
+  issuedAt: string;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  revokedReason: string | null;
+  topicsSnapshot: string[];
+  durationSnapshot: string;
+  trainerNameSnapshot: string;
+  trainerTitleSnapshot: string;
+  status: CertificateStatus;
+  trainee: { id: string; fullName: string; traineeNo: string };
+  course: { id: string; code: string; name: string };
+}
+
+interface CourseOption {
+  id: string;
+  code: string;
+  name: string;
+  trainerId: string | null;
+}
+
 interface Filters {
   search: string;
   statuses: CertificateStatus[];
@@ -54,6 +85,7 @@ interface Filters {
 }
 
 const EMPTY: Filters = { search: "", statuses: [], courseIds: [], range: {} };
+const FETCH_SIZE = 50;
 
 export default function CertificatesPage() {
   const router = useRouter();
@@ -66,7 +98,7 @@ export default function CertificatesPage() {
   const debouncedSearch = useDebounce(searchDraft, 300);
   const [hydrated, setHydrated] = React.useState(false);
 
-  /* Dashboard deep links: /certificates?status=EXPIRING,EXPIRED */
+  /* Dashboard deep links: /certificates?status=EXPIRING,EXPIRED&course=... */
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status");
@@ -91,58 +123,42 @@ export default function CertificatesPage() {
 
   const coursesQuery = useQuery({
     queryKey: ["courses", "options"],
-    queryFn: () => mockApi.courses.list(),
+    queryFn: () => api.get<{ items: CourseOption[] }>("/courses", { pageSize: 100 }),
     staleTime: 5 * 60_000,
   });
-  const courses = React.useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
+  const courses = React.useMemo(() => coursesQuery.data?.items ?? [], [coursesQuery.data]);
 
+  /* A trainer only sees their own courses. Scoping happens here rather than being
+   * trusted to the server, and the server additionally refuses a trainer asking for
+   * someone else's course. */
   const scopeCourseIds = React.useMemo(() => {
     if (!isTrainer || !currentUser?.trainerId) return undefined;
     return courses.filter((c) => c.trainerId === currentUser.trainerId).map((c) => c.id);
   }, [isTrainer, currentUser?.trainerId, courses]);
 
-  const listFilters = React.useMemo(
+  const query = React.useMemo(
     () => ({
       search: filters.search || undefined,
-      statuses: filters.statuses.length ? filters.statuses : undefined,
-      courseIds: filters.courseIds.length ? filters.courseIds : undefined,
+      status: filters.statuses.length ? filters.statuses.join(",") : undefined,
+      courseIds:
+        scopeCourseIds ??
+        (filters.courseIds.length ? filters.courseIds.join(",") : undefined),
       issuedFrom: filters.range.from,
       issuedTo: filters.range.to,
-      sort: { id: "issuedAt", desc: true },
       page: 1,
       pageSize: FETCH_SIZE,
     }),
-    [filters],
+    [filters, scopeCourseIds],
   );
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["certificates", listFilters, scopeCourseIds ?? "all"],
-    queryFn: () => mockApi.certificates.list(listFilters, scopeCourseIds),
+    queryKey: ["certificates", query],
+    queryFn: () => api.get<{ items: CertificateRow[]; total: number }>("/certificates", query),
     staleTime: 15_000,
   });
 
-  const rows = React.useMemo(() => data?.rows ?? [], [data?.rows]);
+  const rows = React.useMemo(() => data?.items ?? [], [data?.items]);
 
-  const traineeQuery = useQuery({
-    queryKey: ["trainees", "roster-map"],
-    queryFn: () => mockApi.trainees.all(scopeCourseIds),
-    staleTime: 60_000,
-  });
-  const traineeById = React.useMemo(() => {
-    const map = new Map<string, { name: string; traineeNo: string }>();
-    for (const t of traineeQuery.data ?? []) map.set(t.id, { name: t.name, traineeNo: t.traineeNo });
-    return map;
-  }, [traineeQuery.data]);
-
-  const trainerQuery = useQuery({
-    queryKey: ["trainers", "options"],
-    queryFn: () => mockApi.trainers.list(),
-    staleTime: 5 * 60_000,
-  });
-  const trainerName = React.useCallback(
-    (id: string) => trainerQuery.data?.find((t) => t.id === id)?.name ?? "—",
-    [trainerQuery.data],
-  );
   const courseName = React.useCallback(
     (id: string) => courses.find((c) => c.id === id)?.name ?? "—",
     [courses],
@@ -164,24 +180,21 @@ export default function CertificatesPage() {
     [rows],
   );
 
-  const columns = React.useMemo<ColumnDef<Certificate, unknown>[]>(
+  const columns = React.useMemo<ColumnDef<CertificateRow, unknown>[]>(
     () => [
       {
-        id: "certNo",
+        id: "studentNumber",
         header: "Certificate",
-        accessorFn: (c) => c.certNo,
+        accessorFn: (c) => c.studentNumber,
         cell: ({ row }) => (
           <div className="flex items-center gap-2.5">
-            <AvatarInitials
-              name={traineeById.get(row.original.traineeId)?.name ?? "?"}
-              size="sm"
-            />
+            <AvatarInitials name={row.original.trainee.fullName} size="sm" />
             <div className="min-w-0">
               <p className="truncate font-mono text-sm font-medium text-ink">
-                {row.original.certNo}
+                {row.original.studentNumber}
               </p>
               <p className="truncate text-xs text-ink-3">
-                {traineeById.get(row.original.traineeId)?.traineeNo ?? row.original.traineeId}
+                {row.original.trainee.traineeNo}
               </p>
             </div>
           </div>
@@ -190,36 +203,39 @@ export default function CertificatesPage() {
       {
         id: "trainee",
         header: "Trainee",
-        accessorFn: (c) => traineeById.get(c.traineeId)?.name ?? c.traineeId,
+        accessorFn: (c) => c.trainee.fullName,
         cell: ({ row }) => (
-          <span className="truncate text-sm text-ink">
-            {traineeById.get(row.original.traineeId)?.name ?? row.original.traineeId}
-          </span>
+          <span className="truncate text-sm text-ink">{row.original.trainee.fullName}</span>
         ),
       },
       {
         id: "course",
         header: "Course",
-        accessorFn: (c) => courseName(c.courseId),
+        accessorFn: (c) => c.course.name,
         cell: ({ row }) => (
-          <span className="text-sm text-ink-2">{courseName(row.original.courseId)}</span>
+          <span className="text-sm text-ink-2">
+            <span className="font-mono text-xs text-ink-3">{row.original.course.code}</span>{" "}
+            {row.original.course.name}
+          </span>
         ),
       },
       {
-        id: "score",
-        header: "Score",
-        accessorFn: (c) => c.score,
+        id: "duration",
+        header: "Duration",
+        accessorFn: (c) => c.durationSnapshot,
         cell: ({ row }) => (
-          <span className="text-sm tabular text-ink-2">{row.original.score}%</span>
+          <span className="text-sm whitespace-nowrap text-ink-2">
+            {row.original.durationSnapshot}
+          </span>
         ),
       },
       {
         id: "trainer",
-        header: "Trainer",
-        accessorFn: (c) => trainerName(c.trainerId),
+        header: "Issued by",
+        accessorFn: (c) => c.trainerNameSnapshot,
         cell: ({ row }) => (
           <span className="text-sm whitespace-nowrap text-ink-2">
-            {trainerName(row.original.trainerId)}
+            {row.original.trainerNameSnapshot}
           </span>
         ),
       },
@@ -248,10 +264,7 @@ export default function CertificatesPage() {
         header: "Status",
         accessorFn: (c) => c.status,
         cell: ({ row }) => (
-          <StatusBadge
-            status={row.original.status}
-            label={STATUS_LABEL[row.original.status]}
-          />
+          <StatusBadge status={row.original.status} label={STATUS_LABEL[row.original.status]} />
         ),
       },
       {
@@ -265,17 +278,17 @@ export default function CertificatesPage() {
               asChild
               variant="ghost"
               size="icon-sm"
-              aria-label={`Print ${row.original.certNo}`}
+              aria-label={`Download PDF for certificate ${row.original.studentNumber}`}
             >
-              <Link href={`/certificates/${row.original.id}?print=1`}>
-                <PrinterIcon className="size-4" />
-              </Link>
+              <a href={`/api/certificates/${row.original.id}/pdf`} download>
+                <DownloadIcon className="size-4" />
+              </a>
             </Button>
             <Button
               asChild
               variant="ghost"
               size="icon-sm"
-              aria-label={`Open ${row.original.certNo}`}
+              aria-label={`Open certificate ${row.original.studentNumber}`}
             >
               <Link href={`/certificates/${row.original.id}`}>
                 <EyeIcon className="size-4" />
@@ -285,7 +298,7 @@ export default function CertificatesPage() {
         ),
       },
     ],
-    [courseName, traineeById, trainerName],
+    [],
   );
 
   const chips: Chip[] = React.useMemo(() => {
@@ -325,13 +338,56 @@ export default function CertificatesPage() {
     setFilters(EMPTY);
   };
 
+  const exportCsv = (ids: string[]) => {
+    const chosen = ids.length ? rows.filter((c) => ids.includes(c.id)) : rows;
+    const header = [
+      "student_number",
+      "trainee",
+      "trainee_no",
+      "course_code",
+      "course",
+      "duration",
+      "issued_by",
+      "issued_at",
+      "expires_at",
+      "status",
+      "revoked_at",
+      "revoked_reason",
+    ];
+    /* Quote every field and double any embedded quote: a trainee name containing a
+     * comma must not be able to forge a column in the download. */
+    const quote = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    const lines = chosen.map((c) =>
+      [
+        c.studentNumber,
+        c.trainee.fullName,
+        c.trainee.traineeNo,
+        c.course.code,
+        c.course.name,
+        c.durationSnapshot,
+        c.trainerNameSnapshot,
+        c.issuedAt.slice(0, 10),
+        c.expiresAt?.slice(0, 10) ?? "",
+        c.status,
+        c.revokedAt?.slice(0, 10) ?? "",
+        c.revokedReason ?? "",
+      ]
+        .map(quote)
+        .join(","),
+    );
+    const blob = new Blob([[header.join(","), ...lines].join("\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `certificate-register-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-5">
-      <DemoBanner>
-        Certificates in this register are demo data. Issuing and revoking here
-        does not change any stored record.
-      </DemoBanner>
-
       <PageHeader
         title="Certificates"
         subtitle={
@@ -348,9 +404,9 @@ export default function CertificatesPage() {
               </Link>
             </Button>
             <Button asChild size="sm" className="gap-1.5">
-              <Link href="/trainees">
+              <Link href="/exams">
                 <AwardIcon className="size-4" />
-                Issue from a trainee
+                Send an exam
               </Link>
             </Button>
           </>
@@ -393,10 +449,7 @@ export default function CertificatesPage() {
                 {counts.EXPIRING} certificate{counts.EXPIRING === 1 ? "" : "s"} expire within 30
                 days.
               </span>{" "}
-              {expiringSoon
-                .slice(0, 3)
-                .map((c) => traineeById.get(c.traineeId)?.name ?? c.certNo)
-                .join(", ")}
+              {expiringSoon.map((c) => c.trainee.fullName).join(", ")}
               {expiringSoon.length > 3 ? " and others" : ""} should renew.
             </p>
             <Button
@@ -418,7 +471,7 @@ export default function CertificatesPage() {
             <SearchInput
               value={searchDraft}
               onValueChange={setSearchDraft}
-              placeholder="Search certificate number, trainee or course…"
+              placeholder="Search student number, trainee or course…"
               className="lg:max-w-xs"
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -469,8 +522,7 @@ export default function CertificatesPage() {
           getRowId={(c) => c.id}
           isLoading={isLoading}
           onRowClick={(c) => router.push(`/certificates/${c.id}`)}
-          globalFilter={filters.search}
-          pageSize={20}
+          pageSize={FETCH_SIZE}
           emptyState={
             <EmptyState
               title="No certificates match your filters"
@@ -483,49 +535,7 @@ export default function CertificatesPage() {
             />
           }
           bulkActions={(ids) => (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => {
-                const chosen = rows.filter((c) => ids.includes(c.id));
-                const header = [
-                  "cert_no",
-                  "trainee",
-                  "trainee_no",
-                  "course",
-                  "score",
-                  "trainer",
-                  "issued_at",
-                  "expires_at",
-                  "status",
-                ];
-                const lines = chosen.map((c) =>
-                  [
-                    c.certNo,
-                    traineeById.get(c.traineeId)?.name ?? "",
-                    traineeById.get(c.traineeId)?.traineeNo ?? "",
-                    courseName(c.courseId),
-                    String(c.score),
-                    trainerName(c.trainerId),
-                    c.issuedAt.slice(0, 10),
-                    c.expiresAt?.slice(0, 10) ?? "",
-                    c.status,
-                  ]
-                    .map((v) => `"${String(v).replaceAll('"', '""')}"`)
-                    .join(","),
-                );
-                const blob = new Blob([[header.join(","), ...lines].join("\n")], {
-                  type: "text/csv;charset=utf-8",
-                });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `certificate-register-${new Date().toISOString().slice(0, 10)}.csv`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-            >
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCsv(ids)}>
               <DownloadIcon className="size-3.5" />
               Export register
             </Button>

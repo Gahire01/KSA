@@ -13,6 +13,8 @@ import {
   type RunnerResult,
 } from "@/components/exam/ExamRunner";
 import { api, ApiError } from "@/lib/api/client";
+import { useSingleTab } from "@/lib/hooks/use-single-tab";
+import { LINK_EXPIRED_MESSAGE, LINK_USED_MESSAGE } from "@/lib/exams/link";
 import { toast } from "sonner";
 
 /**
@@ -31,7 +33,7 @@ import { toast } from "sonner";
 
 const COUNTDOWN_SECONDS = 30 * 60;
 
-type Phase = "checking" | "otp" | "paper" | "submitted";
+type Phase = "checking" | "otp" | "paper" | "submitted" | "blocked";
 
 export default function ExamPage() {
   const params = useParams<{ token: string }>();
@@ -45,6 +47,10 @@ export default function ExamPage() {
   const [secondsLeft, setSecondsLeft] = React.useState<number | null>(COUNTDOWN_SECONDS);
   const [paper, setPaper] = React.useState<RunnerPaper | null>(null);
   const [result, setResult] = React.useState<RunnerResult | null>(null);
+  const [blockedMessage, setBlockedMessage] = React.useState<string>(LINK_USED_MESSAGE);
+
+  /* One tab per exam: a second tab on the same paper is blocked, not the first. */
+  const tabState = useSingleTab(token, phase === "paper");
 
   /* Already-open exams skip Phase A: the cookie proves the OTP was entered. */
   React.useEffect(() => {
@@ -60,7 +66,25 @@ export default function ExamPage() {
         setPhase("paper");
       })
       .catch(() => {
-        if (!cancelled) setPhase("otp");
+        if (cancelled) return;
+        /* No cookie: find out whether the link is still usable before asking for
+         * a code, so a dead link says so instead of failing at the code box. */
+        api
+          .get<{ state: "open" | "resume" | "expired" | "used" }>(
+            `/exams/attempts/${encodeURIComponent(token)}/status`,
+          )
+          .then(({ state }) => {
+            if (cancelled) return;
+            if (state === "expired" || state === "used") {
+              setBlockedMessage(state === "expired" ? LINK_EXPIRED_MESSAGE : LINK_USED_MESSAGE);
+              setPhase("blocked");
+            } else {
+              setPhase("otp");
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setPhase("otp");
+          });
       });
 
     return () => {
@@ -106,6 +130,12 @@ export default function ExamPage() {
           description: `${loaded.courseName} · ${verified.questionCount} questions · ${verified.examDurationMin} minutes`,
         });
       } catch (err) {
+        /* A dead link is reported as such; everything else stays generic. */
+        if (err instanceof ApiError && err.status === 410) {
+          setBlockedMessage(err.message);
+          setPhase("blocked");
+          return;
+        }
         /* Every failure gets the same message; the boxes clear themselves. */
         setError(
           err instanceof ApiError && err.status === 429
@@ -167,7 +197,36 @@ export default function ExamPage() {
     );
   }
 
+  if (phase === "blocked") {
+    return (
+      <div className="mx-auto max-w-xl space-y-5 px-4 py-16 text-center">
+        <Logo />
+        <p className="text-base text-ink">{blockedMessage}</p>
+      </div>
+    );
+  }
+
   if (phase === "paper" && paper) {
+    if (tabState === "blocked") {
+      return (
+        <div className="mx-auto max-w-xl space-y-5 px-4 py-16 text-center">
+          <Logo />
+          <h1 className="font-display text-xl text-ink">This exam is open in another tab</h1>
+          <p className="text-base text-ink-2">
+            For fairness the exam can only be open in one tab at a time. Close this tab and
+            return to the one that is already running your exam.
+          </p>
+        </div>
+      );
+    }
+    if (tabState === "checking") {
+      return (
+        <div className="mx-auto max-w-3xl space-y-4 px-4 py-10">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      );
+    }
     return <ExamRunner token={token} paper={paper} onSubmitted={onSubmitted} />;
   }
 

@@ -14,6 +14,7 @@ import {
 } from "@/lib/exams/token";
 import { hashSecret } from "@/lib/auth/password";
 import { requestIp } from "@/lib/exams/attempt";
+import { LINK_DEFAULT_HOURS, linkExpiryFromNow } from "@/lib/exams/link";
 import { emit } from "@/lib/notifications/emit";
 
 /**
@@ -83,7 +84,8 @@ export async function POST(request: Request, context: { params: Promise<{ course
   const usedMap = new Map(priorCounts.map((row) => [row.traineeId, row._count._all]));
 
 
-  const linkExpiresAt: Date | null = null;
+  /* One window for the whole batch, fixed at send time. OTP stays 30 minutes. */
+  const linkExpiresAt = linkExpiryFromNow(parsed.data.linkExpiresInHours ?? LINK_DEFAULT_HOURS);
   const ip = await requestIp();
 
   const sent: Array<{
@@ -130,6 +132,8 @@ export async function POST(request: Request, context: { params: Promise<{ course
         attemptNumber: used + 1,
         durationMin: course.examDurationMin,
         linkExpiresAt,
+        linkMaxUses: 1,
+        linkUses: 0,
         ip,
       },
     });

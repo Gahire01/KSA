@@ -19,8 +19,8 @@ export const examOtpSchema = z
 export const examSendSchema = z
   .object({
     traineeIds: z.array(z.string().trim().min(1)).min(1, "Choose at least one trainee.").max(500),
-    /** Overrides the course's own window; clamped server-side. */
-
+    /** Hours until the link stops working. Default 72, max 720 (30 days). */
+    linkExpiresInHours: z.coerce.number().int().min(1).max(720).optional(),
     subject: z.string().trim().max(200).optional(),
     note: z.string().trim().max(1000).optional(),
   })

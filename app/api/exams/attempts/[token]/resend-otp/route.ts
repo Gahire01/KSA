@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { otpResentEmail } from "@/lib/email/templates";
 import { appUrl, sendEmail } from "@/lib/email/send";
 import { loadAttemptByToken, manifestOf } from "@/lib/exams/attempt";
+import { LINK_EXPIRED_MESSAGE, LINK_USED_MESSAGE, linkState } from "@/lib/exams/link";
 import { OTP_TTL_MINUTES, generateOtp, otpExpiry } from "@/lib/exams/token";
 
 /**
@@ -60,6 +61,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   ) {
     return apiFail(GENERIC, 401);
   }
+
+  /* A dead link gets no new code: mailing one would only invite a failed open. */
+  if (linkState(attempt) === "expired") return apiFail(LINK_EXPIRED_MESSAGE, 410);
+  if (linkState(attempt) === "used") return apiFail(LINK_USED_MESSAGE, 410);
 
   if (!manifestOf(attempt)) {
     return apiFail("This exam paper could not be read. Ask the academy for help.", 500);

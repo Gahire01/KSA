@@ -256,8 +256,15 @@ model ExamAttempt {
   /// Which of the course's allowed attempts this is (1-based).
   attemptNumber Int        @default(1)
   durationMin  Int
-  /// When the emailed link itself stops working.
+  /// When the emailed link itself stops working. Always set on new attempts;
+  /// null only on rows from before the lifecycle shipped, which count as expired.
   linkExpiresAt DateTime?
+  /// How many times the link may be opened (OTP redeemed). 1 = single use.
+  linkMaxUses   Int         @default(1)
+  linkUses      Int         @default(0)
+  firstOpenedAt DateTime?
+  firstOpenedIp String?
+  firstOpenedUa String?
   scorePct     Int?
   correctCount Int?
   totalCount   Int?

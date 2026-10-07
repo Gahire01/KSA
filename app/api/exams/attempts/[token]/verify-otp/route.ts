@@ -12,6 +12,7 @@ import { verifyPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/db";
 import { loadAttemptByToken, manifestOf, requestIp, requestUserAgent } from "@/lib/exams/attempt";
 import { readExamSession, setExamSessionCookie } from "@/lib/exams/session-cookie";
+import { LINK_EXPIRED_MESSAGE, LINK_USED_MESSAGE, linkState } from "@/lib/exams/link";
 import { OTP_MAX_ATTEMPTS } from "@/lib/exams/token";
 
 /**
@@ -56,28 +57,33 @@ export async function POST(request: Request, context: { params: Promise<{ token:
 
   const attempt = await loadAttemptByToken(token);
 
-  /* Unknown token, expired link, already submitted or voided — all identical. */
-  if (
-    !attempt ||
+  /* An unknown token is indistinguishable from a wrong code. */
+  if (!attempt) return apiFail(GENERIC, 401);
+
+  /* Link lifecycle, checked before the code so a dead link never reaches the
+   * hash comparison. The token is 32 random bytes, so only its holder can see
+   * these two messages; they say nothing beyond "expired" or "already opened". */
+  const now = new Date();
+  const finished =
     attempt.status === "SUBMITTED" ||
     attempt.status === "PASSED" ||
     attempt.status === "FAILED" ||
-    attempt.status === "VOID"
-  ) {
-    return apiFail(GENERIC, 401);
-  }
+    attempt.status === "VOID";
+  const state = linkState(attempt, now);
+  if (state === "expired") return apiFail(LINK_EXPIRED_MESSAGE, 410);
+  if (finished) return apiFail(LINK_USED_MESSAGE, 410);
 
-  if (attempt.otpExpiresAt <= new Date()) {
-    return apiFail(GENERIC, 401);
-  }
-
-  /* Already opened on this device — let the runner continue rather than making
-   * the trainee enter a second code. Any other device gets the generic error. */
-  if (attempt.status === "STARTED") {
-    const already = await readExamSession(token, attempt.id);
-    if (already) {
+  if (state === "used") {
+    /* The trainee's own tab already holds the cookie: tell it, don't block it. */
+    if (attempt.status === "STARTED" && (await readExamSession(token, attempt.id))) {
       return apiFail("This exam is already open on this device.", 409);
     }
+    return apiFail(LINK_USED_MESSAGE, 410);
+  }
+
+  /* A started paper with uses left means staff reset the link; the cleared code
+   * hash means there is nothing to verify until they issue a fresh one. */
+  if (!attempt.otpHash || attempt.otpExpiresAt <= now) {
     return apiFail(GENERIC, 401);
   }
 
@@ -102,21 +108,31 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     return apiFail("This exam paper could not be read. Ask the academy to resend it.", 500);
   }
 
-  const now = new Date();
   const ip = await requestIp();
   const userAgent = await requestUserAgent();
 
-  await prisma.examAttempt.update({
-    where: { id: attempt.id },
+  /* Redeem the link atomically. `linkUses` is matched against the value read
+   * above, so two requests racing with the same correct code cannot both win:
+   * the loser updates zero rows and is told the link is used. A resumed paper
+   * (staff reset the link) keeps its original start time, so the server clock
+   * on the sitting is never restarted by a re-open. */
+  const startedAt = attempt.startedAt ?? now;
+  const redeemed = await prisma.examAttempt.updateMany({
+    where: { id: attempt.id, linkUses: attempt.linkUses },
     data: {
       status: "STARTED",
-      startedAt: now,
+      startedAt,
+      linkUses: { increment: 1 },
+      firstOpenedAt: attempt.firstOpenedAt ?? now,
+      firstOpenedIp: attempt.firstOpenedIp ?? ip,
+      firstOpenedUa: attempt.firstOpenedUa ?? userAgent,
       ip: attempt.ip ?? ip,
       userAgent: attempt.userAgent ?? userAgent,
-      /* Single-use: the hash is cleared so a correct code cannot be replayed. */
+      /* The hash is cleared so a correct code cannot be replayed. */
       otpHash: "",
     },
   });
+  if (redeemed.count !== 1) return apiFail(LINK_USED_MESSAGE, 410);
 
   await setExamSessionCookie(token, attempt.id);
 
@@ -130,8 +146,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
       traineeName: attempt.trainee.fullName,
       passMarkPct: attempt.course.passMarkPct,
       questionCount: manifest.questionIds.length,
-      startedAt: now.toISOString(),
-
+      startedAt: startedAt.toISOString(),
+      linkExpiresAt: attempt.linkExpiresAt?.toISOString() ?? null,
     },
   });
 }

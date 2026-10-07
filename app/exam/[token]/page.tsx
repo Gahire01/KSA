@@ -15,7 +15,7 @@ import {
 } from "@/components/exam/ExamRunner";
 import { api, ApiError } from "@/lib/api/client";
 import { useSingleTab } from "@/lib/hooks/use-single-tab";
-import { LINK_EXPIRED_MESSAGE, LINK_USED_MESSAGE } from "@/lib/exams/link";
+import { LINK_EXPIRED_MESSAGE, LINK_USED_MESSAGE, OTP_EXPIRED_MESSAGE } from "@/lib/exams/link";
 import { toast } from "sonner";
 
 /**
@@ -153,8 +153,15 @@ export default function ExamPage() {
           description: `${loaded.courseName} · ${verified.questionCount} questions · ${verified.examDurationMin} minutes`,
         });
       } catch (err) {
-        /* A dead link is reported as such; everything else stays generic. */
+        /* An expired CODE is an inline error, not a dead end: stay on this
+         * screen, clear the boxes (OtpInput reacts to the new error), and let
+         * the resend button issue a fresh code. Only a dead LINK leaves. */
         if (err instanceof ApiError && err.status === 410) {
+          if (err.message === OTP_EXPIRED_MESSAGE) {
+            setSecondsLeft(0);
+            setError(OTP_EXPIRED_MESSAGE);
+            return;
+          }
           setBlockedMessage(err.message);
           setPhase("blocked");
           return;

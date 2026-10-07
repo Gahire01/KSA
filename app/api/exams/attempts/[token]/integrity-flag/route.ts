@@ -65,10 +65,13 @@ export async function POST(request: Request, context: { params: Promise<{ token:
    * be used to grow a row without bound. */
   await prisma.$executeRaw`
     UPDATE "ExamAttempt"
-    SET "integrityFlags" = COALESCE("integrityFlags", '[]'::jsonb) || ${JSON.stringify([flag])}::jsonb,
+    SET "integrityFlags" = CASE
+          WHEN jsonb_array_length(COALESCE("integrityFlags", '[]'::jsonb)) < ${MAX_FLAGS}
+            THEN COALESCE("integrityFlags", '[]'::jsonb) || ${JSON.stringify([flag])}::jsonb
+          ELSE "integrityFlags"
+        END,
         "blurCount" = "blurCount" + ${isBlur ? 1 : 0}
     WHERE "id" = ${attempt.id}
-      AND jsonb_array_length(COALESCE("integrityFlags", '[]'::jsonb)) < ${MAX_FLAGS}
   `;
 
   return NextResponse.json({ ok: true, data: { recorded: true } });

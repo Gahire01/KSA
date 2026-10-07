@@ -877,3 +877,17 @@ BLOCKERS (cannot be resolved in this environment)
 ### Part D review result (2 independent reviews, 1 rotation of fixes)
 - Fixed (b1b6056): legacy-vs-no-signature discriminator (null signerNameSnapshot = legacy only), atomic upload (no "pending" URLs), lock race -> 409, audit writes no longer fail a committed action, image route try/catch.
 - Known limitations: in-memory rate limiter is per-process (pre-existing, app-wide); PNG cleaner drops iCCP profiles; lock-race 409 relies on the pg adapter surfacing code P2002 (unverified without a DB); migrate dev may propose dropping the partial index Signature_one_active, so keep it.
+
+
+## Session - Claude - 2026-10-07 - Part F (exam link lifecycle)
+
+Resumed at: Part F. Remaining: I (Twilio), audits of G/H/J/K/L/M/N, smoke, deploy.
+
+- F.1 schema: ExamAttempt linkMaxUses/linkUses/firstOpenedAt/firstOpenedIp/firstOpenedUa. Migration 20261007130000_exam_link_lifecycle WRITTEN BY HAND, NOT APPLIED. Backfills: already-started rows count as used; open rows with no expiry get now()+72h. linkExpiresAt stays nullable in the DB (legacy rows); null counts as expired.
+- F.2/F.3: send sets linkExpiresAt (default 72h, max 720), maxUses 1. verify-otp checks expiry then used before the code, redeems with an atomic compare-and-swap (linkUses + status), preserves startedAt on resume. New GET /api/exams/attempts/:token/status. Copy per F.6 in lib/exams/link.ts.
+- F.4: single-tab election in lib/exams/single-tab.ts (hook wraps it). Simulated in Node: 2 tabs at 0/30/250/700ms and 3-4 tabs pass; one cold-start run failed once and did not reproduce (15/15 warm). Real browser timing NOT verified. Deterrent only; the server single-use rule is the guarantee.
+- F.5: POST /api/attempts/:id/link (extend/reset/reissue, audited, email sent before the DB change), GET /api/attempts/:id, PATCH /api/attempts/:id/flags (reviewed flag, atomic jsonb_set). Page /exams/[id]/attempts/[attemptId]. The existing exam list/detail pages are still MOCK-backed, so nothing links to the new page yet.
+- Integrity flags are appended with one atomic SQL statement (jsonb ||, 500 cap). That raw SQL is UNTESTED (no DB).
+
+Review: 2 independent reviews + 1 re-review. Fixed: CAS status guard, backfill, resend after reset, single-tab race, atomic flags, page recovery (retry/auto-submit), reset on expired link, unknown-token oracle on next/integrity-flag, wrong "submitted" message, blur counter at cap, flag-review 404.
+Known/not changed: reissue/reset email can be sent then lose a race (dead link in inbox, trainee not locked out); audit writes are best-effort; answer/submit routes overwrite blurCount with the client value (pre-existing, revisit in Part H); a blocked tab never unblocks if the owner closes; /status failure falls to the OTP box.

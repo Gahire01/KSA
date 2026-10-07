@@ -42,8 +42,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   /* Flip only the one `reviewed` key in place, atomically, so a flag the runner
    * appends at the same moment is never overwritten by a stale copy of the array. */
+  let updated = 0;
   try {
-    await prisma.$executeRaw`
+    updated = await prisma.$executeRaw`
       UPDATE "ExamAttempt"
       SET "integrityFlags" = jsonb_set(
         "integrityFlags",
@@ -55,6 +56,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   } catch (error) {
     return apiFail("Could not update the flag. Try again.", 500, { logError: error });
   }
+
+  if (updated !== 1) return apiFail("That flag does not exist.", 404);
 
   await prisma.auditLog
     .create({

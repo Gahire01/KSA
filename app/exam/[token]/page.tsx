@@ -86,9 +86,13 @@ export default function ExamPage() {
               if (timeUp) {
                 api
                   .post(`/exams/attempts/${encodeURIComponent(token)}/submit`, {})
-                  .catch(() => undefined)
-                  .finally(() => {
+                  .then(() => {
                     if (!cancelled) setPhase("ended");
+                  })
+                  /* Only claim it was handed in if it was: a failed submit goes back
+                   * to the retry panel, where "Try again" repeats it. */
+                  .catch(() => {
+                    if (!cancelled) setPhase("stalled");
                   });
               } else {
                 setPhase("stalled");

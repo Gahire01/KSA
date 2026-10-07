@@ -873,3 +873,7 @@ BLOCKERS (cannot be resolved in this environment)
 - No .env / DATABASE_URL: migrations unapplied, seed not run, smoke tests 1-24 not run.
 - No Twilio credentials, no Vercel access.
 - Not pushed: repo is Gahire01/KSA and the signed-in GitHub account here is gmflaubert. Work is on local branch ksa-launch.
+
+### Part D review result (2 independent reviews, 1 rotation of fixes)
+- Fixed (b1b6056): legacy-vs-no-signature discriminator (null signerNameSnapshot = legacy only), atomic upload (no "pending" URLs), lock race -> 409, audit writes no longer fail a committed action, image route try/catch.
+- Known limitations: in-memory rate limiter is per-process (pre-existing, app-wide); PNG cleaner drops iCCP profiles; lock-race 409 relies on the pg adapter surfacing code P2002 (unverified without a DB); migrate dev may propose dropping the partial index Signature_one_active, so keep it.

@@ -279,7 +279,7 @@ export default function CertificateDetailPage() {
 
                 <div className="flex flex-col items-center gap-1 pt-2">
                   <div className="flex h-[60px] w-[180px] items-end justify-center">
-                    {cert.signatureUrlSnapshot === null && cert.signerNameSnapshot === null ? (
+                    {cert.signerNameSnapshot === null ? (
                       /* Issued before the signature system: original static image. */
                       <Image
                         src="/certificate/signature.png"

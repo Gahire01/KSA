@@ -469,4 +469,8 @@ model Signature {
   createdAt    DateTime        @default(now())
 
   @@index([isActive])
+  // NOTE: migration 20261007120000_signature_system also creates the partial
+  // unique index "Signature_one_active" ON ("isActive") WHERE "isActive" = true.
+  // Prisma cannot express it here, so `migrate dev` may propose dropping it:
+  // keep it, it is the database-level guarantee of a single active signature.
 }

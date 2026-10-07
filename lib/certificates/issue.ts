@@ -140,7 +140,10 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
     trainer?.role === "TRAINER" ? "Trainer" : DIRECTOR_TITLE;
 
   /* Frozen onto the row: a signature locked next year must not change this
-   * certificate. No active signature just means the PDF prints a plain line. */
+   * certificate. Name and title are ALWAYS written (Director defaults when none
+   * is active): a null signerNameSnapshot is what marks a legacy certificate
+   * issued before this system, so a new one must never leave it null. With no
+   * active signature the URL stays null and the PDF prints a plain line. */
   const signature = await getActiveSignature();
 
   const issuedAt = new Date();
@@ -211,8 +214,8 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
           trainerNameSnapshot,
           trainerTitleSnapshot,
           signatureUrlSnapshot: signature?.imageUrl ?? null,
-          signerNameSnapshot: signature?.signerName ?? null,
-          signerTitleSnapshot: signature?.signerTitle ?? null,
+          signerNameSnapshot: signature?.signerName ?? DIRECTOR_NAME,
+          signerTitleSnapshot: signature?.signerTitle ?? DIRECTOR_TITLE,
           issuedAt,
           expiresAt,
         },

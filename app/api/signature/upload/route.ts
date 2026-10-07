@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import { guard } from "@/lib/api/guard";
 import { clientKey, rateLimit, rateLimitFail } from "@/lib/api/rate-limit";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
@@ -35,37 +37,41 @@ export async function POST(request: Request) {
   const cleaned = cleanPng(Buffer.from(await file.arrayBuffer()));
   if (!cleaned.ok) return apiFail(cleaned.error, 422);
 
-  const created = await prisma.signature.create({
-    data: {
-      imageKey: "pending",
-      imageUrl: "pending",
-      imageData: new Uint8Array(cleaned.data),
-      signerName: meta.data.signerName,
-      signerTitle: meta.data.signerTitle,
-      source: meta.data.source,
-      createdById: gate.session.user.id,
-    },
-    select: { id: true },
-  });
+  /* Id is generated up front so the render URL is known at insert: one atomic
+   * write, never a draft left holding a placeholder URL. */
+  const id = randomBytes(16).toString("hex");
 
-  /* The id is only known after insert, so the render URL is set second. */
-  const imageUrl = `/api/signature/${created.id}/image`;
-  const row = await prisma.signature.update({
-    where: { id: created.id },
-    data: { imageKey: `db:${created.id}`, imageUrl },
-    select: { id: true, imageUrl: true, signerName: true, signerTitle: true, source: true },
-  });
+  try {
+    const row = await prisma.signature.create({
+      data: {
+        id,
+        imageKey: `db:${id}`,
+        imageUrl: `/api/signature/${id}/image`,
+        imageData: new Uint8Array(cleaned.data),
+        signerName: meta.data.signerName,
+        signerTitle: meta.data.signerTitle,
+        source: meta.data.source,
+        createdById: gate.session.user.id,
+      },
+      select: { id: true, imageUrl: true, signerName: true, signerTitle: true, source: true },
+    });
 
-  await prisma.auditLog.create({
-    data: {
-      actorId: gate.session.user.id,
-      actorEmail: gate.session.user.email,
-      action: "signature.upload",
-      entityType: "Signature",
-      entityId: row.id,
-      meta: JSON.stringify({ source: row.source, signerName: row.signerName }),
-    },
-  });
+    /* The draft exists; a failed log write must not report the upload as failed. */
+    await prisma.auditLog
+      .create({
+        data: {
+          actorId: gate.session.user.id,
+          actorEmail: gate.session.user.email,
+          action: "signature.upload",
+          entityType: "Signature",
+          entityId: row.id,
+          meta: JSON.stringify({ source: row.source, signerName: row.signerName }),
+        },
+      })
+      .catch((error: unknown) => console.error("[signature] audit write failed", error));
 
-  return apiOk(row, 201);
+    return apiOk(row, 201);
+  } catch (error) {
+    return apiFail("Could not save the signature. Try again.", 500, { logError: error });
+  }
 }

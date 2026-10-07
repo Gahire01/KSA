@@ -6,6 +6,7 @@
  */
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { hashPassword } from "../lib/auth/password";
@@ -320,10 +321,12 @@ async function main() {
     try {
       const cleaned = cleanPng(readFileSync(join(process.cwd(), "public", "certificate", "signature.png")));
       if (cleaned.ok) {
-        const row = await prisma.signature.create({
+        const id = randomBytes(16).toString("hex");
+        await prisma.signature.create({
           data: {
-            imageKey: "pending",
-            imageUrl: "pending",
+            id,
+            imageKey: `db:${id}`,
+            imageUrl: `/api/signature/${id}/image`,
             imageData: new Uint8Array(cleaned.data),
             signerName: "Fredson Niyoniringiye",
             signerTitle: "Director",
@@ -332,10 +335,6 @@ async function main() {
             lockedAt: new Date(),
             createdById: owner.id,
           },
-        });
-        await prisma.signature.update({
-          where: { id: row.id },
-          data: { imageKey: `db:${row.id}`, imageUrl: `/api/signature/${row.id}/image` },
         });
         console.log("  signature: seeded from public/certificate/signature.png");
       } else {

@@ -27,8 +27,9 @@ export async function POST(request: Request) {
   if (target.isActive) return apiFail("That signature is already active.", 409);
 
   const now = new Date();
+  let locked;
   try {
-    const locked = await prisma.$transaction(async (tx) => {
+    locked = await prisma.$transaction(async (tx) => {
       await tx.signature.updateMany({
         where: { isActive: true },
         data: { isActive: false, supersededAt: now },
@@ -47,8 +48,18 @@ export async function POST(request: Request) {
         },
       });
     });
+  } catch (error) {
+    /* Two owners locking at once: the partial unique index lets one win and the
+     * other lands here. That is a conflict, not a server fault. */
+    if ((error as { code?: string } | null)?.code === "P2002") {
+      return apiFail("Another signature was locked at the same moment. Refresh and try again.", 409);
+    }
+    return apiFail("Could not lock the signature. Try again.", 500, { logError: error });
+  }
 
-    await prisma.auditLog.create({
+  /* The lock has committed; a failed log write must not report it as failed. */
+  await prisma.auditLog
+    .create({
       data: {
         actorId: gate.session.user.id,
         actorEmail: gate.session.user.email,
@@ -57,10 +68,8 @@ export async function POST(request: Request) {
         entityId: locked.id,
         meta: JSON.stringify({ id: locked.id, signerName: locked.signerName }),
       },
-    });
+    })
+    .catch((error: unknown) => console.error("[signature] audit write failed", error));
 
-    return apiOk(locked);
-  } catch (error) {
-    return apiFail("Could not lock the signature. Try again.", 500, { logError: error });
-  }
+  return apiOk(locked);
 }

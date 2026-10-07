@@ -40,8 +40,15 @@ const pdfSelect = {
  * certificate, use the bundled static signature"; `null` means "issued with no
  * signature, print a plain line".
  */
-async function resolveSignatureSrc(snapshotUrl: string | null): Promise<string | null | undefined> {
-  if (snapshotUrl === null) return undefined;
+async function resolveSignatureSrc(
+  snapshotUrl: string | null,
+  snapshotName: string | null,
+): Promise<string | null | undefined> {
+  /* Legacy = issued before the signature system, so no snapshot at all. New
+   * certificates always carry a signer name; a null URL beside a name means
+   * "issued with no active signature" and prints a plain line. */
+  if (snapshotName === null) return undefined;
+  if (snapshotUrl === null) return null;
   const match = /^\/api\/signature\/([A-Za-z0-9]+)\/image$/.exec(snapshotUrl);
   if (!match) return null;
   const row = await prisma.signature.findUnique({
@@ -80,7 +87,7 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
      * keep the Director name and static image they were originally printed with. */
     directorName: cert.signerNameSnapshot ?? DIRECTOR_NAME,
     directorTitle: cert.signerTitleSnapshot ?? DIRECTOR_TITLE,
-    signatureSrc: await resolveSignatureSrc(cert.signatureUrlSnapshot),
+    signatureSrc: await resolveSignatureSrc(cert.signatureUrlSnapshot, cert.signerNameSnapshot),
     verifyUrl: appUrl(`/verify/${cert.verificationToken}`),
     status,
   };

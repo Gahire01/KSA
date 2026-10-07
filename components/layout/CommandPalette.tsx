@@ -26,7 +26,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { NAV_SECTIONS } from "@/components/layout/Sidebar";
+import { NAV_SECTIONS, sectionItems } from "@/components/layout/Sidebar";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { mockApi } from "@/lib/mock";
@@ -81,7 +81,7 @@ export function CommandPalette() {
   const navCommands: Cmd[] = React.useMemo(
     () =>
       NAV_SECTIONS.flatMap((section) =>
-        (section.items ?? [])
+        sectionItems(section)
           .filter((item) => !item.roles || item.roles.includes(role))
           .map((item) => ({
             id: `nav:${item.href}`,

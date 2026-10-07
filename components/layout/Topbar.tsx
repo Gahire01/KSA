@@ -17,9 +17,8 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { NAV_SECTIONS, isActivePath } from "@/components/layout/Sidebar";
+import { buildBreadcrumbs } from "@/components/layout/breadcrumbs";
 import { useUiStore } from "@/lib/stores/ui-store";
-import { useAuthStore } from "@/lib/stores/auth-store";
 
 export function Topbar({
   onOpenMobileNav,
@@ -30,18 +29,8 @@ export function Topbar({
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const openCommand = useUiStore((s) => s.setCommandPaletteOpen);
-  const role = useAuthStore((s) => s.currentUser?.role ?? "ADMIN");
 
-  const trail = React.useMemo(() => {
-    const flat = NAV_SECTIONS.flatMap((s) =>
-      (s.items ?? []).filter((i) => !i.roles || i.roles.includes(role)),
-    );
-    const active = flat.filter((item) => isActivePath(pathname, item.href));
-    const deepest = active[active.length - 1] ?? flat.find((item) => item.href === "/dashboard");
-    if (!deepest) return null;
-    const section = NAV_SECTIONS.find((s) => (s.items ?? []).some((i) => i.href === deepest.href));
-    return { section: section?.title ?? "Kigali Safety Academy", label: deepest.label };
-  }, [pathname, role]);
+  const crumbs = React.useMemo(() => buildBreadcrumbs(pathname), [pathname]);
 
   return (
     <header
@@ -76,17 +65,30 @@ export function Topbar({
       <div className="min-w-0 flex-1">
         <nav aria-label="Breadcrumb" className="hidden sm:block">
           <ol className="flex items-center gap-1.5 text-sm">
-            <li className="text-ink-2">
-              <Link href="/dashboard" className="rounded hover:text-ink">
-                {trail?.section ?? "Academy"}
-              </Link>
-            </li>
-            <li aria-hidden className="text-ink-3">
-              /
-            </li>
-            <li className="truncate font-medium text-ink" aria-current="page">
-              {trail?.label ?? "Overview"}
-            </li>
+            {crumbs.map((crumb, i) => {
+              const last = i === crumbs.length - 1;
+              return (
+                <React.Fragment key={`${crumb.href}-${i}`}>
+                  {i > 0 && (
+                    <li aria-hidden className="text-ink-3">
+                      /
+                    </li>
+                  )}
+                  <li
+                    className={last ? "truncate font-medium text-ink" : "text-ink-2"}
+                    aria-current={last ? "page" : undefined}
+                  >
+                    {last ? (
+                      crumb.label
+                    ) : (
+                      <Link href={crumb.href} className="rounded hover:text-ink">
+                        {crumb.label}
+                      </Link>
+                    )}
+                  </li>
+                </React.Fragment>
+              );
+            })}
           </ol>
         </nav>
         <div className="sm:hidden">

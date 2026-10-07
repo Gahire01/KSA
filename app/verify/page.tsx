@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { academyFooterLine } from "@/lib/academy/constants";
 import { extractToken } from "@/lib/certificates/token";
 
 /**
@@ -131,7 +132,7 @@ export default function VerifyCertificatePage() {
       </main>
 
       <footer className="border-t border-line py-6 text-center text-xs text-ink-3">
-        Kigali Safety Academy · KN 07/MIN/EDUC/2024 · public certificate
+        {academyFooterLine()} · public certificate
         verification
       </footer>
     </div>

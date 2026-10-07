@@ -4,17 +4,18 @@
   "private": true,
   "packageManager": "pnpm@11.5.1",
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
     "gen:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {

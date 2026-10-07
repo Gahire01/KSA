@@ -8,6 +8,7 @@ import {
 
 import { generateCertNo, generateContentHash, generateReceiptNo, generateToken } from "@/lib/utils/ids";
 import { shuffle } from "@/lib/utils/shuffle";
+import { ACADEMY } from "@/lib/academy/constants";
 import type {
   AcademySettings,
   AttemptFilters,
@@ -129,14 +130,14 @@ const defaultMatrix: Record<NotificationType, Record<"inapp" | "email" | "whatsa
 };
 
 let settings: AcademySettings = {
-  name: "Kigali Safety Academy",
-  tagline: "Training, examination and certification for safer sites",
-  address: "KN 4 Ave, Nyarugenge Sector",
-  city: "Kigali",
-  country: "Rwanda",
-  phone: "+250 788 500 100",
-  email: "admin@kigalisafetyacademy.com",
-  website: "kigalisafetyacademy.com",
+  name: ACADEMY.name,
+  tagline: ACADEMY.tagline,
+  address: ACADEMY.address,
+  city: ACADEMY.city,
+  country: ACADEMY.country,
+  phone: ACADEMY.phone,
+  email: ACADEMY.email,
+  website: ACADEMY.website,
   logoUrl: "/logo.png",
   defaultSignerTrainerId: "trn_001",
   defaultPassMarkPct: 70,

@@ -8,6 +8,7 @@
  */
 
 import { appUrl, sendEmail } from "@/lib/email/send";
+import { ACADEMY, isPlaceholder } from "@/lib/academy/constants";
 
 const NAVY = "#0F2340";
 const ORANGE = "#E8590C";
@@ -30,8 +31,12 @@ interface ShellOptions {
   footer?: string;
 }
 
-const DEFAULT_FOOTER =
-  "Kigali Safety Academy &middot; This message was sent because an exam was requested for your enrolment. If you were not expecting it, you can ignore it.";
+const DEFAULT_FOOTER = `${ACADEMY.name} &middot; This message was sent because an exam was requested for your enrolment. If you were not expecting it, you can ignore it.`;
+
+/** Brand line for mails that are not exam-related. */
+const BRAND_FOOTER = isPlaceholder(ACADEMY.website)
+  ? ACADEMY.name
+  : `${ACADEMY.name} &middot; ${ACADEMY.website}`;
 
 function shell(inner: string, options: ShellOptions = {}): string {
   const preheader = options.preheader
@@ -243,7 +248,7 @@ Enter this code on the sign-in page to finish signing in.
     subject,
     html: shell(inner, {
       preheader,
-      footer: "Kigali Safety Academy &middot; kigalisafetyacademy.com",
+      footer: BRAND_FOOTER,
     }),
     text,
   };

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { Logo } from "@/components/shared/Logo";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { academyFooterLine } from "@/lib/academy/constants";
 import { ShieldCheckIcon, Clock3Icon, FileCheckIcon } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -85,7 +86,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         <p className="relative mt-10 text-xs text-white/35">
-          Kigali, Rwanda · est. 2019 · ISO 45001 aligned
+          Kigali, Rwanda
         </p>
       </aside>
 
@@ -106,7 +107,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         <div className="px-6 pb-6 text-center text-xs text-ink-3">
-          <p>Kigali Safety Academy · KN 07/MIN/EDUC/2024</p>
+          <p>{academyFooterLine()}</p>
         </div>
       </main>
     </div>

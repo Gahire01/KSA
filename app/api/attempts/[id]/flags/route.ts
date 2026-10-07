@@ -1,4 +1,3 @@
-import type { Prisma } from "@/lib/generated/prisma/client";
 import { z } from "zod";
 
 import { guard } from "@/lib/api/guard";
@@ -41,10 +40,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const target = flags[parsed.data.index];
   if (!target) return apiFail("That flag does not exist.", 404);
 
-  const next = flags.map((flag, i) => (i === parsed.data.index ? { ...flag, reviewed: parsed.data.reviewed } : flag));
-
+  /* Flip only the one `reviewed` key in place, atomically, so a flag the runner
+   * appends at the same moment is never overwritten by a stale copy of the array. */
   try {
-    await prisma.examAttempt.update({ where: { id }, data: { integrityFlags: next as Prisma.InputJsonValue } });
+    await prisma.$executeRaw`
+      UPDATE "ExamAttempt"
+      SET "integrityFlags" = jsonb_set(
+        "integrityFlags",
+        ARRAY[${String(parsed.data.index)}, 'reviewed'],
+        to_jsonb(${parsed.data.reviewed}::boolean)
+      )
+      WHERE "id" = ${id} AND jsonb_array_length("integrityFlags") > ${parsed.data.index}
+    `;
   } catch (error) {
     return apiFail("Could not update the flag. Try again.", 500, { logError: error });
   }

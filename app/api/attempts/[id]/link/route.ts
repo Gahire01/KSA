@@ -90,7 +90,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       const base = attempt.linkExpiresAt && attempt.linkExpiresAt > now ? attempt.linkExpiresAt : now;
       const linkExpiresAt = new Date(base.getTime() + LINK_EXTEND_HOURS * 60 * 60 * 1000);
 
-      await prisma.examAttempt.update({ where: { id: attempt.id }, data: { linkExpiresAt } });
+      const extended = await prisma.examAttempt.updateMany({
+        where: { id: attempt.id, status: { in: ["PENDING", "STARTED"] } },
+        data: { linkExpiresAt },
+      });
+      if (extended.count !== 1) return apiFail("This attempt changed while you were working. Refresh and try again.", 409);
       await audit("extend", {
         from: attempt.linkExpiresAt?.toISOString() ?? null,
         to: linkExpiresAt.toISOString(),
@@ -118,8 +122,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         return apiFail("The new code could not be emailed, so nothing was changed. Try again.", 502);
       }
 
-      await prisma.examAttempt.update({
-        where: { id: attempt.id },
+      /* An expired link would make the fresh code useless, so a reset revives it
+       * for the standard extension window rather than mailing a dead end. */
+      const expired = !attempt.linkExpiresAt || attempt.linkExpiresAt <= now;
+      const reopened = await prisma.examAttempt.updateMany({
+        where: { id: attempt.id, status: { in: ["PENDING", "STARTED"] } },
         data: {
           linkUses: 0,
           firstOpenedAt: null,
@@ -128,9 +135,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           otpHash,
           otpExpiresAt: otpExpiry(),
           otpAttempts: 0,
+          ...(expired
+            ? { linkExpiresAt: new Date(now.getTime() + LINK_EXTEND_HOURS * 60 * 60 * 1000) }
+            : {}),
         },
       });
+      if (reopened.count !== 1) return apiFail("This attempt changed while you were working. Refresh and try again.", 409);
       await audit("reset", {
+        revivedExpiredLink: expired,
         usesBefore: attempt.linkUses,
         firstOpenedAtBefore: attempt.firstOpenedAt?.toISOString() ?? null,
       });

@@ -20,11 +20,11 @@ import { OTP_MAX_ATTEMPTS } from "@/lib/exams/token";
  *
  * Exchanges the emailed six-digit code for a paper.
  *
- * Every rejection path returns the same 401 `{ error: "Invalid or expired code" }`
- * so the page cannot be used to distinguish a real token from a wrong code, a
- * spent attempt from a pending one, or an expired link from a live one. Only the
- * attempt cap (429) and the IP rate limit (429) are distinguishable, and both are
- * reached before any comparison happens.
+ * An unknown token, a wrong code and an expired code all return the same 401
+ * `{ error: "Invalid or expired code" }`, so the page cannot tell a real token
+ * from a guess. Someone holding a REAL token additionally sees 410 with the
+ * "expired" or "already opened" copy (lib/exams/link.ts) and 409 when their own
+ * tab already holds the exam; 429 covers the attempt cap and the IP limit.
  *
  * Nothing in the success body reveals which option is correct — see
  * lib/exams/manifest.ts, where the manifest holds ids only.
@@ -118,7 +118,9 @@ export async function POST(request: Request, context: { params: Promise<{ token:
    * on the sitting is never restarted by a re-open. */
   const startedAt = attempt.startedAt ?? now;
   const redeemed = await prisma.examAttempt.updateMany({
-    where: { id: attempt.id, linkUses: attempt.linkUses },
+    /* status is part of the match: a sitting submitted or voided since the read
+     * above must not be flipped back to STARTED by a late redeem. */
+    where: { id: attempt.id, linkUses: attempt.linkUses, status: { in: ["PENDING", "STARTED"] } },
     data: {
       status: "STARTED",
       startedAt,

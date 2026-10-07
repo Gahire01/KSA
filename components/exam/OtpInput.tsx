@@ -227,7 +227,9 @@ export function OtpInput({
             variant="ghost"
             size="sm"
             onClick={onResend}
-            disabled={resendBusy || busy || expired}
+            /* Not disabled when the local countdown ends: that clock is advisory and starts at
+            page load, and the server already limits resends to 3 an hour. */
+            disabled={resendBusy || busy}
             className="gap-1.5"
           >
             <MailIcon className="size-4" />

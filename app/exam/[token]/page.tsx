@@ -4,6 +4,7 @@ import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { Logo } from "@/components/shared/Logo";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OtpInput } from "@/components/exam/OtpInput";
 import {
@@ -33,7 +34,7 @@ import { toast } from "sonner";
 
 const COUNTDOWN_SECONDS = 30 * 60;
 
-type Phase = "checking" | "otp" | "paper" | "submitted" | "blocked";
+type Phase = "checking" | "otp" | "paper" | "submitted" | "blocked" | "stalled" | "ended";
 
 export default function ExamPage() {
   const params = useParams<{ token: string }>();
@@ -48,6 +49,7 @@ export default function ExamPage() {
   const [paper, setPaper] = React.useState<RunnerPaper | null>(null);
   const [result, setResult] = React.useState<RunnerResult | null>(null);
   const [blockedMessage, setBlockedMessage] = React.useState<string>(LINK_USED_MESSAGE);
+  const [reloadKey, setReloadKey] = React.useState(0);
 
   /* One tab per exam: a second tab on the same paper is blocked, not the first. */
   const tabState = useSingleTab(token, phase === "paper");
@@ -65,8 +67,9 @@ export default function ExamPage() {
         setPaper(loaded);
         setPhase("paper");
       })
-      .catch(() => {
+      .catch((loadError: unknown) => {
         if (cancelled) return;
+        const timeUp = loadError instanceof ApiError && loadError.status === 410;
         /* No cookie: find out whether the link is still usable before asking for
          * a code, so a dead link says so instead of failing at the code box. */
         api
@@ -75,7 +78,22 @@ export default function ExamPage() {
           )
           .then(({ state }) => {
             if (cancelled) return;
-            if (state === "expired" || state === "used") {
+            if (state === "resume") {
+              /* The cookie is valid, so this trainee already holds the exam and the
+               * paper simply failed to load. Asking for a code would dead-end (the
+               * server answers "already open"), so offer a retry, or if the clock
+               * has run out, hand in what was saved. */
+              if (timeUp) {
+                api
+                  .post(`/exams/attempts/${encodeURIComponent(token)}/submit`, {})
+                  .catch(() => undefined)
+                  .finally(() => {
+                    if (!cancelled) setPhase("ended");
+                  });
+              } else {
+                setPhase("stalled");
+              }
+            } else if (state === "expired" || state === "used") {
               setBlockedMessage(state === "expired" ? LINK_EXPIRED_MESSAGE : LINK_USED_MESSAGE);
               setPhase("blocked");
             } else {
@@ -90,7 +108,7 @@ export default function ExamPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, reloadKey]);
 
   /* Advisory countdown. The server is authoritative on expiry. */
   React.useEffect(() => {
@@ -194,6 +212,37 @@ export default function ExamPage() {
           submittedAt={new Date().toISOString()}
         />
       </>
+    );
+  }
+
+  if (phase === "stalled") {
+    return (
+      <div className="mx-auto max-w-xl space-y-5 px-4 py-16 text-center">
+        <Logo />
+        <p className="text-base text-ink">
+          We could not load your exam just now. Your answers are saved. Check your connection and try again.
+        </p>
+        <Button
+          type="button"
+          onClick={() => {
+            setPhase("checking");
+            setReloadKey((k) => k + 1);
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (phase === "ended") {
+    return (
+      <div className="mx-auto max-w-xl space-y-5 px-4 py-16 text-center">
+        <Logo />
+        <p className="text-base text-ink">
+          Your exam time has ended and your saved answers were submitted. The academy will share your result.
+        </p>
+      </div>
     );
   }
 

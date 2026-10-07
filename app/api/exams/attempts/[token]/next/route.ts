@@ -22,7 +22,8 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
   const { token } = await context.params;
 
   const attempt = await loadAttemptByToken(token);
-  if (!attempt) return apiFail("This exam link is not valid.", 404);
+  /* Same answer as "no cookie": an unknown token must not be told apart from a real one. */
+  if (!attempt) return apiFail("Enter the code we emailed you to open this exam.", 401);
 
   /* The cookie is checked before the status so that anyone who has not yet proved
    * possession of the emailed code gets the same "enter the code" answer whatever

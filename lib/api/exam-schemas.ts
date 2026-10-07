@@ -120,3 +120,12 @@ export const certificateRevokeSchema = z
 
 export type ExamSendInput = z.infer<typeof examSendSchema>;
 export type AccessGenerateInput = z.infer<typeof accessGenerateSchema>;
+
+/** Staff controls on one attempt's emailed link. */
+export const attemptLinkActionSchema = z
+  .object({
+    action: z.enum(["extend", "reset", "reissue"]),
+    /** Reissue only: hours the new link lives. Default 72, max 720. */
+    linkExpiresInHours: z.coerce.number().int().min(1).max(720).optional(),
+  })
+  .strict();

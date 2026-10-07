@@ -289,3 +289,43 @@ export function formatDdMmYyyy(date: Date): string {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   return `${dd}.${mm}.${d.getFullYear()}`;
 }
+
+export interface OtpCodeOnlyEmailInput {
+  traineeName: string;
+  courseName: string;
+  otp: string;
+  expiryMin: number;
+}
+
+/**
+ * A fresh code with no link, for a trainee who is already part-way through a
+ * paper. Staff cannot rebuild the original exam link (only its hash is stored),
+ * so this tells them to reuse the link they already have.
+ */
+export function otpCodeOnlyEmail(input: OtpCodeOnlyEmailInput): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = "Your new Kigali Safety Academy exam code";
+
+  const inner = `
+<p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:${INK_2};">Exam access</p>
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.25;color:${NAVY};">Hello ${escapeHtml(input.traineeName)},</h1>
+<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:${INK};">
+The academy has reopened your exam for <strong>${escapeHtml(input.courseName)}</strong>. Open the exam link you were sent earlier and enter this new six-digit code. The time already used on your paper still counts.
+</p>
+<p style="margin:0 0 6px;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:${INK_2};">Your access code</p>
+<p style="margin:0 0 6px;font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:${NAVY};">${escapeHtml(spacedOtp(input.otp))}</p>
+<p style="margin:0;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMin} minutes.</p>`;
+
+  const text = [
+    `Hello ${input.traineeName},`,
+    ``,
+    `The academy has reopened your exam for ${input.courseName}.`,
+    `Open the exam link you were sent earlier and enter this code: ${input.otp}`,
+    `This code expires in ${input.expiryMin} minutes. The time already used on your paper still counts.`,
+  ].join("\n");
+
+  return { subject, html: shell(inner), text };
+}

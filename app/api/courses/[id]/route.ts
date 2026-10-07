@@ -2,6 +2,7 @@ import { guard } from "@/lib/api/guard";
 import { apiFail, apiNotFound, apiOk, zodMessage } from "@/lib/api/response";
 import { courseUpdateSchema } from "@/lib/api/schemas";
 import { prisma } from "@/lib/db";
+import { invalidateCourses } from "@/lib/data-cache";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -72,6 +73,7 @@ export async function PATCH(request: Request, { params }: Params) {
     },
     include: { category: { select: { id: true, name: true } } },
   });
+  await invalidateCourses();
 
   return apiOk(course);
 }
@@ -103,6 +105,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   await prisma.course.delete({ where: { id } });
+  await invalidateCourses();
 
   return apiOk({ id, deleted: true });
 }

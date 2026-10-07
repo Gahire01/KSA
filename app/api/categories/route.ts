@@ -2,20 +2,16 @@ import { guard } from "@/lib/api/guard";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { categoryCreateSchema } from "@/lib/api/schemas";
 import { prisma } from "@/lib/db";
+import { getCategoriesCached, invalidateCategories } from "@/lib/data-cache";
 
 /** GET /api/categories — ordered by name, used to populate course/trainee selects. */
 export async function GET() {
   const gate = await guard("category.read");
   if (!gate.ok) return gate.response;
 
-  const categories = await prisma.category.findMany({
-    orderBy: { name: "asc" },
-    include: { _count: { select: { courses: true } } },
-  });
+  const categories = await getCategoriesCached();
 
-  return apiOk(
-    categories.map((c) => ({ id: c.id, name: c.name, courseCount: c._count.courses })),
-  );
+  return apiOk(categories);
 }
 
 /** POST /api/categories */
@@ -34,6 +30,7 @@ export async function POST(request: Request) {
   if (existing) return apiFail("That category already exists.", 409);
 
   const category = await prisma.category.create({ data: { name } });
+  await invalidateCategories();
 
   return apiOk({ id: category.id, name: category.name, courseCount: 0 }, 201);
 }

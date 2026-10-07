@@ -3,6 +3,7 @@ import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { courseCreateSchema, courseListQuerySchema } from "@/lib/api/schemas";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { invalidateCourses } from "@/lib/data-cache";
 
 /** GET /api/courses — search, filter by category/active, paginated. */
 export async function GET(request: Request) {
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
     },
     include: { category: { select: { id: true, name: true } } },
   });
+  await invalidateCourses();
 
   return apiOk(course, 201);
 }

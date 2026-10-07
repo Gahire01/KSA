@@ -6,9 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   AwardIcon,
   BarChart3Icon,
-  BellIcon,
   BookOpenIcon,
-  ChevronDownIcon,
   ClipboardCheckIcon,
   CreditCardIcon,
   FileClockIcon,
@@ -159,7 +157,7 @@ export function SidebarNav({
   const pathname = usePathname() ?? "";
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const role = useAuthStore((s) => s.currentUser?.role ?? "ADMIN");
-  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(() => {
+  const [openGroups] = React.useState<Record<string, boolean>>(() => {
     try {
       const raw = typeof window !== "undefined" ? localStorage.getItem("ksa:sidebar:groups") : null;
       return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
@@ -176,9 +174,7 @@ export function SidebarNav({
     } catch {}
   }, [openGroups]);
 
-  const toggleGroup = (key: string) => {
-    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+
 
   return (
     <nav

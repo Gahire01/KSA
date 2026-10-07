@@ -8,6 +8,7 @@ import {
   BarChart3Icon,
   BellIcon,
   BookOpenIcon,
+  ChevronDownIcon,
   ClipboardCheckIcon,
   CreditCardIcon,
   FileClockIcon,
@@ -16,6 +17,7 @@ import {
   SettingsIcon,
   ShieldCheckIcon,
   UsersIcon,
+  UserIcon,
 } from "lucide-react";
 
 import { Logo } from "@/components/shared/Logo";
@@ -32,47 +34,112 @@ export interface NavItem {
   roles?: ("OWNER" | "ADMIN" | "TRAINER")[];
 }
 
+export interface NavItemGroup {
+  title?: string;
+  items: NavItem[];
+}
+
 export interface NavSection {
   title: string;
-  items: NavItem[];
+  items?: NavItem[];
+  groups?: NavItemGroup[];
 }
 
 export const NAV_SECTIONS: NavSection[] = [
   {
     title: "Main",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon },
-      { href: "/trainees", label: "Trainees", icon: UsersIcon },
-      { href: "/courses", label: "Courses", icon: BookOpenIcon },
-      { href: "/exams", label: "Exams", icon: ClipboardCheckIcon },
-      { href: "/certificates", label: "Certificates", icon: AwardIcon },
-      { href: "/payments", label: "Payments", icon: CreditCardIcon, roles: ["OWNER", "ADMIN"] },
-      { href: "/notifications", label: "Notifications", icon: BellIcon },
+    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboardIcon }],
+  },
+  {
+    title: "Trainees",
+    groups: [
+      {
+        items: [
+          { href: "/trainees", label: "All", icon: UsersIcon },
+          { href: "/trainees/new", label: "Add", icon: UsersIcon },
+          { href: "/trainees/import", label: "Import", icon: UsersIcon },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Courses",
+    groups: [
+      {
+        items: [
+          { href: "/courses", label: "All", icon: BookOpenIcon },
+          { href: "/courses/new", label: "Add", icon: BookOpenIcon },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Exams",
+    groups: [
+      {
+        items: [
+          { href: "/exams", label: "All", icon: ClipboardCheckIcon },
+          { href: "/exams/new", label: "Send links", icon: ClipboardCheckIcon },
+          { href: "/questions", label: "Question bank", icon: ClipboardCheckIcon },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Certificates",
+    groups: [
+      {
+        items: [
+          { href: "/certificates", label: "All", icon: AwardIcon },
+          { href: "/certificates/issue", label: "Issue", icon: AwardIcon },
+          { href: "/verify", label: "Verify", icon: AwardIcon },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Payments",
+    groups: [
+      {
+        items: [
+          { href: "/payments", label: "All", icon: CreditCardIcon, roles: ["OWNER", "ADMIN"] },
+          { href: "/payments/new", label: "Record", icon: CreditCardIcon, roles: ["OWNER", "ADMIN"] },
+        ],
+      },
     ],
   },
   {
     title: "Team",
-    items: [
-      { href: "/trainers", label: "Trainers", icon: ShieldCheckIcon, roles: ["OWNER", "ADMIN"] },
+    groups: [
       {
-        href: "/access",
-        label: "Access control",
-        icon: KeyRoundIcon,
-        roles: ["OWNER"],
+        items: [
+          { href: "/trainers", label: "Trainers", icon: ShieldCheckIcon, roles: ["OWNER", "ADMIN"] },
+          { href: "/access", label: "Access links", icon: KeyRoundIcon, roles: ["OWNER"] },
+          { href: "/devices", label: "Devices", icon: KeyRoundIcon, roles: ["OWNER"] },
+        ],
       },
     ],
   },
   {
     title: "Data",
-    items: [
-      { href: "/reports", label: "Reports", icon: BarChart3Icon, roles: ["OWNER", "ADMIN"] },
-      { href: "/audit-log", label: "Audit log", icon: FileClockIcon, roles: ["OWNER", "ADMIN"] },
+    groups: [
+      {
+        items: [
+          { href: "/reports", label: "Reports", icon: BarChart3Icon, roles: ["OWNER", "ADMIN"] },
+          { href: "/audit-log", label: "Audit log", icon: FileClockIcon, roles: ["OWNER", "ADMIN"] },
+        ],
+      },
     ],
   },
   {
     title: "System",
-    items: [
-      { href: "/settings", label: "Settings", icon: SettingsIcon, roles: ["OWNER", "ADMIN"] },
+    groups: [
+      {
+        items: [
+          { href: "/settings", label: "Settings", icon: SettingsIcon, roles: ["OWNER", "ADMIN"] },
+          { href: "/settings/profile", label: "Profile", icon: UserIcon, roles: ["OWNER", "ADMIN", "TRAINER"] },
+        ],
+      },
     ],
   },
 ];
@@ -92,6 +159,26 @@ export function SidebarNav({
   const pathname = usePathname() ?? "";
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const role = useAuthStore((s) => s.currentUser?.role ?? "ADMIN");
+  const [openGroups, setOpenGroups] = React.useState<Record<string, boolean>>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("ksa:sidebar:groups") : null;
+      return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  React.useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("ksa:sidebar:groups", JSON.stringify(openGroups));
+      }
+    } catch {}
+  }, [openGroups]);
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <nav
@@ -121,7 +208,7 @@ export function SidebarNav({
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-3 ksa-scroll-x">
         {NAV_SECTIONS.map((section) => {
-          const items = section.items.filter(
+          const items = (section.items ?? []).filter(
             (item) => !item.roles || item.roles.includes(role),
           );
           if (items.length === 0) return null;

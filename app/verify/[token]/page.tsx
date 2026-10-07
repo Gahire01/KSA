@@ -42,7 +42,7 @@ export default async function VerifyTokenPage({
     <div className="min-h-dvh bg-paper">
       <header className="border-b border-line bg-card">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4">
-          <Logo />
+          <Logo href="/verify" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button asChild variant="outline" size="sm">

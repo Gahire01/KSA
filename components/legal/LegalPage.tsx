@@ -23,7 +23,7 @@ export function LegalPage({
     <div className="min-h-dvh bg-paper">
       <header className="border-b border-line bg-card">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4">
-          <Logo />
+          <Logo href="/verify" />
           <Button asChild variant="outline" size="sm">
             <Link href="/login">Staff sign in</Link>
           </Button>

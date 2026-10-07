@@ -13,7 +13,7 @@ export default function NotFound() {
     <div className="flex min-h-dvh flex-col bg-paper">
       <header className="border-b border-line bg-card">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-4">
-          <Logo />
+          <Logo href="/verify" />
         </div>
       </header>
 

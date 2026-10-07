@@ -2,8 +2,8 @@ import Link from "next/link";
 
 import {
   ACADEMY,
-  academyContactLine,
   academyFooterLine,
+  isPlaceholder,
 } from "@/lib/academy/constants";
 
 const LEGAL_LINKS = [
@@ -15,9 +15,10 @@ const LEGAL_LINKS = [
 
 /**
  * Shared public site footer: brand + registration line, real contact line
- * (city only while the street address is unfilled), copyright year and the
- * legal pages. Used on every unauthenticated surface so the legal links and
- * contact details never drift.
+ * (city only while the street address is unfilled; phone/email become tel: and
+ * mailto: links once the owner fills them), copyright year and the legal pages.
+ * Used on every unauthenticated surface so the legal links and contact details
+ * never drift.
  */
 export function SiteFooter({
   compact = false,
@@ -26,11 +27,41 @@ export function SiteFooter({
   compact?: boolean;
   note?: string;
 }) {
+  const address = isPlaceholder(ACADEMY.address)
+    ? ACADEMY.city
+    : `${ACADEMY.address}, ${ACADEMY.city}`;
+
   return (
     <footer className="border-t border-line py-6 text-center text-xs text-ink-3">
       <p>{academyFooterLine()}</p>
       {note ? <p className="mt-0.5">{note}</p> : null}
-      {!compact ? <p className="mt-0.5">{academyContactLine()}</p> : null}
+      {!compact ? (
+        <p className="mt-0.5">
+          {address}
+          {!isPlaceholder(ACADEMY.phone) ? (
+            <>
+              {" · "}
+              <a
+                href={`tel:${ACADEMY.phone}`}
+                className="underline-offset-2 hover:text-ink-2 hover:underline"
+              >
+                {ACADEMY.phone}
+              </a>
+            </>
+          ) : null}
+          {!isPlaceholder(ACADEMY.email) ? (
+            <>
+              {" · "}
+              <a
+                href={`mailto:${ACADEMY.email}`}
+                className="underline-offset-2 hover:text-ink-2 hover:underline"
+              >
+                {ACADEMY.email}
+              </a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
       <p className="mt-1">
         © {new Date().getFullYear()} {ACADEMY.shortName}. All rights reserved.
       </p>

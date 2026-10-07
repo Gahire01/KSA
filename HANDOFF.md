@@ -1004,3 +1004,10 @@ RESULT: nothing to fix; logged for the owner's record.
 - Legal pages now robots index:true + unique meta descriptions; new app/verify/layout.tsx sets index for /verify while /verify/[token] keeps noindex (page metadata wins) so one-off certificate tokens never leak into search.
 - /robots.txt, /sitemap.xml, /llms.txt, legal pages + not-found verified in a full pnpm build (green). tsc + lint clean.
 - NOTE: the dangerous PowerShell edit incident recurred (Set-Content BOM/mojibake on 4 legal pages) - caught via git diff, all four restored with git checkout, metadata redone with the Edit tool only.
+
+### Part 9 - UI cleanup (real pages) + clickable contacts (84ee648..)
+- Logo component now accepts href and renders a focus-visible link; public pages (verify, verify/[token], legal pages, not-found) link the logo to /verify. Admin sidebar logo already linked to /dashboard.
+- SiteFooter contact line is now clickable: tel: and mailto: links appear automatically once the owner fills ACADEMY.phone / ACADEMY.email (they stay plain text city-only today, nothing invented). academyContactLine stays for the payment receipt (plain text is right there).
+- Remaining UI/checklist items were already satisfied on real pages: toasts for success/error, mobile menu (Topbar + sheet), breakcrumbs, tabular numbers, no horizontal overflow in tables (scroll containers), DataTable header sticky, print styles on certificates/reports.
+- The many mock-backed admin pages (dashboard, payments, reports, audit-log, trainers, settings lists, CommandPalette...) still render fake people/data via lib/mock - scope recorded in STRETCH below.
+- tsc + lint green.

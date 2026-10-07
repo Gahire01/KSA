@@ -42,32 +42,21 @@ export async function createSession(params: {
   mfaPassed?: boolean;
   ip?: string | null;
   userAgent?: string | null;
-  /**
-   * The access link this session was minted from, when there was one.
-   *
-   * Recorded so that revoking the link can cascade: a withdrawn invitation must also
-   * end the session it created, or the recipient stays signed in after the owner
-   * revoked their access.
-   */
   accessLinkId?: string | null;
-  /** The referral code this session was minted from, when there was one. */
   referralCodeId?: string | null;
-  /**
-   * "Remember me for 30 days". Defaults to true; false yields a 12-hour
-   * session instead. The cookie's max-age and the row's expiry are set from
-   * the same number so the two cannot drift apart.
-   */
   remember?: boolean;
-  /**
-   * A hard ceiling on the session's life. Link and referral sessions pass the
-   * link's own expiry here, so the session can never outlast the access that
-   * granted it.
-   */
   maxExpiresAt?: Date;
 }): Promise<void> {
-  const requestedTtl = params.remember === false ? SESSION_SHORT_TTL_SECONDS : SESSION_TTL_SECONDS;
+  const requestedTtl =
+    params.remember === false ? SESSION_SHORT_TTL_SECONDS : SESSION_TTL_SECONDS;
   const ttlSeconds = params.maxExpiresAt
-    ? Math.max(60, Math.min(requestedTtl, Math.floor((params.maxExpiresAt.getTime() - Date.now()) / 1000)))
+    ? Math.max(
+        60,
+        Math.min(
+          requestedTtl,
+          Math.floor((params.maxExpiresAt.getTime() - Date.now()) / 1000),
+        ),
+      )
     : requestedTtl;
   const token = randomBytes(32).toString("base64url");
 
@@ -91,8 +80,13 @@ export async function createSession(params: {
 /**
  * Resolves the session behind the current request cookie.
  *
- * Returns null for missing, unknown, expired or deactivated-user sessions and
- * cleans up the cookie in each of those cases.
+ * READ-ONLY with respect to cookies. Next.js 15 forbids cookie writes from
+ * Server Components, and this function is called from `app/(app)/layout.tsx`.
+ * Stale cookies are cleaned up by `middleware.ts` on the next request instead
+ * (see `withStaleCookieCleanup` there).
+ *
+ * The DB row IS deleted when the session is invalid, so even if the browser
+ * keeps presenting the old token, it can never resolve again.
  */
 export async function getSession() {
   const token = await readSessionCookie();
@@ -104,24 +98,19 @@ export async function getSession() {
   });
 
   if (!session) {
-    await clearSessionCookie();
     return null;
   }
 
   if (session.expiresAt <= new Date()) {
     await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
-    await clearSessionCookie();
     return null;
   }
 
   if (!session.user.isActive) {
-    await clearSessionCookie();
     return null;
   }
 
-  /* A session minted from an access link lives and dies with that link: once the
-   * owner revokes it, or it passes its expiry, every session it produced ends on
-   * the next request. */
+  /* A session minted from an access link lives and dies with that link. */
   if (session.accessLinkId) {
     const link = await prisma.accessLink.findUnique({
       where: { id: session.accessLinkId },
@@ -129,7 +118,6 @@ export async function getSession() {
     });
     if (!link || link.revokedAt || link.expiresAt <= new Date()) {
       await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
-      await clearSessionCookie();
       return null;
     }
   }
@@ -142,7 +130,6 @@ export async function getSession() {
     });
     if (!code || code.revokedAt || code.expiresAt <= new Date()) {
       await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
-      await clearSessionCookie();
       return null;
     }
   }
@@ -154,21 +141,17 @@ export async function getSession() {
   });
 
   if (device === "revoked") {
-    /* The device itself was withdrawn, so the session it created is finished. */
     await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
-    await clearSessionCookie();
     return null;
   }
 
   if (device === "unknown") {
-    /* Session cookie without its device identity — refuse this request but leave
-     * the row alone, so a leaked session cookie cannot be used to sign the real
-     * device out. */
+    /* Session cookie without its device identity — refuse this request but
+     * leave the row alone, so a leaked cookie cannot sign the real device out. */
     return null;
   }
 
-  /* "Last seen" for the sessions list. Throttled to one write per five minutes
-   * so a busy browser does not turn every navigation into an UPDATE. */
+  /* "Last seen" for the sessions list, throttled to one write per 5 minutes. */
   const lastSeen = session.lastSeenAt ?? session.createdAt;
   if (Date.now() - lastSeen.getTime() > 5 * 60_000) {
     await prisma.session
@@ -188,6 +171,7 @@ export async function destroySession(): Promise<void> {
       .catch(() => {});
   }
 
+  /* Safe here — this runs from the logout Route Handler. */
   await clearSessionCookie();
 }
 
@@ -205,18 +189,14 @@ export async function countActiveSessions(userId: string): Promise<number> {
   });
 }
 
-/**
- * Every live session for one account, newest activity first.
- *
- * Scoped by `userId` alone: a caller can only ever see their own rows, and the
- * id returned is the stored HMAC — the cookie token itself is never recoverable
- * from it, so listing sessions cannot leak a usable credential.
- */
 export async function listSessions(userId: string) {
   return prisma.session.findMany({
-    /* The account's own sign-ins. A trainer's link and code holders share this user id but
-     * are not "my sessions": they must not be listed, signed out, or ended from here. */
-    where: { userId, accessLinkId: null, referralCodeId: null, expiresAt: { gt: new Date() } },
+    where: {
+      userId,
+      accessLinkId: null,
+      referralCodeId: null,
+      expiresAt: { gt: new Date() },
+    },
     orderBy: [{ lastSeenAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
@@ -229,24 +209,32 @@ export async function listSessions(userId: string) {
   });
 }
 
-/** Signs one of the caller's own sessions out. Returns false when it was not theirs. */
-export async function revokeSessionById(userId: string, sessionId: string): Promise<boolean> {
+export async function revokeSessionById(
+  userId: string,
+  sessionId: string,
+): Promise<boolean> {
   const result = await prisma.session.deleteMany({
-    where: { id: sessionId, userId, accessLinkId: null, referralCodeId: null },
+    where: {
+      id: sessionId,
+      userId,
+      accessLinkId: null,
+      referralCodeId: null,
+    },
   });
   return result.count > 0;
 }
 
-/**
- * Signs every other session out, keeping the one in `keepSessionId`.
- *
- * Deleting rows rather than revoking devices on purpose: this is "sign out
- * elsewhere", not "forget my browsers", so the same devices stay remembered and
- * can sign back in with a code.
- */
-export async function revokeOtherSessions(userId: string, keepSessionId: string): Promise<number> {
+export async function revokeOtherSessions(
+  userId: string,
+  keepSessionId: string,
+): Promise<number> {
   const result = await prisma.session.deleteMany({
-    where: { userId, accessLinkId: null, referralCodeId: null, id: { not: keepSessionId } },
+    where: {
+      userId,
+      accessLinkId: null,
+      referralCodeId: null,
+      id: { not: keepSessionId },
+    },
   });
   return result.count;
 }

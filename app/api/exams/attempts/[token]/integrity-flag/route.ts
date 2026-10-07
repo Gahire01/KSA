@@ -32,17 +32,37 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const body: unknown = await request.json().catch(() => null);
   const b = (body ?? null) as Record<string, unknown> | null;
 
-  const allowed = ["focus_blur", "copy_attempt", "cut_attempt", "paste_attempt", "contextmenu", "shortcut", "print_attempt", "devtools_suspected", "tab_switch"];
-  if (typeof t !== "string" || !allowed.includes(t)) {
+  const allowed = [
+    "blur",
+    "focus_blur",
+    "too_many_blurs",
+    "copy_attempt",
+    "cut_attempt",
+    "paste_attempt",
+    "contextmenu",
+    "shortcut",
+    "print_attempt",
+    "devtools_suspected",
+    "tab_switch",
+  ];
+  const type = b?.type;
+  if (typeof type !== "string" || !allowed.includes(type)) {
     return apiFail("Invalid flag type.", 422);
   }
 
-  const existing = (attempt.integrityFlags ?? []) as Array<{ type: string; at: string }>;
-  const flags = [...existing, { type, at: new Date().toISOString() }];
+  const existing = Array.isArray(attempt.integrityFlags)
+    ? (attempt.integrityFlags as Array<{ type: string; at: string; reviewed?: boolean }>)
+    : [];
+  /* Append-only: a flag can be added but never removed by the client. */
+  const flags = [...existing, { type, at: new Date().toISOString(), reviewed: false }];
+  const isBlur = type === "blur" || type === "focus_blur";
 
   await prisma.examAttempt.update({
-  const flags = [...existing, { type: t, at: new Date().toISOString() }];
-  const flags = [...existing, { type: String(t), at: new Date().toISOString() }];
+    where: { id: attempt.id },
+    data: {
+      integrityFlags: flags,
+      ...(isBlur ? { blurCount: { increment: 1 } } : {}),
+    },
   });
 
   return NextResponse.json({ ok: true, data: { recorded: true } });

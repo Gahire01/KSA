@@ -49,3 +49,10 @@ dev-server.log
 
 # lighthouse reports
 *_*.report.html
+
+# agent tooling (local only — never part of the app)
+/.agents
+/.claude
+/.windsurf
+/newera.md
+/skills-lock.json

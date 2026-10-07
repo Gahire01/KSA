@@ -6,7 +6,10 @@
  */
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { hashPassword } from "../lib/auth/password";
+import { cleanPng } from "../lib/signature/png";
 import type { DurationUnit } from "../lib/generated/prisma/client";
 
 for (const file of [".env.local", ".env"]) {
@@ -309,6 +312,39 @@ async function main() {
     });
   }
   console.log(`  courses:   ${COURSES.length}`);
+
+  /* Signature fallback: if no signature has ever been saved and the bundled
+   * image exists, seed it as the active one so certificates keep printing it
+   * until the owner draws their own. Never touches an existing signature. */
+  if ((await prisma.signature.count()) === 0) {
+    try {
+      const cleaned = cleanPng(readFileSync(join(process.cwd(), "public", "certificate", "signature.png")));
+      if (cleaned.ok) {
+        const row = await prisma.signature.create({
+          data: {
+            imageKey: "pending",
+            imageUrl: "pending",
+            imageData: new Uint8Array(cleaned.data),
+            signerName: "Fredson Niyoniringiye",
+            signerTitle: "Director",
+            source: "UPLOADED",
+            isActive: true,
+            lockedAt: new Date(),
+            createdById: owner.id,
+          },
+        });
+        await prisma.signature.update({
+          where: { id: row.id },
+          data: { imageKey: `db:${row.id}`, imageUrl: `/api/signature/${row.id}/image` },
+        });
+        console.log("  signature: seeded from public/certificate/signature.png");
+      } else {
+        console.log(`  signature: bundled image skipped (${cleaned.error})`);
+      }
+    } catch {
+      console.log("  signature: no bundled image, skipped");
+    }
+  }
 
   const traineeCount = await prisma.trainee.count();
   console.log(`  trainees:  ${traineeCount} (left empty on purpose)`);

@@ -12,6 +12,7 @@ import {
   FileClockIcon,
   KeyRoundIcon,
   LayoutDashboardIcon,
+  PenLineIcon,
   SettingsIcon,
   ShieldCheckIcon,
   UsersIcon,
@@ -135,6 +136,7 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         items: [
           { href: "/settings", label: "Settings", icon: SettingsIcon, roles: ["OWNER", "ADMIN"] },
+          { href: "/settings/signature", label: "Signature", icon: PenLineIcon, roles: ["OWNER"] },
           { href: "/settings/profile", label: "Profile", icon: UserIcon, roles: ["OWNER", "ADMIN", "TRAINER"] },
         ],
       },

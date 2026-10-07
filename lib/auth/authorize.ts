@@ -32,6 +32,7 @@ export type AuthzAction =
   | "notification.read"
   | "device.self"
   | "access.manage"
+  | "signature.manage"
   | "device.manage"
   | "audit.read"
   | "report.read";
@@ -103,6 +104,8 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
 
   /* Minting a way in is the most privileged action in the product. */
   "access.manage": new Set<Role>(["OWNER"]),
+  /* Drawing, uploading and locking the certificate signature. Owner only. */
+  "signature.manage": new Set<Role>(["OWNER"]),
   "device.manage": new Set<Role>(["OWNER"]),
   "audit.read": new Set<Role>(["OWNER"]),
   "report.read": STAFF_ROLES,

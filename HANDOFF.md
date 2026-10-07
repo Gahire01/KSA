@@ -853,3 +853,23 @@ pnpm build: GREEN (Next 15.5.26, all routes compiled; /dashboard 140 kB first-lo
 - build: green
 
 Sidebar.tsx syntax error (overnight PowerShell corruption) fixed by restoring from git. Ready for Step 1.
+
+
+## Session - Claude - 2026-10-07 - Part D (owner signature)
+
+Resumed at: Part D. Remaining: E-Q (F link lifecycle, I Twilio, audits of G/H/J/K/L/M/N, smoke, deploy).
+
+- Step 0: tsc/lint/build were red on arrival (half-edited integrity-flag route from a WIP commit). Fixed; all three green.
+- D.1: Signature model + SignatureSource enum; Certificate.signatureUrlSnapshot/signerNameSnapshot/signerTitleSnapshot (nullable, legacy rows). Migration 20261007120000_signature_system WRITTEN BY HAND, NOT APPLIED. Includes partial unique index so only one row can be active.
+- Storage decision: PNG bytes live in Signature.imageData (BYTEA), served from /api/signature/:id/image. No R2 and Vercel has no writable disk. imageKey = db:<id>.
+- D.2: /settings/signature (owner only): Draw tab (1400x400 canvas shown at 700x200, pressure, undo/redo/clear, transparent PNG) + Upload tab; lock panel with checkbox. Sidebar link added.
+- D.3: POST /api/signature/upload (5/min/IP, owner only), POST /api/signature/lock (transactional, audit signature.lock), GET /api/signature, GET /api/signature/:id/image (public once locked). New authz action signature.manage (OWNER).
+- Image hygiene: lib/signature/png.ts, dependency-free: magic bytes, 2 MB, dimension bounds, keeps only render chunks (strips EXIF/text). SVG rejected. Tested against real signature.png and malformed inputs.
+- D.4: issueCertificate snapshots the active signature; PDF + detail page read the snapshot only. Legacy certs keep the bundled static signature + Director name.
+- D.5: PDF/detail signature block uses a fixed 60pt band, image max 180x60 contain, line below.
+- D.6: prisma/seed.ts seeds public/certificate/signature.png as active UPLOADED if no Signature row exists.
+
+BLOCKERS (cannot be resolved in this environment)
+- No .env / DATABASE_URL: migrations unapplied, seed not run, smoke tests 1-24 not run.
+- No Twilio credentials, no Vercel access.
+- Not pushed: repo is Gahire01/KSA and the signed-in GitHub account here is gmflaubert. Work is on local branch ksa-launch.

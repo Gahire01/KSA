@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/db";
+import { getActiveSignature } from "@/lib/signature/active";
 import { canonicalJson, sha256Hex } from "@/lib/exams/manifest";
 import { certificateEmail } from "@/lib/email/templates";
 import { appUrl, sendEmail } from "@/lib/email/send";
@@ -138,6 +139,10 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
   const trainerTitleSnapshot =
     trainer?.role === "TRAINER" ? "Trainer" : DIRECTOR_TITLE;
 
+  /* Frozen onto the row: a signature locked next year must not change this
+   * certificate. No active signature just means the PDF prints a plain line. */
+  const signature = await getActiveSignature();
+
   const issuedAt = new Date();
   const durationSnapshot = formatDuration(course.durationValue, course.durationUnit);
 
@@ -205,6 +210,9 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
           durationSnapshot,
           trainerNameSnapshot,
           trainerTitleSnapshot,
+          signatureUrlSnapshot: signature?.imageUrl ?? null,
+          signerNameSnapshot: signature?.signerName ?? null,
+          signerTitleSnapshot: signature?.signerTitle ?? null,
           issuedAt,
           expiresAt,
         },

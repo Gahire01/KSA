@@ -34,6 +34,8 @@ export interface CertificateDoc {
   trainerTitle: string;
   directorName: string;
   directorTitle: string;
+  /** Data URI of the snapshotted signature. undefined = legacy static asset; null = none. */
+  signatureSrc?: string | null;
   verifyUrl: string;
   status: string;
 }
@@ -74,7 +76,10 @@ const styles = StyleSheet.create({
   },
   org: { fontSize: 11, letterSpacing: 2.4, color: palette.ink2 },
   logo: { width: 60, height: 60, alignSelf: "center", marginBottom: 10 },
-  signatureImage: { width: 110, height: 83, marginBottom: 4 },
+  /* Both columns reserve the same 60pt band, bottom-aligned, so the signature
+   * line sits on one baseline whether or not an image is present. */
+  signatureBand: { height: 60, width: 180, justifyContent: "flex-end", alignItems: "center" },
+  signatureImage: { maxWidth: 180, maxHeight: 60, objectFit: "contain" },
   title: { fontSize: 25, marginTop: 12, letterSpacing: 1.2 },  rule: {
     width: 74,
     height: 1.5,
@@ -233,7 +238,12 @@ export function CertificateDocument({
   const revoked = doc.status === "REVOKED";
   const accent = revoked ? palette.red : palette.green;
   const logo = getLogo();
-  const signature = getSignature();
+  const signature: Asset =
+    doc.signatureSrc === undefined
+      ? getSignature()
+      : doc.signatureSrc === null
+        ? null
+        : { src: doc.signatureSrc, width: 0, height: 0 };
 
   return (
     <Document
@@ -288,17 +298,19 @@ export function CertificateDocument({
 
             <View style={styles.signatures}>
               <View style={styles.signature}>
+                <View style={styles.signatureBand} />
                 <View style={styles.signatureLine} />
                 <Text style={styles.signatureName}>{doc.trainerName}</Text>
                 <Text style={styles.signatureTitle}>{doc.trainerTitle}</Text>
               </View>
               <View style={styles.signature}>
-                {signature ? (
-                  // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
-                  <Image src={signature.src} style={styles.signatureImage} />
-                ) : (
-                  <View style={styles.signatureLine} />
-                )}
+                <View style={styles.signatureBand}>
+                  {signature ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+                    <Image src={signature.src} style={styles.signatureImage} />
+                  ) : null}
+                </View>
+                <View style={styles.signatureLine} />
                 <Text style={styles.signatureName}>{doc.directorName}</Text>
                 <Text style={styles.signatureTitle}>{doc.directorTitle}</Text>
               </View>

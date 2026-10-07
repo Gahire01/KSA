@@ -22,6 +22,9 @@ const pdfSelect = {
   durationSnapshot: true,
   trainerNameSnapshot: true,
   trainerTitleSnapshot: true,
+  signatureUrlSnapshot: true,
+  signerNameSnapshot: true,
+  signerTitleSnapshot: true,
   issuedAt: true,
   expiresAt: true,
   revokedAt: true,
@@ -30,6 +33,23 @@ const pdfSelect = {
   trainee: { select: { fullName: true } },
   course: { select: { name: true } },
 } as const;
+
+/**
+ * Turns a snapshotted signature URL into an embeddable data URI by reading the
+ * stored bytes directly (no HTTP round trip). `undefined` means "legacy
+ * certificate, use the bundled static signature"; `null` means "issued with no
+ * signature, print a plain line".
+ */
+async function resolveSignatureSrc(snapshotUrl: string | null): Promise<string | null | undefined> {
+  if (snapshotUrl === null) return undefined;
+  const match = /^\/api\/signature\/([A-Za-z0-9]+)\/image$/.exec(snapshotUrl);
+  if (!match) return null;
+  const row = await prisma.signature.findUnique({
+    where: { id: match[1] },
+    select: { imageData: true },
+  });
+  return row ? `data:image/png;base64,${Buffer.from(row.imageData).toString("base64")}` : null;
+}
 
 export interface RenderedPdf {
   buffer: Buffer;
@@ -56,8 +76,11 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
     expiresAt: cert.expiresAt,
     trainerName: cert.trainerNameSnapshot,
     trainerTitle: cert.trainerTitleSnapshot,
-    directorName: DIRECTOR_NAME,
-    directorTitle: DIRECTOR_TITLE,
+    /* Certificates issued before the signature system carry no snapshot; they
+     * keep the Director name and static image they were originally printed with. */
+    directorName: cert.signerNameSnapshot ?? DIRECTOR_NAME,
+    directorTitle: cert.signerTitleSnapshot ?? DIRECTOR_TITLE,
+    signatureSrc: await resolveSignatureSrc(cert.signatureUrlSnapshot),
     verifyUrl: appUrl(`/verify/${cert.verificationToken}`),
     status,
   };

@@ -39,7 +39,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       credentials: "include",
       headers: {
-        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        /* FormData needs the browser to set the multipart boundary itself. */
+        ...(init?.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
         ...init?.headers,
       },
     });
@@ -104,6 +105,9 @@ export const api = {
 
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body ?? {}) }),
+
+  postForm: <T>(path: string, form: FormData) =>
+    request<T>(path, { method: "POST", body: form }),
 
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),

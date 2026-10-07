@@ -71,6 +71,9 @@ interface CertificateDetail {
   durationSnapshot: string;
   trainerNameSnapshot: string;
   trainerTitleSnapshot: string;
+  signatureUrlSnapshot: string | null;
+  signerNameSnapshot: string | null;
+  signerTitleSnapshot: string | null;
   issuedAt: string;
   expiresAt: string | null;
   revokedAt: string | null;
@@ -275,17 +278,33 @@ export default function CertificateDetailPage() {
                 </div>
 
                 <div className="flex flex-col items-center gap-1 pt-2">
-                  <Image
-                    src="/certificate/signature.png"
-                    alt="Signature of the Director"
-                    width={160}
-                    height={120}
-                    className="h-20 w-auto object-contain"
-                    priority={false}
-                  />
-                  <p className="font-display text-sm text-ink">Fredson Niyoniringiye</p>
+                  <div className="flex h-[60px] w-[180px] items-end justify-center">
+                    {cert.signatureUrlSnapshot === null && cert.signerNameSnapshot === null ? (
+                      /* Issued before the signature system: original static image. */
+                      <Image
+                        src="/certificate/signature.png"
+                        alt="Signature of the Director"
+                        width={160}
+                        height={120}
+                        className="max-h-[60px] w-auto max-w-[180px] object-contain"
+                        priority={false}
+                      />
+                    ) : cert.signatureUrlSnapshot ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- served from our own API, no optimiser needed
+                      <img
+                        src={cert.signatureUrlSnapshot}
+                        alt={`Signature of ${cert.signerNameSnapshot ?? "the signer"}`}
+                        className="max-h-[60px] max-w-[180px] object-contain"
+                      />
+                    ) : null}
+                  </div>
                   <div className="h-px w-40 bg-line" aria-hidden />
-                  <p className="text-[10px] tracking-wider text-ink-2 uppercase">Director</p>
+                  <p className="font-display text-sm text-ink">
+                    {cert.signerNameSnapshot ?? "Fredson Niyoniringiye"}
+                  </p>
+                  <p className="text-[10px] tracking-wider text-ink-2 uppercase">
+                    {cert.signerTitleSnapshot ?? "Director"}
+                  </p>
                   <Image
                     src="/stamp-sample.png"
                     alt="Official stamp"

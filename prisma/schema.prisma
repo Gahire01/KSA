@@ -320,6 +320,12 @@ model Certificate {
   durationSnapshot     String
   trainerNameSnapshot  String
   trainerTitleSnapshot String
+  /// Signature frozen at issue time. Never re-resolved at render: a later
+  /// signature lock must not change a certificate already issued. Null only on
+  /// certificates issued before the signature system existed.
+  signatureUrlSnapshot  String?
+  signerNameSnapshot    String?
+  signerTitleSnapshot   String?
   issuedAt             DateTime     @default(now())
   expiresAt            DateTime?
   revokedAt            DateTime?
@@ -437,4 +443,30 @@ model AuditLog {
   @@index([createdAt])
   @@index([actorId, createdAt])
   @@index([action])
+}
+
+enum SignatureSource {
+  DRAWN
+  UPLOADED
+}
+
+/// The owner's certificate signature. At most one row is active; locking a new
+/// one supersedes the old, and issued certificates keep their own snapshot.
+/// The PNG bytes live in the row (serverless hosts have no writable disk) and
+/// are served from /api/signature/:id/image.
+model Signature {
+  id           String          @id @default(cuid())
+  imageKey     String
+  imageUrl     String
+  imageData    Bytes
+  signerName   String
+  signerTitle  String
+  source       SignatureSource
+  isActive     Boolean         @default(false)
+  lockedAt     DateTime?
+  supersededAt DateTime?
+  createdById  String
+  createdAt    DateTime        @default(now())
+
+  @@index([isActive])
 }

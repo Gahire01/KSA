@@ -35,9 +35,9 @@ import type { CsvPreviewRow, Trainee } from "@/lib/types";
 
 type Step = "upload" | "preview" | "done";
 
-const SAMPLE = `name,email,phone,country,category,course,amountPaid
-Clarisse Uwase,clarisse.uwase@example.com,+250 788 111 222,Rwanda,Firefighters,FSL1,45000
-Patrick Habimana,p.habimana@example.com,+250 788 333 444,Rwanda,Maintenance,HEIG,45000`;
+const TEMPLATE = `name,email,phone,country,category,course,amountPaid
+Trainee One,trainee1@ksa.test,+250 700 000 001,Rwanda,Firefighters,FSL1,45000
+Trainee Two,trainee2@ksa.test,+250 700 000 002,Rwanda,Maintenance,HEIG,45000`;
 
 const REQUIRED_HEADERS = ["name", "email", "course"];
 
@@ -261,7 +261,7 @@ export default function ImportTraineesPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <pre className="overflow-x-auto rounded-lg border border-line bg-paper p-3 font-mono text-xs text-ink-2">
-                {SAMPLE}
+                {TEMPLATE}
               </pre>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
@@ -269,7 +269,7 @@ export default function ImportTraineesPage() {
                   size="sm"
                   className="gap-1.5"
                   onClick={() => {
-                    const blob = new Blob([SAMPLE], { type: "text/csv;charset=utf-8" });
+                    const blob = new Blob([TEMPLATE], { type: "text/csv;charset=utf-8" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
@@ -284,9 +284,9 @@ export default function ImportTraineesPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => void process(SAMPLE, "sample-template.csv")}
+                  onClick={() => void process(TEMPLATE, "trainee-template.csv")}
                 >
-                  Try it with sample data
+                  Try the template
                 </Button>
               </div>
             </CardContent>

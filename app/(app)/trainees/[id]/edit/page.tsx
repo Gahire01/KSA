@@ -176,7 +176,7 @@ export default function EditTraineePage() {
                   <FormItem className="sm:col-span-2">
                     <FormLabel>Full name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Clarisse Uwase" {...field} />
+                      <Input placeholder="Full name" {...field} />
                     </FormControl>
                     <FormMessage>{form.formState.errors.name?.message}</FormMessage>
                   </FormItem>
@@ -189,7 +189,7 @@ export default function EditTraineePage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="name@example.com" {...field} />
+                      <Input type="email" placeholder="Email address" {...field} />
                     </FormControl>
                     <FormMessage>{form.formState.errors.email?.message}</FormMessage>
                   </FormItem>
@@ -202,7 +202,7 @@ export default function EditTraineePage() {
                   <FormItem>
                     <FormLabel>Phone</FormLabel>
                     <FormControl>
-                      <Input type="tel" placeholder="+250 788 000 000" {...field} />
+                      <Input type="tel" placeholder="+250 7XX XXX XXX" {...field} />
                     </FormControl>
                     <FormMessage>{form.formState.errors.phone?.message}</FormMessage>
                   </FormItem>

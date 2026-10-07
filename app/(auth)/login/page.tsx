@@ -493,7 +493,7 @@ export default function LoginPage() {
                         autoComplete="email"
                         inputMode="email"
                         autoFocus
-                        placeholder="you@academy.rw"
+                        placeholder="Email address"
                         aria-invalid={Boolean(form.formState.errors.email)}
                         {...field}
                       />

@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { mockApi } from "@/lib/mock";
+import { academyContactLine } from "@/lib/academy/constants";
 import { formatDateTime, formatRwf } from "@/lib/utils/format";
 import type { PaymentStatus } from "@/lib/types";
 
@@ -150,7 +151,7 @@ export default function ReceiptPage() {
                   Kigali Safety Academy
                 </p>
                 <p className="text-[10px] tracking-widest text-ink-2 uppercase">
-                  KG 5 Ave · Kigali · +250 788 000 000
+                  {academyContactLine()}
                 </p>
               </div>
             </div>

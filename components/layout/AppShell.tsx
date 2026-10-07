@@ -1,15 +1,21 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 
 import { SidebarNav } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
-import { CommandPalette } from "@/components/layout/CommandPalette";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { useNotificationHydration, useNotificationStream } from "@/lib/hooks/use-notification-stream";
 import { cn } from "@/lib/utils/cn";
+
+/* Only needed once someone presses Ctrl/Cmd+K, so it is not part of the first load. */
+const CommandPalette = dynamic(
+  () => import("@/components/layout/CommandPalette").then((m) => m.CommandPalette),
+  { ssr: false },
+);
 
 /**
  * Authenticated application chrome: collapsible desktop sidebar, sticky topbar,

@@ -80,8 +80,9 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "rounded-xl border border-line bg-card p-4 shadow-sm transition-shadow",
-        href && "hover:shadow-md",
+        "rounded-xl border border-line bg-card p-4 shadow-sm transition-[box-shadow,transform] duration-200",
+        /* Lift is opacity-neutral and 2px: motion-safe so reduced-motion users get shadow only. */
+        href && "hover:shadow-md motion-safe:hover:-translate-y-0.5",
         className,
       )}
     >

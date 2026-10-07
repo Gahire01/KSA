@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -21,12 +22,6 @@ import { StatCard } from "@/components/shared/StatCard";
 import { DeadlineBadge } from "@/components/shared/DeadlineBadge";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { EmptyState } from "@/components/shared/EmptyState";
-import {
-  CategoryPieChart,
-  PassRateBarChart,
-  RevenueAreaChart,
-  Sparkline,
-} from "@/components/shared/charts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,6 +34,26 @@ import {
   formatNumber,
   formatTime,
 } from "@/lib/utils/format";
+
+/* Recharts is large and needs the browser, so the charts load on demand instead of
+ * weighing down the first paint of every dashboard visit. */
+const chartLoading = () => <Skeleton className="h-64 w-full" />;
+const CategoryPieChart = dynamic(
+  () => import("@/components/shared/charts").then((m) => m.CategoryPieChart),
+  { ssr: false, loading: chartLoading },
+);
+const PassRateBarChart = dynamic(
+  () => import("@/components/shared/charts").then((m) => m.PassRateBarChart),
+  { ssr: false, loading: chartLoading },
+);
+const RevenueAreaChart = dynamic(
+  () => import("@/components/shared/charts").then((m) => m.RevenueAreaChart),
+  { ssr: false, loading: chartLoading },
+);
+const Sparkline = dynamic(() => import("@/components/shared/charts").then((m) => m.Sparkline), {
+  ssr: false,
+  loading: () => <Skeleton className="h-8 w-24" />,
+});
 
 const SEVERITY_STYLE = {
   info: { icon: InfoIcon, cls: "text-navy bg-secondary" },

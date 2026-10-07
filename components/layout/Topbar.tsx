@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { Logo } from "@/components/shared/Logo";
+import { InstallButton } from "@/components/pwa/install-button";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,7 @@ export function Topbar({
         </Link>
       </Button>
 
+      <InstallButton />
       <ThemeToggle />
       <NotificationBell />
     </header>

@@ -308,3 +308,79 @@
   overflow-x: auto;
   scrollbar-width: thin;
 }
+
+
+/* ------------------------------------------------------------------------
+ * Motion (Parts L.6, L.7, M). Opacity and small translate only, 100-250ms,
+ * never layout. Everything that moves is inside the no-preference query, so a
+ * user who asks for reduced motion gets no animation at all.
+ * --------------------------------------------------------------------- */
+@theme {
+  /* Sidebar groups open and close in 100ms. The keyframes come from tw-animate-css. */
+  --animate-accordion-down: accordion-down 100ms ease-out;
+  --animate-accordion-up: accordion-up 100ms ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes ksa-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes ksa-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Page mount: the wrapper fades, and each section of the page rises in turn. */
+  .ksa-page-enter {
+    animation: ksa-fade-in 200ms ease-out both;
+  }
+  .ksa-page-enter > * > * {
+    animation: ksa-fade-up 200ms ease-out both;
+  }
+  .ksa-page-enter > * > *:nth-child(2) {
+    animation-delay: 50ms;
+  }
+  .ksa-page-enter > * > *:nth-child(3) {
+    animation-delay: 100ms;
+  }
+  .ksa-page-enter > * > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+  .ksa-page-enter > * > *:nth-child(5) {
+    animation-delay: 200ms;
+  }
+  .ksa-page-enter > * > *:nth-child(n + 6) {
+    animation-delay: 250ms;
+  }
+
+  /* Skeleton shimmer. */
+  .ksa-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .ksa-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--background) 60%, transparent),
+      transparent
+    );
+    animation: ksa-shimmer 1.4s ease-in-out infinite;
+  }
+}

@@ -81,7 +81,7 @@ export function CommandPalette() {
   const navCommands: Cmd[] = React.useMemo(
     () =>
       NAV_SECTIONS.flatMap((section) =>
-        section.items
+        (section.items ?? [])
           .filter((item) => !item.roles || item.roles.includes(role))
           .map((item) => ({
             id: `nav:${item.href}`,

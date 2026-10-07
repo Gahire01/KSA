@@ -31,15 +31,14 @@ export function Topbar({
   const openCommand = useUiStore((s) => s.setCommandPaletteOpen);
   const role = useAuthStore((s) => s.currentUser?.role ?? "ADMIN");
 
-  /* Breadcrumb trail derived from the active nav item. */
   const trail = React.useMemo(() => {
     const flat = NAV_SECTIONS.flatMap((s) =>
-      s.items.filter((i) => !i.roles || i.roles.includes(role)),
+      (s.items ?? []).filter((i) => !i.roles || i.roles.includes(role)),
     );
     const active = flat.filter((item) => isActivePath(pathname, item.href));
     const deepest = active[active.length - 1] ?? flat.find((item) => item.href === "/dashboard");
     if (!deepest) return null;
-    const section = NAV_SECTIONS.find((s) => s.items.includes(deepest));
+    const section = NAV_SECTIONS.find((s) => (s.items ?? []).some((i) => i.href === deepest.href));
     return { section: section?.title ?? "Kigali Safety Academy", label: deepest.label };
   }, [pathname, role]);
 

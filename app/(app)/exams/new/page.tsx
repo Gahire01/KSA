@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { api, ApiError } from "@/lib/api/client";
 import { formatDateTime } from "@/lib/utils/format";
 
@@ -55,8 +56,22 @@ interface SendResult {
   sent: Array<{ traineeId: string; name: string; email: string; url: string }>;
   failed: Array<{ traineeId: string; name: string; reason: string }>;
   skipped: Array<{ traineeId: string; name: string; reason: string }>;
-  summary: { requested: number; sent: number; failed: number; skipped: number };
+  summary: { requested: number; sent: number; failed: number; skipped: number; notices: string[] };
 }
+
+type Channel = "email" | "whatsapp" | "both";
+
+interface LookupResult {
+  configured: boolean;
+  items: Array<{ traineeId: string; e164: string | null; whatsapp: "yes" | "no" | "unknown" | "invalid" }>;
+}
+
+const WA_LABEL: Record<LookupResult["items"][number]["whatsapp"], string> = {
+  yes: "On WhatsApp",
+  no: "Not on WhatsApp",
+  unknown: "Not checked",
+  invalid: "No valid number",
+};
 
 export default function SendExamPage() {
   const [courseId, setCourseId] = React.useState("");
@@ -85,16 +100,29 @@ export default function SendExamPage() {
     staleTime: 30_000,
   });
 
+  const [channel, setChannel] = React.useState<Channel>("email");
+  const [verifyWhatsapp, setVerifyWhatsapp] = React.useState(true);
+
+  /* Shows the number each message would go to, and whether it is on WhatsApp. */
+  const selectedIds = React.useMemo(() => [...selected].sort(), [selected]);
+  const lookupQuery = useQuery({
+    queryKey: ["whatsapp-lookup", selectedIds],
+    queryFn: () => api.post<LookupResult>("/whatsapp/lookup", { traineeIds: selectedIds.slice(0, 100) }),
+    enabled: channel !== "email" && selectedIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
   const send = useMutation({
     mutationFn: (traineeIds: string[]) =>
-      api.post<SendResult>(`/exams/${courseId}/send`, { traineeIds }),
+      api.post<SendResult>(`/exams/${courseId}/send`, { traineeIds, channel, verifyWhatsapp }),
     onSuccess: (data) => {
       setResult(data);
       if (data.summary.sent > 0) {
         toast.success(`${data.summary.sent} exam link${data.summary.sent === 1 ? "" : "s"} sent`);
       }
+      for (const notice of data.summary.notices ?? []) toast.info(notice);
       if (data.summary.failed > 0) {
-        toast.error(`${data.summary.failed} email${data.summary.failed === 1 ? "" : "s"} failed`);
+        toast.error(`${data.summary.failed} could not be delivered`);
       }
     },
     onError: (error) => {
@@ -231,11 +259,56 @@ export default function SendExamPage() {
         <CardHeader className="gap-1">
           <CardTitle className="text-base">3. Send</CardTitle>
           <CardDescription>
-            Each email carries the link and the code. The code expires in 30 minutes; the
-            link expires in 24 hours.
+            Each message carries the link and the code. The code expires in 30 minutes; the
+            link works once and expires in 72 hours.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="channel">Send by</Label>
+              <Select value={channel} onValueChange={(v) => setChannel(v as Channel)}>
+                <SelectTrigger id="channel" className="w-full" aria-label="Channel">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email only</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp only</SelectItem>
+                  <SelectItem value="both">Email and WhatsApp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {channel !== "email" ? (
+              <Label className="flex items-center gap-2 self-end pb-2 text-sm font-normal">
+                <Switch checked={verifyWhatsapp} onCheckedChange={setVerifyWhatsapp} aria-label="Verify WhatsApp first" />
+                Verify WhatsApp first
+              </Label>
+            ) : null}
+          </div>
+
+          {channel !== "email" && lookupQuery.data && !lookupQuery.data.configured ? (
+            <Alert>
+              <InfoIcon className="size-4" />
+              <AlertDescription>WhatsApp is not configured, so these will go out by email only.</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {channel !== "email" && lookupQuery.data?.configured ? (
+            <ul className="max-h-48 divide-y divide-line overflow-y-auto text-xs">
+              {lookupQuery.data.items.map((item) => {
+                const t = trainees.find((x) => x.id === item.traineeId);
+                return (
+                  <li key={item.traineeId} className="flex items-center justify-between gap-3 py-1.5">
+                    <span className="truncate font-medium text-ink">{t?.fullName ?? item.traineeId}</span>
+                    <span className="shrink-0 font-mono text-ink-2">
+                      {item.e164 ?? "-"} · {WA_LABEL[item.whatsapp]}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+
           <Button
             className="gap-1.5"
             disabled={!courseId || selected.size === 0 || send.isPending}
@@ -245,14 +318,28 @@ export default function SendExamPage() {
             Send to {selected.size} trainee{selected.size === 1 ? "" : "s"}
           </Button>
 
-          {result ? <SendReport result={result} /> : null}
+          {result ? (
+            <SendReport
+              result={result}
+              retrying={send.isPending}
+              onRetry={() => send.mutate(result.failed.map((f) => f.traineeId))}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function SendReport({ result }: { result: SendResult }) {
+function SendReport({
+  result,
+  onRetry,
+  retrying,
+}: {
+  result: SendResult;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
   return (
     <div className="space-y-3 border-t border-line pt-4">
       <p className="flex items-center gap-2 text-sm font-medium text-ink">
@@ -286,7 +373,7 @@ function SendReport({ result }: { result: SendResult }) {
         <Alert variant="destructive">
           <XCircleIcon className="size-4" />
           <AlertDescription>
-            <p className="font-medium">Email failed</p>
+            <p className="font-medium">Could not be delivered</p>
             <ul className="mt-1 space-y-0.5 text-xs">
               {result.failed.map((f) => (
                 <li key={f.traineeId}>
@@ -294,6 +381,9 @@ function SendReport({ result }: { result: SendResult }) {
                 </li>
               ))}
             </ul>
+            <Button type="button" size="sm" variant="outline" className="mt-2" disabled={retrying} onClick={onRetry}>
+              Retry failed
+            </Button>
           </AlertDescription>
         </Alert>
       ) : null}

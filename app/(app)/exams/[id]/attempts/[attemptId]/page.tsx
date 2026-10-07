@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { formatDateTime } from "@/lib/utils/format";
 
 /**
@@ -81,6 +82,7 @@ export default function AttemptLinkPage() {
   const params = useParams<{ id: string; attemptId: string }>();
   const attemptId = params.attemptId;
   const queryClient = useQueryClient();
+  const isOwner = useAuthStore((s) => s.currentUser?.role) === "OWNER";
   const [pending, setPending] = React.useState<LinkAction | null>(null);
   const [newUrl, setNewUrl] = React.useState<string | null>(null);
 
@@ -104,6 +106,15 @@ export default function AttemptLinkPage() {
       setPending(null);
       toast.error(error.message);
     },
+  });
+
+  const grant = useMutation({
+    mutationFn: () => api.post(`/attempts/${attemptId}/grant`),
+    onSuccess: () => {
+      toast.success("Another attempt granted and emailed");
+      void queryClient.invalidateQueries({ queryKey: ["attempt", attemptId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   const review = useMutation({
@@ -198,6 +209,19 @@ export default function AttemptLinkPage() {
           ) : (
             <p className="text-sm text-ink-2">This sitting is finished, so its link can no longer be changed.</p>
           )}
+
+          {isOwner && a.status === "FAILED" ? (
+            <div className="space-y-2 rounded-lg border border-line p-3">
+              <p className="text-sm font-medium">Grant another attempt</p>
+              <p className="text-xs text-ink-2">
+                This trainee has used every attempt. Granting one more emails them a fresh link and code, and
+                reopens their enrolment. This is recorded in the audit log.
+              </p>
+              <Button type="button" variant="outline" size="sm" disabled={grant.isPending} onClick={() => grant.mutate()}>
+                Grant attempt {a.attemptNumber + 1}
+              </Button>
+            </div>
+          ) : null}
 
           {newUrl ? (
             <div className="space-y-2 rounded-lg border border-amber-400 p-3">

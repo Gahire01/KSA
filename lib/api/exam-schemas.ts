@@ -21,6 +21,10 @@ export const examSendSchema = z
     traineeIds: z.array(z.string().trim().min(1)).min(1, "Choose at least one trainee.").max(500),
     /** Hours until the link stops working. Default 72, max 720 (30 days). */
     linkExpiresInHours: z.coerce.number().int().min(1).max(720).optional(),
+    /** Where to deliver the link and code. Default email only. */
+    channel: z.enum(["email", "whatsapp", "both"]).default("email"),
+    /** Check each number is on WhatsApp before sending. */
+    verifyWhatsapp: z.boolean().default(true),
     subject: z.string().trim().max(200).optional(),
     note: z.string().trim().max(1000).optional(),
   })

@@ -57,7 +57,7 @@ export const REFERRAL_REDEEM_LIMIT = { perIp: 10, windowMs: WINDOW_MS } as const
 
 /** Exam autosave. Generous enough for a jittering client, tight enough to
  * stop a script using it to brute-force option ids. */
-export const EXAM_AUTOSAVE_LIMIT = { max: 30, windowMs: 60 * 1000 } as const;
+export const EXAM_AUTOSAVE_LIMIT = { max: 60, windowMs: 60 * 1000 } as const;
 
 export type RateLimitResult =
   | { ok: true; remaining: number }

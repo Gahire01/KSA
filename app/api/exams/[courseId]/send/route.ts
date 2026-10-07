@@ -16,6 +16,13 @@ import { hashSecret } from "@/lib/auth/password";
 import { requestIp } from "@/lib/exams/attempt";
 import { LINK_DEFAULT_HOURS, linkExpiryFromNow } from "@/lib/exams/link";
 import { emit } from "@/lib/notifications/emit";
+import {
+  examWhatsappMessage,
+  lookupWhatsapp,
+  normalizeE164,
+  sendWhatsapp,
+  whatsappConfigured,
+} from "@/lib/whatsapp/twilio";
 
 /**
  * POST /api/exams/:courseId/send
@@ -64,7 +71,7 @@ export async function POST(request: Request, context: { params: Promise<{ course
 
   const trainees = await prisma.trainee.findMany({
     where: { id: { in: traineeIds }, courseId },
-    select: { id: true, fullName: true, email: true, status: true },
+    select: { id: true, fullName: true, email: true, phone: true, status: true },
   });
 
   if (trainees.length === 0) {
@@ -88,11 +95,25 @@ export async function POST(request: Request, context: { params: Promise<{ course
   const linkExpiresAt = linkExpiryFromNow(parsed.data.linkExpiresInHours ?? LINK_DEFAULT_HOURS);
   const ip = await requestIp();
 
+  /* Channels. WhatsApp that is requested but not configured degrades to email
+   * with a notice instead of failing the batch. */
+  const { channel, verifyWhatsapp } = parsed.data;
+  const waConfigured = whatsappConfigured();
+  const notices: string[] = [];
+  if (channel !== "email" && !waConfigured) {
+    notices.push("WhatsApp not configured — sending email only");
+    console.warn("[exam-send] WhatsApp requested but Twilio is not configured");
+  }
+  const useWhatsapp = channel !== "email" && waConfigured;
+  const useEmail = channel !== "whatsapp" || !waConfigured;
+
   const sent: Array<{
     traineeId: string;
     name: string;
     email: string;
     url: string;
+    delivered: { email: boolean; whatsapp: boolean };
+    whatsappNote: string | null;
   }> = [];
   const failed: Array<{ traineeId: string; name: string; reason: string }> = [];
   const skipped: Array<{ traineeId: string; name: string; reason: string }> = [];
@@ -105,6 +126,31 @@ export async function POST(request: Request, context: { params: Promise<{ course
         traineeId: trainee.id,
         name: trainee.fullName,
         reason: `All ${course.maxAttempts} attempts already used.`,
+      });
+      continue;
+    }
+
+    /* Decide the channels BEFORE minting anything, so a trainee who cannot be
+     * reached at all never gets an orphan attempt. */
+    let phone: string | null = null;
+    let whatsappNote: string | null = null;
+    if (useWhatsapp) {
+      phone = normalizeE164(trainee.phone);
+      if (!phone) {
+        whatsappNote = "No valid WhatsApp number on file.";
+      } else if (verifyWhatsapp) {
+        const check = await lookupWhatsapp(phone);
+        if (check === "no" || check === "invalid") {
+          phone = null;
+          whatsappNote = check === "no" ? "That number is not on WhatsApp." : "That number is not valid.";
+        }
+      }
+    }
+    if (!useEmail && !phone) {
+      skipped.push({
+        traineeId: trainee.id,
+        name: trainee.fullName,
+        reason: whatsappNote ?? "No way to reach this trainee.",
       });
       continue;
     }
@@ -148,17 +194,46 @@ export async function POST(request: Request, context: { params: Promise<{ course
       durationMin: course.examDurationMin,
     });
 
-    const result = await sendEmail({
-      to: trainee.email,
-      subject: email.subject,
-      html: email.html,
-      text: email.text,
-    });
+    const delivered = { email: false, whatsapp: false };
+    const problems: string[] = [];
 
-    if (!result.ok) {
+    if (useEmail) {
+      const result = await sendEmail({
+        to: trainee.email,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      });
+      delivered.email = result.ok;
+      if (!result.ok) problems.push(result.reason ?? "Email failed.");
+    }
+
+    if (phone) {
+      const wa = await sendWhatsapp(
+        phone,
+        examWhatsappMessage({
+          firstName: trainee.fullName.trim().split(/\s+/)[0] ?? trainee.fullName,
+          courseName: course.name,
+          otp,
+          examUrl,
+          expiryMin: OTP_TTL_MINUTES,
+        }),
+      );
+      delivered.whatsapp = wa.ok;
+      if (!wa.ok) {
+        whatsappNote = wa.reason ?? "WhatsApp failed.";
+        problems.push(whatsappNote);
+      }
+    }
+
+    if (!delivered.email && !delivered.whatsapp) {
       /* The attempt must not linger with an undelivered code. */
       await prisma.examAttempt.delete({ where: { id: attempt.id } }).catch(() => {});
-      failed.push({ traineeId: trainee.id, name: trainee.fullName, reason: result.reason ?? "Email failed." });
+      failed.push({
+        traineeId: trainee.id,
+        name: trainee.fullName,
+        reason: problems.join(" ") || whatsappNote || "Could not be delivered.",
+      });
       continue;
     }
 
@@ -167,6 +242,8 @@ export async function POST(request: Request, context: { params: Promise<{ course
       name: trainee.fullName,
       email: trainee.email,
       url: examUrl,
+      delivered,
+      whatsappNote,
     });
   }
 
@@ -208,6 +285,7 @@ export async function POST(request: Request, context: { params: Promise<{ course
       skipped,
       summary: {
         requested: trainees.length,
+        notices,
         sent: sent.length,
         failed: failed.length,
         skipped: skipped.length,

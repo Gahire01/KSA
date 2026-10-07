@@ -5,6 +5,7 @@ import { EXAM_AUTOSAVE_LIMIT, clientKey, rateLimit, rateLimitFail } from "@/lib/
 import { apiFail, zodMessage } from "@/lib/api/response";
 import { prisma } from "@/lib/db";
 import { loadAttemptByToken, manifestOf, secondsRemaining } from "@/lib/exams/attempt";
+import { SUBMIT_GRACE_SECONDS } from "@/lib/exams/finalize";
 import { readExamSession } from "@/lib/exams/session-cookie";
 
 /**
@@ -42,7 +43,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     return apiFail("Enter the code we emailed you to open this exam.", 401);
   }
 
-  if (secondsRemaining(attempt) <= 0) return apiFail("Time is up. Submit your answers.", 410);
+  /* The grace covers the final autosave that races the submit; past it nothing
+   * more is accepted, so a late submit can only ever grade what was saved in time. */
+  if (secondsRemaining(attempt) + SUBMIT_GRACE_SECONDS <= 0) {
+    return apiFail("Time is up. Submit your answers.", 410);
+  }
 
   const body: unknown = await request.json().catch(() => null);
   const parsed = examAnswerSchema.safeParse(body);

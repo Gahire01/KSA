@@ -2,15 +2,41 @@ import { NextResponse } from "next/server";
 
 import { clientKey, rateLimit, rateLimitFail } from "@/lib/api/rate-limit";
 import { apiFail } from "@/lib/api/response";
-import { prisma } from "@/lib/db";
 import { loadAttemptByToken } from "@/lib/exams/attempt";
+import { finalizeAttempt } from "@/lib/exams/finalize";
+import { appendIntegrityFlag } from "@/lib/exams/flags";
 import { readExamSession } from "@/lib/exams/session-cookie";
-
-/** Hard ceiling on stored flags per sitting. */
-const MAX_FLAGS = 500;
 
 const INTEGRITY_LIMIT = { max: 30, windowMs: 60 * 1000 } as const;
 
+/** More than this many focus losses ends the sitting. */
+const MAX_BLURS = 5;
+
+/**
+ * Flag types the runner may report. `too_many_blurs` is deliberately absent: only
+ * the server writes it, when it ends a sitting for exceeding MAX_BLURS.
+ */
+const CLIENT_FLAG_TYPES = [
+  "blur",
+  "focus_blur",
+  "copy_attempt",
+  "cut_attempt",
+  "paste_attempt",
+  "contextmenu",
+  "shortcut",
+  "print_attempt",
+  "devtools_suspected",
+  "tab_switch",
+];
+
+/**
+ * POST /api/exams/attempts/:token/integrity-flag { type }
+ *
+ * The runner reports something worth a human's attention. Rate limited 30 a
+ * minute per token. The server owns the focus-loss rule: when the blur count
+ * passes MAX_BLURS the sitting is graded and closed here, so a client that is
+ * patched to skip its own auto-submit gains nothing.
+ */
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
 
@@ -35,44 +61,20 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   if (attempt.status !== "STARTED") return apiFail("This exam is not open.", 410);
 
   const body: unknown = await request.json().catch(() => null);
-  const b = (body ?? null) as Record<string, unknown> | null;
-
-  const allowed = [
-    "blur",
-    "focus_blur",
-    "too_many_blurs",
-    "copy_attempt",
-    "cut_attempt",
-    "paste_attempt",
-    "contextmenu",
-    "shortcut",
-    "print_attempt",
-    "devtools_suspected",
-    "tab_switch",
-  ];
-  const type = b?.type;
-  if (typeof type !== "string" || !allowed.includes(type)) {
+  const type = (body as { type?: unknown } | null)?.type;
+  if (typeof type !== "string" || !CLIENT_FLAG_TYPES.includes(type)) {
     return apiFail("Invalid flag type.", 422);
   }
 
-  const flag = { type, at: new Date().toISOString(), reviewed: false };
   const isBlur = type === "blur" || type === "focus_blur";
+  const blurCount = await appendIntegrityFlag(attempt.id, type, { countsAsBlur: isBlur });
 
-  /* One atomic statement: a blur and a tab_switch fire together on every tab
-   * switch, and a read-then-write of the whole array would lose one of them.
-   * Appending with jsonb || is append-only by construction, the blur counter
-   * moves in the same statement, and the array is capped so the endpoint cannot
-   * be used to grow a row without bound. */
-  await prisma.$executeRaw`
-    UPDATE "ExamAttempt"
-    SET "integrityFlags" = CASE
-          WHEN jsonb_array_length(COALESCE("integrityFlags", '[]'::jsonb)) < ${MAX_FLAGS}
-            THEN COALESCE("integrityFlags", '[]'::jsonb) || ${JSON.stringify([flag])}::jsonb
-          ELSE "integrityFlags"
-        END,
-        "blurCount" = "blurCount" + ${isBlur ? 1 : 0}
-    WHERE "id" = ${attempt.id}
-  `;
+  if (isBlur && blurCount !== null && blurCount > MAX_BLURS) {
+    const result = await finalizeAttempt(attempt, { token, autoFlag: "too_many_blurs" });
+    if (result.ok) {
+      return NextResponse.json({ ok: true, data: { recorded: true, autoSubmitted: true, result: result.data } });
+    }
+  }
 
-  return NextResponse.json({ ok: true, data: { recorded: true } });
+  return NextResponse.json({ ok: true, data: { recorded: true, blurCount } });
 }

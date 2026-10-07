@@ -26,6 +26,7 @@ export type AuthzAction =
   | "exam.read"
   | "exam.send"
   | "exam.grade"
+  | "exam.grant"
   | "certificate.read"
   | "certificate.issue"
   | "certificate.revoke"
@@ -90,6 +91,8 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
   "exam.read": ALL_ROLES,
   "exam.send": STAFF_ROLES,
   "exam.grade": STAFF_ROLES,
+  /* Granting an attempt beyond the course limit is an owner decision. */
+  "exam.grant": new Set<Role>(["OWNER"]),
 
   "certificate.read": ALL_ROLES,
   "certificate.issue": STAFF_ROLES,

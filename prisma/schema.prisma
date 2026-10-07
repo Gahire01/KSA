@@ -213,6 +213,8 @@ model Question {
   explanation String?
   /// Position in the authored paper; unique per course so reordering is stable.
   position    Int
+  /// 1 (easy) to 3 (hard). Informational: it does not change grading.
+  difficulty  Int              @default(2)
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())
   options     QuestionOption[]

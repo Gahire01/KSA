@@ -4,8 +4,11 @@ import { Suspense } from "react";
 
 import { Providers } from "@/components/providers";
 import { CookieConsent } from "@/components/site/CookieConsent";
+import { LocalBusinessJsonLd } from "@/components/site/LocalBusinessJsonLd";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { Toaster } from "@/components/ui/sonner";
+import { ACADEMY } from "@/lib/academy/constants";
+import { siteBaseUrl } from "@/lib/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,7 +31,12 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const base = siteBaseUrl();
+
 export const metadata: Metadata = {
+  /* Canonical/OG fall back to the request origin when a base is not configured;
+   * absolute base is set only for a real public origin, never localhost. */
+  metadataBase: base ? new URL(base) : undefined,
   title: {
     default: "Kigali Safety Academy",
     template: "%s · Kigali Safety Academy",
@@ -38,6 +46,32 @@ export const metadata: Metadata = {
   applicationName: "Kigali Safety Academy",
   authors: [{ name: "Kigali Safety Academy" }],
   robots: { index: false, follow: false },
+  openGraph: {
+    type: "website",
+    locale: "en_RW",
+    siteName: "Kigali Safety Academy",
+    title: "Kigali Safety Academy",
+    description: ACADEMY.tagline,
+    url: base ? `${base}/verify` : undefined,
+    ...(base
+      ? {
+          images: [
+            {
+              url: `${base}/logo.png`,
+              width: 512,
+              height: 512,
+              alt: "Kigali Safety Academy",
+            },
+          ],
+        }
+      : {}),
+  },
+  twitter: {
+    card: "summary",
+    title: "Kigali Safety Academy",
+    description: ACADEMY.tagline,
+    ...(base ? { images: [`${base}/logo.png`] } : {}),
+  },
   /* PWA. The manifest carries the icon list, so metadata only points at it —
    * keeping one source for the icons rather than two lists that drift. */
   manifest: "/manifest.webmanifest",
@@ -81,6 +115,7 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link no-print">
           Skip to main content
         </a>
+        <LocalBusinessJsonLd />
         <Suspense fallback={null}>
           <Providers>{children}</Providers>
         </Suspense>

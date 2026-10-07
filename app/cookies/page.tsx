@@ -5,6 +5,9 @@ import { ACADEMY } from "@/lib/academy/constants";
 
 export const metadata: Metadata = {
   title: "Cookie Policy",
+  description:
+    "The essential cookies Kigali Safety Academy sets — a sign-in session, security tokens and theme choice. No tracking cookies.",
+  robots: { index: true, follow: true },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

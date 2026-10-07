@@ -978,3 +978,29 @@ Audit result: the app was already strong on a11y - verified and left as-is where
 - No tracking/advertising: zero analytics scripts, zero iframes/3rd-party embeds, no console.log in client code.
 FIXED: removed the last invented registration number "KN 07/MIN/EDUC/2024" from /verify/[token] footer - now SiteFooter (same as the Part 2 cleanup on login layout + /verify).
 tsc + lint green.
+
+### Part 7 - security hardening (VERIFICATION, no code change needed) (4bd5f6f..)
+Audited every checklist item against the code - all already in place:
+- Secrets: no .env, .pem, .key, id_rsa, sk-/AKIA/private-key material in git (grep clean; only two fake mock flag ids flg_live_...). .env* ignored.
+- CSRF: middleware.ts gates every non-safe /api/* request on Sec-Fetch-Site (same-origin/none) + Origin host allowlist (env APP_URL/NEXT_PUBLIC_APP_URL + request host); non-browser requests (no headers) pass (no ambient cookies). Complete.
+- Rate limiting: lib/api/rate-limit applied to login (per-IP + per-email + per-account lockout), login verify/resend, OTP verify/resend, access-link redeem, referral redeem, exam answer/status/time/integrity-flag, whatsapp lookup, question import, signature upload, MFA.
+- XSS: zero dangerouslySetInnerHTML in the codebase (the new JSON-LD component is the single controlled exception - static constants only); React escaping everywhere; email/PDF build their own text (no injection of raw HTML input).
+- SQL injection: Prisma parameterized exclusively.
+- Uploads: /api/signature/upload is owner-gated (guard signature.manage), 5/min rate limit, File.instance check, 2 MB cap, PNG re-encoded via cleanPng (strips metadata), stored as DB bytes not user paths; never executed/renamed.
+- Authz: every API route uses guard() -> session + authorize() role matrix, fail-closed for trainers (must opt into trainerScope). Admin pages server-gated in (app)/layout.tsx (getSession redirect). No public signup (OTP + access links only).
+- CORS: no CORS headers -> same-origin default. Headers: HSTS preload, X-Content-Type-Options, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy, robust CSP (no object-src, base-uri self, frame-ancestors none, dev-only unsafe-eval). HTTPS via Vercel + HSTS.
+- Cron: /api/cron/cleanup refuses when CRON_SECRET unset; timingSafeEqual bearer check.
+- Debug: no debug endpoints; whatsapp logs mask phone numbers; reactStrictMode on, devIndicators off.
+RESULT: nothing to fix; logged for the owner's record.
+
+### Part 8 - SEO (5 new files + metadata) (same commit)
+- lib/site.ts siteBaseUrl(): one source for absolute SEO URLs - uses APP_URL/NEXT_PUBLIC_APP_URL (https or localhost-in-dev only) or ACADEMY.website when filled. Returns null when unknown instead of inventing a domain, so no localhost lands in prod artifacts until the owner publishes a domain.
+- app/robots.ts: allow only the public pages (/verify, /privacy, /terms, /cookies, /refund-policy), disallow everything else; sitemap line only when a real base exists.
+- app/sitemap.ts: the 5 public pages; empty sitemap while base is null.
+- app/llms.txt/route.ts: plain-text LLM index with absolute links only when a base exists.
+- app/not-found.tsx: custom 404 in site chrome (Logo + Verify a certificate + Staff sign in + SiteFooter).
+- Root metadata: metadataBase (when real), openGraph (website, en_RW, siteName, tagline description, og:image = logo.png when base exists), twitter summary card. robots noindex stays global for the console.
+- components/site/LocalBusinessJsonLd.tsx: Organization JSON-LD on every page (name, tagline, city/country address; url+logo only when base exists) - the sole dangerouslySetInnerHTML in the app, fed exclusively by local constants.
+- Legal pages now robots index:true + unique meta descriptions; new app/verify/layout.tsx sets index for /verify while /verify/[token] keeps noindex (page metadata wins) so one-off certificate tokens never leak into search.
+- /robots.txt, /sitemap.xml, /llms.txt, legal pages + not-found verified in a full pnpm build (green). tsc + lint clean.
+- NOTE: the dangerous PowerShell edit incident recurred (Set-Content BOM/mojibake on 4 legal pages) - caught via git diff, all four restored with git checkout, metadata redone with the Edit tool only.

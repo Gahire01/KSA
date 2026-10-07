@@ -5,6 +5,9 @@ import { ACADEMY } from "@/lib/academy/constants";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
+  description:
+    "How Kigali Safety Academy handles the personal data of trainees and staff: what is collected, why, and the rights you have over it.",
+  robots: { index: true, follow: true },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

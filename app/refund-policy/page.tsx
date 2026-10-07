@@ -5,6 +5,9 @@ import { ACADEMY } from "@/lib/academy/constants";
 
 export const metadata: Metadata = {
   title: "Refund Policy",
+  description:
+    "When Kigali Safety Academy course fees are refunded, and how to request a refund.",
+  robots: { index: true, follow: true },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

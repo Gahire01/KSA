@@ -5,6 +5,9 @@ import { ACADEMY } from "@/lib/academy/constants";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
+  description:
+    "The rules for using the Kigali Safety Academy platform: accounts, enrolment, exams, certificates and acceptable use.",
+  robots: { index: true, follow: true },
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

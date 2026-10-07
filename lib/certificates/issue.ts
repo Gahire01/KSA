@@ -58,7 +58,9 @@ async function highestRegisterNumber(): Promise<number> {
 
   let max = REGISTER_NEXT_STUDENT_NUMBER - 1;
   for (const row of rows) {
-    const n = /^\d+$/.test(row.traineeNo) ? Number.parseInt(row.traineeNo, 10) : Number.NaN;
+    /* At most nine digits: anything longer is not a student number, and as the floor for the
+     * next certificate it would overflow the 32-bit column and stop all issuing. */
+    const n = /^\d{1,9}$/.test(row.traineeNo) ? Number.parseInt(row.traineeNo, 10) : Number.NaN;
     if (Number.isFinite(n) && n > max) max = n;
   }
   return max;

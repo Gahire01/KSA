@@ -49,6 +49,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     attemptNumber: last.attemptNumber + 1,
   });
   if (!issued.ok) {
+    if (issued.exists) return apiFail("Another attempt for this trainee was just created.", 409);
     return apiFail("The new attempt could not be emailed, so nothing was changed. Try again.", 502);
   }
 

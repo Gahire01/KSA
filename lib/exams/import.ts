@@ -41,7 +41,9 @@ export interface ValidationResult {
 
 /** Picks the delimiter from the header line: comma, semicolon or tab. */
 function detectDelimiter(text: string): string {
-  const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
+  /* The first line that has anything on it: a blank line above the header must not
+   * make every delimiter count zero and fall back to a comma. */
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim() !== "") ?? "";
   const counts = [",", ";", "\t"].map((d) => ({ d, n: firstLine.split(d).length - 1 }));
   counts.sort((a, b) => b.n - a.n);
   return counts[0].n > 0 ? counts[0].d : ",";
@@ -94,13 +96,9 @@ export function parseCsv(input: string): string[][] {
     row.push(cell);
     rows.push(row);
   }
-
-  /* Blank lines before the header (a stray newline at the top of pasted text) must not
-   * become the header row. Only leading ones are dropped, so later row numbers still
-   * match the user's own line numbers. */
-  let firstReal = 0;
-  while (firstReal < rows.length && rows[firstReal].every((c) => c.trim() === "")) firstReal += 1;
-  return firstReal > 0 ? rows.slice(firstReal) : rows;
+  /* Rows are returned exactly as they appear, blank ones included, so a row number in an
+   * error message is the line the user sees. validateRows finds the header itself. */
+  return rows;
 }
 
 /* ----------------------------------------------------------------- XLSX */
@@ -236,9 +234,12 @@ function readXlsxUnsafe(buf: Buffer): string[][] | null {
   const normalised = sheetXml.replace(/<row\b[^>]*\/>/g, "<row></row>");
 
   const rows: string[][] = [];
-  for (const rowMatch of normalised.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  for (const rowMatch of normalised.matchAll(/<row\b([^>]*)>([\s\S]*?)<\/row>/g)) {
     const cells: string[] = [];
-    for (const c of rowMatch[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    /* Excel omits empty rows entirely, so a row is placed by its own number (r="7"), not
+     * by its position in the file. That keeps reported row numbers equal to Excel's. */
+    const declared = Number.parseInt(/\br="(\d+)"/.exec(rowMatch[1])?.[1] ?? "", 10);
+    for (const c of rowMatch[2].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = c[1];
       const inner = c[2] ?? "";
       const ref = /\br="([A-Z]+\d+)"/.exec(attrs)?.[1];
@@ -261,8 +262,11 @@ function readXlsxUnsafe(buf: Buffer): string[][] | null {
       }
       cells[columnIndex(ref)] = value;
     }
-    rows.push(Array.from(cells, (v) => v ?? ""));
-    if (rows.length > MAX_IMPORT_ROWS + 5) break;
+    const rowNumber = Number.isFinite(declared) && declared >= 1 ? declared : rows.length + 1;
+    /* A row number far beyond the cap is not data worth padding an array for. */
+    if (rowNumber > MAX_IMPORT_ROWS + 1000) break;
+    while (rows.length < rowNumber - 1) rows.push([]);
+    rows[rowNumber - 1] = Array.from(cells, (v) => v ?? "");
   }
   return rows;
 }
@@ -273,16 +277,18 @@ const FORMULA_START = /^[=+\-@]/;
 const LETTERS = ["a", "b", "c", "d"] as const;
 
 export function validateRows(rows: string[][]): ValidationResult | { fatal: string } {
-  if (rows.length === 0) return { fatal: "The file is empty." };
+  /* The header is the first row with anything in it, so blank lines above it are fine. */
+  const headerIndex = rows.findIndex((r) => r.some((cell) => cell.trim() !== ""));
+  if (headerIndex === -1) return { fatal: "The file is empty." };
 
-  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const header = rows[headerIndex].map((h) => h.trim().toLowerCase());
   const col = (name: string) => header.indexOf(name);
   const missing = ["question", "option_a", "option_b", "correct"].filter((c) => col(c) === -1);
   if (missing.length > 0) {
     return { fatal: `Missing column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.` };
   }
 
-  const dataRows = rows.slice(1).filter((r) => r.some((cell) => cell.trim() !== ""));
+  const dataRows = rows.slice(headerIndex + 1).filter((r) => r.some((cell) => cell.trim() !== ""));
   if (dataRows.length > MAX_IMPORT_ROWS) {
     return { fatal: `Too many rows (${dataRows.length}). The limit is ${MAX_IMPORT_ROWS} per import.` };
   }
@@ -291,9 +297,10 @@ export function validateRows(rows: string[][]): ValidationResult | { fatal: stri
   const errors: RowError[] = [];
   const seen = new Map<string, number>();
 
-  rows.slice(1).forEach((r, i) => {
+  rows.slice(headerIndex + 1).forEach((r, i) => {
     if (!r.some((cell) => cell.trim() !== "")) return;
-    const rowNumber = i + 2;
+    /* The row as the user sees it: 1-based, counting every line above it. */
+    const rowNumber = headerIndex + i + 2;
     const get = (name: string) => (col(name) === -1 ? "" : (r[col(name)] ?? "").trim());
     const fail = (message: string) => errors.push({ row: rowNumber, message });
 

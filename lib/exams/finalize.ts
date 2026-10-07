@@ -123,7 +123,18 @@ export async function finalizeAttempt(
 
   /* Running out of attempts closes the enrolment as FAILED rather than leaving it
    * pending forever. An owner-granted extra attempt works the same way. */
-  const exhausted = !passed && attempt.attemptNumber >= attempt.course.maxAttempts;
+  /* Judged on sittings actually taken, not on the attempt NUMBER: a voided attempt keeps
+   * its number but was never sat, so counting by number would cost the trainee a real try. */
+  const priorSittings = await prisma.examAttempt.count({
+    where: {
+      traineeId: attempt.traineeId,
+      courseId: attempt.courseId,
+      status: { in: ["SUBMITTED", "PASSED", "FAILED"] },
+      NOT: { id: attempt.id },
+    },
+  });
+  const sittingsUsed = priorSittings + 1;
+  const exhausted = !passed && sittingsUsed >= attempt.course.maxAttempts;
   const status = passed ? "PASSED" : exhausted ? "FAILED" : "SUBMITTED";
 
   const now = new Date();
@@ -208,13 +219,21 @@ export async function finalizeAttempt(
    * normal "Send an exam" flow can issue it by hand. */
   let nextAttempt: { emailed: boolean } | null = null;
   if (!passed && !exhausted) {
+    /* Numbered after the highest number ever used (voided ones included), because the
+     * (trainee, course, number) pair is unique. */
+    const highest = await prisma.examAttempt.aggregate({
+      where: { traineeId: attempt.traineeId, courseId: attempt.courseId },
+      _max: { attemptNumber: true },
+    });
     const next = await issueAttempt({
       traineeId: attempt.traineeId,
       courseId: attempt.courseId,
-      attemptNumber: attempt.attemptNumber + 1,
+      attemptNumber: (highest._max.attemptNumber ?? attempt.attemptNumber) + 1,
     });
-    nextAttempt = { emailed: next.ok };
-    if (!next.ok) {
+    /* "Already exists" means a concurrent send or grant made it, and that one emailed it:
+     * nothing is missing, so staff are not told to send it by hand. */
+    nextAttempt = { emailed: next.ok || next.exists === true };
+    if (!next.ok && !next.exists) {
       console.error(`[exam] next attempt not issued for trainee ${attempt.traineeId}: ${next.reason}`);
     }
   }
@@ -227,7 +246,7 @@ export async function finalizeAttempt(
     recipients: toAudience,
     title: "Exam submitted",
     link: "/exams",
-    body: `${who} submitted ${attempt.course.name} with ${scorePct}% (attempt ${attempt.attemptNumber} of ${attempt.course.maxAttempts}).`,
+    body: `${who} submitted ${attempt.course.name} with ${scorePct}% (attempt ${sittingsUsed} of ${attempt.course.maxAttempts}).`,
   });
 
   if (passed) {
@@ -294,9 +313,9 @@ export async function finalizeAttempt(
       correctCount,
       totalCount,
       passMarkPct,
-      attemptNumber: attempt.attemptNumber,
+      attemptNumber: sittingsUsed,
       maxAttempts: attempt.course.maxAttempts,
-      attemptsRemaining: Math.max(0, attempt.course.maxAttempts - attempt.attemptNumber),
+      attemptsRemaining: Math.max(0, attempt.course.maxAttempts - sittingsUsed),
       exhausted,
       nextAttempt,
       certificate,

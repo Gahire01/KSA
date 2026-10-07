@@ -34,6 +34,10 @@ const newId = () => randomBytes(12).toString("hex");
  * every accented letter into a replacement character.
  */
 function decodeText(bytes: Buffer): string {
+  /* Excel's "Unicode Text" is UTF-16 with a byte-order mark. */
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder("utf-16le").decode(bytes);
+  }
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {

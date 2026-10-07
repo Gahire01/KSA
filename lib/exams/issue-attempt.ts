@@ -24,7 +24,8 @@ import {
 
 export type IssueAttemptResult =
   | { ok: true; attemptId: string; attemptNumber: number; url: string }
-  | { ok: false; reason: string };
+  /** `exists`: the attempt was already created by someone else (not an email failure). */
+  | { ok: false; reason: string; exists?: true };
 
 export async function issueAttempt(input: {
   traineeId: string;
@@ -42,7 +43,7 @@ export async function issueAttempt(input: {
     },
     select: { id: true },
   });
-  if (existing) return { ok: false, reason: "That attempt already exists." };
+  if (existing) return { ok: false, reason: "That attempt already exists.", exists: true };
 
   const [trainee, course] = await Promise.all([
     prisma.trainee.findUnique({
@@ -100,7 +101,7 @@ export async function issueAttempt(input: {
     /* The unique (trainee, course, attempt number) index: the same attempt already exists,
      * created by a concurrent call. Not an error, and not ours to duplicate. */
     if ((error as { code?: string } | null)?.code === "P2002") {
-      return { ok: false, reason: "That attempt already exists." };
+      return { ok: false, reason: "That attempt already exists.", exists: true };
     }
     throw error;
   }

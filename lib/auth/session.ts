@@ -214,7 +214,9 @@ export async function countActiveSessions(userId: string): Promise<number> {
  */
 export async function listSessions(userId: string) {
   return prisma.session.findMany({
-    where: { userId, expiresAt: { gt: new Date() } },
+    /* The account's own sign-ins. A trainer's link and code holders share this user id but
+     * are not "my sessions": they must not be listed, signed out, or ended from here. */
+    where: { userId, accessLinkId: null, referralCodeId: null, expiresAt: { gt: new Date() } },
     orderBy: [{ lastSeenAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
@@ -229,7 +231,9 @@ export async function listSessions(userId: string) {
 
 /** Signs one of the caller's own sessions out. Returns false when it was not theirs. */
 export async function revokeSessionById(userId: string, sessionId: string): Promise<boolean> {
-  const result = await prisma.session.deleteMany({ where: { id: sessionId, userId } });
+  const result = await prisma.session.deleteMany({
+    where: { id: sessionId, userId, accessLinkId: null, referralCodeId: null },
+  });
   return result.count > 0;
 }
 
@@ -242,7 +246,7 @@ export async function revokeSessionById(userId: string, sessionId: string): Prom
  */
 export async function revokeOtherSessions(userId: string, keepSessionId: string): Promise<number> {
   const result = await prisma.session.deleteMany({
-    where: { userId, id: { not: keepSessionId } },
+    where: { userId, accessLinkId: null, referralCodeId: null, id: { not: keepSessionId } },
   });
   return result.count;
 }

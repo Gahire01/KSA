@@ -918,3 +918,13 @@ KNOWN GAPS (honest list)
 - HANDOFF.md (earlier sessions) contains the database pooler hostname; rotate the DB password before sharing the repo.
 - tmp-e2e.ts, tmp-dbcheck.ts, tmp-backdate-otp.ts are tracked scratch files (one uses $queryRawUnsafe); remove them.
 - Only one signature per student number: a trainee certified in a second course gets the next free number (the column is unique).
+
+
+### Final review round (3 independent reviews of Parts E/G/H/I/J/K) - items deliberately NOT changed
+- A-2: sessions minted from a referral code BEFORE the 20261007170000 migration have no referralCodeId, so after deploy the holder re-enters the code once. Nothing is deployed yet, so no one is affected.
+- A-3: that migration adds unique indexes on (accessLinkId,deviceHash), (referralCodeId,deviceHash) and (traineeId,courseId,attemptNumber). Against a database that already holds duplicates it will fail and roll back. The database is empty today; if it is not by the time this is applied, de-duplicate first.
+- B-3: a score of 49.5% is stored and shown rounded (50%) but compared exactly against the pass mark, so 99/200 on a 50% mark shows "50%, not passed". Only possible with 200+ question papers.
+- Abandoned STARTED attempts block a re-send until staff reissue or void them; there is no job that closes them.
+- Referral codes have no per-device list (revoking the whole code is the lever); link devices are listed and removable per device.
+- Lookalike/format cases: a quote preceded by a space in a CSV is not treated as quoted; UTF-16 CSV is supported only with a byte-order mark.
+- Per-link device limit uses a cookie-based device id: clearing cookies looks like a new device and uses a slot (the owner can remove it).

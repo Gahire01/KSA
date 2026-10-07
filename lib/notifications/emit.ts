@@ -1,6 +1,7 @@
 ﻿import { prisma } from "@/lib/db";
 import { publish, type NotificationEvent } from "@/lib/notifications/broadcaster";
 import { sendEmail, appUrl } from "@/lib/email/send";
+import { shell, BRAND_FOOTER } from "@/lib/email/templates";
 
 /**
  * Writes a Notification, pushes it down the user's open SSE stream, and queues
@@ -146,25 +147,15 @@ function notificationEmailHtml(input: {
 </td></tr></table>`
     : "";
 
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8" /><title>${escapeAttr(input.title)}</title></head>
-<body style="margin:0;padding:0;background:#F4F2EC;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F2EC;padding:24px 12px;">
-<tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;border:1px solid #E3E0D8;overflow:hidden;">
-<tr><td style="background:#0F2340;padding:22px 28px;">
-<p style="margin:0;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#F2A65A;">Kigali Safety Academy</p>
-</td></tr>
-<tr><td style="padding:28px;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;color:#1B2430;">
-<p style="margin:0 0 8px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5A6675;">Update</p>
+  /* Shared shell (logo header + brand footer) so notification mails match the
+   * exam-access and certificate mails instead of a bare text header. */
+  return shell(
+    `<p style="margin:0 0 8px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5A6675;">Update</p>
 <h1 style="margin:0 0 14px;font-size:20px;line-height:1.3;color:#0F2340;">${escapeAttr(input.title)}</h1>
 <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1B2430;">${escapeAttr(input.body)}</p>
-${button}
-</td></tr>
-</table>
-</td></tr>
-</table>
-</body></html>`;
+${button}`,
+    { footer: BRAND_FOOTER },
+  );
 }
 
 function escapeAttr(value: string): string {

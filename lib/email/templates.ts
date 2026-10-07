@@ -34,11 +34,11 @@ interface ShellOptions {
 const DEFAULT_FOOTER = `${ACADEMY.name} &middot; This message was sent because an exam was requested for your enrolment. If you were not expecting it, you can ignore it.`;
 
 /** Brand line for mails that are not exam-related. */
-const BRAND_FOOTER = isPlaceholder(ACADEMY.website)
+export const BRAND_FOOTER = isPlaceholder(ACADEMY.website)
   ? ACADEMY.name
   : `${ACADEMY.name} &middot; ${ACADEMY.website}`;
 
-function shell(inner: string, options: ShellOptions = {}): string {
+export function shell(inner: string, options: ShellOptions = {}): string {
   const preheader = options.preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:transparent;opacity:0;">${options.preheader}</div>`
     : "";

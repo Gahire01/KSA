@@ -955,3 +955,9 @@ KNOWN GAPS (honest list)
 - /login: 410 -> inline error, boxes cleared/focused, secondsLeft 0, resendIn dropped to 0 so resend is available immediately; resend button becomes a prominent "Send a new code" button once expired (60s cooldown waived after expiry).
 - OtpInput: expired state now reads "This code has expired. Request a new one below." and the resend button becomes a primary "Send a new code" button.
 - tsc + lint green.
+
+### Part 4 - email logo everywhere (edea2d5..e855349)
+- All five mail templates (examLink, otpResent, certificate, loginOtp, otpCodeOnly) already render the navy header with the 120x120 logo via shared shell() (Part 2 verified). The odd one out was notificationEmailHtml in lib/notifications/emit.ts (used for exam.failed / certificate.issued / deadline.approaching) - it built its own bare text header with NO logo.
+- Fixed: shell() and BRAND_FOOTER are now exported from lib/email/templates.ts; notificationEmailHtml now renders inside shell() (logo header) with the brand footer (website line only once ACADEMY.website is real). "Update" eyebrow + Open button kept.
+- NOT built: no code actually emits "deadline.approaching" today (type is registered in the configs only) - a datetime-based reminder cron is a stretch item, not a Part 4 fix. Logged as stretch.
+- tsc + lint green.

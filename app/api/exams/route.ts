@@ -1,6 +1,9 @@
 import { guard } from "@/lib/api/guard";
-import { apiOk } from "@/lib/api/response";
+import { apiFail, apiOk } from "@/lib/api/response";
+import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
+
+const EXAM_STATUSES = ["PENDING", "STARTED", "SUBMITTED", "PASSED", "FAILED", "VOID"];
 
 /**
  * GET /api/exams — attempt history across courses.
@@ -13,7 +16,7 @@ import { prisma } from "@/lib/db";
  */
 
 export async function GET(request: Request) {
-  const gate = await guard("exam.read");
+  const gate = await guard("exam.read", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const url = new URL(request.url);
@@ -25,7 +28,12 @@ export async function GET(request: Request) {
     Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "25", 10) || 25),
   );
 
+  /* A status that is not a real one is a 422, not an unchecked cast that reaches the
+   * database and comes back as a 500. */
+  if (status && !EXAM_STATUSES.includes(status)) return apiFail("Unknown status.", 422);
+
   const where = {
+    ...viaCourse(gate.trainerScope),
     ...(courseId ? { courseId } : {}),
     ...(status ? { status: status as "PENDING" } : {}),
   };

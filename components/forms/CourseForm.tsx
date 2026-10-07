@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ApiError } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import { toCourseInput } from "@/lib/api/adapters";
 import {
   useCategories,
@@ -73,10 +73,14 @@ export function CourseForm({ courseId }: { courseId?: string }) {
   const categoriesQuery = useCategories();
   const categories = categoriesQuery.data ?? [];
 
-  /* Trainer records are Phase 2; the id is persisted on the course as-is. */
   const trainersQuery = useQuery({
     queryKey: ["trainers", "options"],
-    queryFn: async () => [] as { id: string; name: string; title: string }[],
+    queryFn: async () => {
+      const page = await api.get<{ items: Array<{ id: string; name: string | null; email: string }> }>(
+        "/trainers",
+      );
+      return page.items.map((t) => ({ id: t.id, name: t.name ?? t.email, email: t.email }));
+    },
     staleTime: 5 * 60_000,
   });
 
@@ -95,8 +99,9 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       durationValue: 1,
       durationUnit: "day",
       priceRwf: 45000,
-      passMarkPct: 70,
-      maxAttempts: 3,
+      /* The academy's rules: 50% to pass, two attempts. */
+      passMarkPct: 50,
+      maxAttempts: 2,
       examDurationMin: 45,
       trainerId: "",
       isActive: true,
@@ -322,24 +327,29 @@ export function CourseForm({ courseId }: { courseId?: string }) {
                 render={({ field }) => (
                   <FormItem className="sm:col-span-3">
                     <FormLabel>Lead trainer</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    {/* Radix Select forbids an empty-string item value, so "none" stands
+                        in for "unassigned" and is mapped back to "" for the form. */}
+                    <Select
+                      value={field.value || "none"}
+                      onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Assign a trainer" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                          <SelectItem value="">Not assigned</SelectItem>
+                          <SelectItem value="none">Not assigned</SelectItem>
                           {(trainersQuery.data ?? []).map((t) => (
                             <SelectItem key={t.id} value={t.id}>
-                              {t.name} — {t.title}
+                              {t.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Trainer accounts arrive in Phase 2, so the lead trainer
-                        can be left unassigned for now.
+                        A trainer only sees and runs the courses assigned to them. Add trainers from the
+                        Team access page.
                       </FormDescription>
                     <FormMessage>{form.formState.errors.trainerId?.message}</FormMessage>
                   </FormItem>

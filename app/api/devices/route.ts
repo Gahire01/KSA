@@ -25,7 +25,8 @@ export async function GET() {
   const currentDeviceHash = hashDeviceId(currentDeviceId);
 
   const devices = await prisma.deviceSession.findMany({
-    where: { userId },
+    /* The account's own sign-ins; a link's devices are managed from that link. */
+    where: { userId, accessLinkId: null, referralCodeId: null },
     select: {
       id: true,
       deviceHash: true,

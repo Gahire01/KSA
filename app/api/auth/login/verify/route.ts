@@ -3,9 +3,10 @@ import type { NextRequest } from "next/server";
 import { clientKey, LOGIN_VERIFY_LIMIT, rateLimit } from "@/lib/api/rate-limit";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { loginVerifySchema } from "@/lib/api/schemas";
+import { audit } from "@/lib/audit";
 import { recordDevice } from "@/lib/auth/devices";
 import { verifyPassword } from "@/lib/auth/password";
-import { createSession } from "@/lib/auth/session";
+import { createSession, destroySession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
 /** Failed verifications against one code before it is destroyed. */
@@ -106,6 +107,11 @@ export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
   const userAgent = request.headers.get("user-agent");
 
+  /* Rotate: a session cookie the browser already holds is destroyed before the new
+   * one is issued, so an id planted or left over from earlier cannot carry into
+   * this sign-in. */
+  await destroySession();
+
   await createSession({
     userId: user.id,
     mfaPassed: true,
@@ -120,6 +126,16 @@ export async function POST(request: NextRequest) {
   await recordDevice({ userId: user.id, ip, userAgent });
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+
+  await audit({
+    actorId: user.id,
+    actorEmail: user.email,
+    action: "auth.login",
+    entityType: "User",
+    entityId: user.id,
+    ip,
+    userAgent,
+  });
 
   return apiOk({
     role: user.role,

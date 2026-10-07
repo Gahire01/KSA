@@ -50,14 +50,25 @@ export async function createSession(params: {
    * revoked their access.
    */
   accessLinkId?: string | null;
+  /** The referral code this session was minted from, when there was one. */
+  referralCodeId?: string | null;
   /**
    * "Remember me for 30 days". Defaults to true; false yields a 12-hour
    * session instead. The cookie's max-age and the row's expiry are set from
    * the same number so the two cannot drift apart.
    */
   remember?: boolean;
+  /**
+   * A hard ceiling on the session's life. Link and referral sessions pass the
+   * link's own expiry here, so the session can never outlast the access that
+   * granted it.
+   */
+  maxExpiresAt?: Date;
 }): Promise<void> {
-  const ttlSeconds = params.remember === false ? SESSION_SHORT_TTL_SECONDS : SESSION_TTL_SECONDS;
+  const requestedTtl = params.remember === false ? SESSION_SHORT_TTL_SECONDS : SESSION_TTL_SECONDS;
+  const ttlSeconds = params.maxExpiresAt
+    ? Math.max(60, Math.min(requestedTtl, Math.floor((params.maxExpiresAt.getTime() - Date.now()) / 1000)))
+    : requestedTtl;
   const token = randomBytes(32).toString("base64url");
 
   await prisma.session.create({
@@ -69,6 +80,7 @@ export async function createSession(params: {
       ip: params.ip ?? null,
       userAgent: params.userAgent?.slice(0, 500) ?? null,
       accessLinkId: params.accessLinkId ?? null,
+      referralCodeId: params.referralCodeId ?? null,
       lastSeenAt: new Date(),
     },
   });
@@ -107,8 +119,39 @@ export async function getSession() {
     return null;
   }
 
+  /* A session minted from an access link lives and dies with that link: once the
+   * owner revokes it, or it passes its expiry, every session it produced ends on
+   * the next request. */
+  if (session.accessLinkId) {
+    const link = await prisma.accessLink.findUnique({
+      where: { id: session.accessLinkId },
+      select: { revokedAt: true, expiresAt: true },
+    });
+    if (!link || link.revokedAt || link.expiresAt <= new Date()) {
+      await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+      await clearSessionCookie();
+      return null;
+    }
+  }
+
+  /* The same for a session minted from a referral code. */
+  if (session.referralCodeId) {
+    const code = await prisma.referralCode.findUnique({
+      where: { id: session.referralCodeId },
+      select: { revokedAt: true, expiresAt: true },
+    });
+    if (!code || code.revokedAt || code.expiresAt <= new Date()) {
+      await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+      await clearSessionCookie();
+      return null;
+    }
+  }
+
   /* A session only travels with the device that was admitted for it. */
-  const device = await deviceState(session.userId);
+  const device = await deviceState(session.userId, {
+    accessLinkId: session.accessLinkId,
+    referralCodeId: session.referralCodeId,
+  });
 
   if (device === "revoked") {
     /* The device itself was withdrawn, so the session it created is finished. */

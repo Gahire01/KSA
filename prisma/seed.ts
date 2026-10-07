@@ -30,7 +30,6 @@ const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 
 const OWNER_EMAIL = "gahiredev01@gmail.com";
 const OWNER_NAME = "Academy Owner";
-const DEFAULT_PASSWORD = "ChangeMe123!";
 
 const CATEGORIES = [
   "Firefighters",
@@ -218,7 +217,14 @@ const COURSES: SeedCourse[] = [
 ];
 
 async function main() {
-  const password = process.env.SEED_OWNER_PASSWORD ?? DEFAULT_PASSWORD;
+  /* No fallback password: seeding without one would create a production owner with
+   * a password that is written in this repository. Fail loudly instead. */
+  const password = process.env.SEED_OWNER_PASSWORD;
+  if (!password || password.length < 12) {
+    throw new Error(
+      "SEED_OWNER_PASSWORD must be set to a password of at least 12 characters before seeding.",
+    );
+  }
 
   console.log("Seeding KSA Phase 1 data…");
 

@@ -65,6 +65,21 @@ export function manifestOf(attempt: { manifest: string }): ExamManifest | null {
   return parseManifest(attempt.manifest);
 }
 
+/**
+ * How many seconds past the paper's deadline it is now. Negative while time remains.
+ *
+ * Unlike {@link secondsRemaining} this is NOT clamped at zero, so "30 seconds late"
+ * and "an hour late" can be told apart. The grace period is judged on this.
+ */
+export function secondsPastDeadline(attempt: {
+  startedAt: Date | null;
+  durationMin: number;
+}): number {
+  if (!attempt.startedAt) return -attempt.durationMin * 60;
+  const endsAt = attempt.startedAt.getTime() + attempt.durationMin * 60 * 1000;
+  return Math.floor((Date.now() - endsAt) / 1000);
+}
+
 /** Seconds left on the paper, derived server-side so the clock cannot be moved. */
 export function secondsRemaining(attempt: {
   startedAt: Date | null;

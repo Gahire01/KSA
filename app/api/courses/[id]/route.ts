@@ -1,6 +1,8 @@
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiNotFound, apiOk, zodMessage } from "@/lib/api/response";
 import { courseUpdateSchema } from "@/lib/api/schemas";
+import { actorOf, audit } from "@/lib/audit";
+import { isActiveTrainer, ownsCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import { invalidateCourses } from "@/lib/data-cache";
 
@@ -8,7 +10,7 @@ type Params = { params: Promise<{ id: string }> };
 
 /** GET /api/courses/:id */
 export async function GET(_request: Request, { params }: Params) {
-  const gate = await guard("course.read");
+  const gate = await guard("course.read", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const { id } = await params;
@@ -21,7 +23,8 @@ export async function GET(_request: Request, { params }: Params) {
     },
   });
 
-  if (!course) return apiNotFound("Course");
+  /* Another trainer's course is "not found", not "forbidden": its existence is not theirs to know. */
+  if (!course || !ownsCourse(gate.trainerScope, course)) return apiNotFound("Course");
 
   return apiOk(course);
 }
@@ -52,6 +55,11 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!category) return apiFail("That category does not exist.", 422);
   }
 
+  const newTrainerId = data.trainerId === undefined ? undefined : data.trainerId || null;
+  if (newTrainerId && newTrainerId !== existing.trainerId && !(await isActiveTrainer(newTrainerId))) {
+    return apiFail("That trainer does not exist or is not active.", 422);
+  }
+
   const course = await prisma.course.update({
     where: { id },
     data: {
@@ -68,12 +76,20 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(data.examDurationMin !== undefined
         ? { examDurationMin: data.examDurationMin }
         : {}),
-      ...(data.trainerId !== undefined ? { trainerId: data.trainerId ?? null } : {}),
+      ...(newTrainerId !== undefined ? { trainerId: newTrainerId } : {}),
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     },
     include: { category: { select: { id: true, name: true } } },
   });
   await invalidateCourses();
+
+  await audit({
+    ...actorOf(gate.session),
+    action: "course.update",
+    entityType: "Course",
+    entityId: id,
+    meta: { fields: Object.keys(data) },
+  });
 
   return apiOk(course);
 }
@@ -92,7 +108,7 @@ export async function DELETE(_request: Request, { params }: Params) {
 
   const course = await prisma.course.findUnique({
     where: { id },
-    include: { _count: { select: { trainees: true } } },
+    include: { _count: { select: { trainees: true, certificates: true } } },
   });
 
   if (!course) return apiNotFound("Course");
@@ -104,8 +120,24 @@ export async function DELETE(_request: Request, { params }: Params) {
     );
   }
 
+  /* Deleting the course would cascade to every certificate issued for it. */
+  if (course._count.certificates > 0) {
+    return apiFail(
+      "Certificates have been issued for this course. Deactivate it instead; deleting would erase them.",
+      409,
+    );
+  }
+
   await prisma.course.delete({ where: { id } });
   await invalidateCourses();
+
+  await audit({
+    ...actorOf(gate.session),
+    action: "course.delete",
+    entityType: "Course",
+    entityId: id,
+    meta: { code: course.code },
+  });
 
   return apiOk({ id, deleted: true });
 }

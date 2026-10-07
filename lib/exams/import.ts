@@ -13,6 +13,8 @@ import { inflateRawSync } from "node:zlib";
 export const MAX_IMPORT_ROWS = 5000;
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const MAX_ZIP_PART_BYTES = 20 * 1024 * 1024;
+/** All the parts together: many small-looking sheets must not add up to gigabytes. */
+const MAX_ZIP_TOTAL_BYTES = 40 * 1024 * 1024;
 
 export interface ParsedQuestion {
   row: number;
@@ -70,7 +72,10 @@ export function parseCsv(input: string): string[][] {
       continue;
     }
 
-    if (ch === '"') inQuotes = true;
+    /* A quote only opens a quoted cell at the START of the cell. In the middle it is
+     * just a character (5" pipe), and treating it as an opener would swallow the
+     * following cells and rows into one. */
+    if (ch === '"' && cell === "") inQuotes = true;
     else if (ch === delimiter) {
       row.push(cell);
       cell = "";
@@ -89,15 +94,26 @@ export function parseCsv(input: string): string[][] {
     row.push(cell);
     rows.push(row);
   }
-  return rows;
+
+  /* Blank lines before the header (a stray newline at the top of pasted text) must not
+   * become the header row. Only leading ones are dropped, so later row numbers still
+   * match the user's own line numbers. */
+  let firstReal = 0;
+  while (firstReal < rows.length && rows[firstReal].every((c) => c.trim() === "")) firstReal += 1;
+  return firstReal > 0 ? rows.slice(firstReal) : rows;
 }
 
 /* ----------------------------------------------------------------- XLSX */
 
+/** A numeric entity outside Unicode would make fromCodePoint throw; use the replacement char. */
+function safeCodePoint(code: number): string {
+  return Number.isInteger(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "�";
+}
+
 function unescapeXml(value: string): string {
   return value
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h: string) => String.fromCodePoint(Number.parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number.parseInt(d, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h: string) => safeCodePoint(Number.parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d: string) => safeCodePoint(Number.parseInt(d, 10)))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
@@ -121,6 +137,7 @@ function readZipParts(buf: Buffer): Map<string, Buffer> | null {
     let offset = buf.readUInt32LE(eocd + 16);
     const wanted = /^xl\/(sharedStrings\.xml|workbook\.xml|_rels\/workbook\.xml\.rels|worksheets\/sheet\d+\.xml)$/;
     const parts = new Map<string, Buffer>();
+    let totalInflated = 0;
 
     for (let n = 0; n < count; n += 1) {
       if (offset + 46 > buf.length || buf.readUInt32LE(offset) !== 0x02014b50) return null;
@@ -142,9 +159,15 @@ function readZipParts(buf: Buffer): Map<string, Buffer> | null {
       const start = localOffset + 30 + buf.readUInt16LE(localOffset + 26) + buf.readUInt16LE(localOffset + 28);
       const data = buf.subarray(start, start + compressedSize);
 
-      if (method === 0) parts.set(name, data);
-      else if (method === 8) parts.set(name, inflateRawSync(data, { maxOutputLength: MAX_ZIP_PART_BYTES }));
+      let content: Buffer;
+      if (method === 0) content = data;
+      else if (method === 8) content = inflateRawSync(data, { maxOutputLength: MAX_ZIP_PART_BYTES });
       else return null;
+
+      /* Counted on what was ACTUALLY produced, not the size the file claims. */
+      totalInflated += content.length;
+      if (totalInflated > MAX_ZIP_TOTAL_BYTES) return null;
+      parts.set(name, content);
     }
     return parts;
   } catch {
@@ -164,6 +187,15 @@ function columnIndex(ref: string): number {
  * "=<formula>" so the normal formula check rejects it.
  */
 export function readXlsx(buf: Buffer): string[][] | null {
+  /* Any malformed workbook is "could not be read" (a 422), never an unhandled 500. */
+  try {
+    return readXlsxUnsafe(buf);
+  } catch {
+    return null;
+  }
+}
+
+function readXlsxUnsafe(buf: Buffer): string[][] | null {
   const parts = readZipParts(buf);
   if (!parts) return null;
 
@@ -199,8 +231,12 @@ export function readXlsx(buf: Buffer): string[][] | null {
   const sheetXml = sheetName ? parts.get(sheetName)?.toString("utf8") : undefined;
   if (!sheetXml) return null;
 
+  /* A self-closing <row .../> is an empty row; without this the pattern below would run on
+   * to the NEXT row's closing tag and swallow it, shifting every later row number. */
+  const normalised = sheetXml.replace(/<row\b[^>]*\/>/g, "<row></row>");
+
   const rows: string[][] = [];
-  for (const rowMatch of sheetXml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  for (const rowMatch of normalised.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
     const cells: string[] = [];
     for (const c of rowMatch[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = c[1];

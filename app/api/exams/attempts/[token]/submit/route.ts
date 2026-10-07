@@ -43,6 +43,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const parsed = examSubmitSchema.safeParse(body ?? {});
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
-  const result = await finalizeAttempt(attempt, { token, blurCount: parsed.data.blurCount });
+  /* Any blurCount in the body is ignored; see the answer route. */
+  const result = await finalizeAttempt(attempt, { token });
   return result.ok ? NextResponse.json({ ok: true, data: result.data }) : apiFail(result.error, result.status);
 }

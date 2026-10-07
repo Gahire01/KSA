@@ -99,3 +99,31 @@ E2E: will run tmp-e2e.ts against dev server once started (per instructions).
 - [x] `pnpm lint` clean, `pnpm exec tsc --noEmit` clean
 
 
+
+
+## Launch run - 2026-10-07 (local branch ksa-launch, NOT pushed)
+
+Legend here: DONE = built, type-checked, linted, and (where noted) unit-tested or independently reviewed. NOT RUN = needs a database / credentials / a browser that this machine did not have.
+
+| Part | Status | Evidence / caveat |
+|---|---|---|
+| C  Step 0 (tsc, lint, build) | DONE | integrity-flag route was syntactically broken on arrival; fixed |
+| D  Owner signature | DONE | 2 independent reviews; PNG validator 5/5 tests; draw/lock UI not exercised in a browser |
+| E  Access links + referral codes + devices | DONE (rebuilt) | Original was invite-with-password; rebuilt to token-only, 5-device hard limit, link-bound sessions. 1 independent review, findings fixed. Device logic not run against a DB |
+| F  Exam link lifecycle | DONE | 3 reviews; single-tab simulated in Node (warm 15/15) |
+| G  Exam engine + import | DONE | import lib 38/38 tests; 1 review, findings fixed |
+| H  Exam security | DONE | server enforces focus-loss limit; hook not exercised in a browser |
+| I  WhatsApp (Twilio) | DONE, UNTESTED LIVE | no credentials; soft-fails to email |
+| J  Certificate | DONE | 4 PDFs rendered, all 1 page incl. extreme names; NOT visually inspected |
+| K  Security checklist | DONE with exceptions | see HANDOFF known gaps; CSRF middleware 12/12 tests |
+| L  Speed | PARTIAL | indexes, caching, lazy load, query defaults done. Lighthouse NOT RUN |
+| M  Animations | DONE | CSS only, reduced-motion safe; not seen in a browser |
+| N  PWA + notifications | DONE | SW intentionally stricter than spec (never caches /api); SSE in-memory only |
+| O  Smoke test 1-24 | NOT RUN | needs DATABASE_URL, email, a browser, a phone |
+| P  Deploy | NOT DONE | no Vercel access; nothing pushed |
+| Q  Docs | DONE | this file + HANDOFF.md |
+
+Production URL: none (not deployed).
+Lighthouse: not measured.
+
+Known limitations: see "KNOWN GAPS" in HANDOFF.md (mock-backed list/report pages, in-memory rate limiter and SSE, unverified raw SQL, TOTP routes, repo hygiene).

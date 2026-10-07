@@ -27,7 +27,9 @@ const listSelect = {
   revokedAt: true,
   createdAt: true,
   createdBy: { select: { name: true, email: true } },
-  _count: { select: { devices: true, sessions: true } },
+  maxDevices: true,
+  /* Only devices still admitted: a removed device frees its slot. */
+  _count: { select: { devices: { where: { revokedAt: null } }, sessions: true } },
 } as const;
 
 export async function GET(request: Request) {
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
   const parsed = accessLinkCreateSchema.safeParse(body);
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
-  const { role, trainerId, label, expiresInDays, singleUse } = parsed.data;
+  const { role, trainerId, label, expiresInHours, singleUse, maxDevices } = parsed.data;
 
   /* A trainer link must point at a real, active trainer, or it would mint a link that
    * grants TRAINER access but can never be scoped to a course. */
@@ -79,22 +81,30 @@ export async function POST(request: Request) {
     role,
     trainerId: trainerId ?? null,
     label: label ?? null,
-    ...(expiresInDays !== undefined ? { expiresInDays } : {}),
+    ...(expiresInHours !== undefined ? { expiresInHours } : {}),
+    ...(maxDevices !== undefined ? { maxDevices } : {}),
     singleUse,
   });
 
-  await prisma.auditLog.create({
-    data: {
-      actorId: gate.session.user.id,
-      actorEmail: gate.session.user.email,
-      action: "access.mint",
-      entityType: "AccessLink",
-      entityId: minted.id,
-      /* The link and token are deliberately absent: they are secrets, and the audit
-       * log is read by people who should not necessarily hold working invites. */
-      meta: JSON.stringify({ role, singleUse, expiresAt: minted.expiresAt.toISOString() }),
-    },
-  });
+  await prisma.auditLog
+    .create({
+      data: {
+        actorId: gate.session.user.id,
+        actorEmail: gate.session.user.email,
+        action: "access.mint",
+        entityType: "AccessLink",
+        entityId: minted.id,
+        /* The link and token are deliberately absent: they are secrets, and the audit
+         * log is read by people who should not necessarily hold working invites. */
+        meta: JSON.stringify({
+          role,
+          singleUse,
+          maxDevices: minted.maxDevices,
+          expiresAt: minted.expiresAt.toISOString(),
+        }),
+      },
+    })
+    .catch((error: unknown) => console.error("[access] audit write failed", error));
 
   /* `Cache-Control: no-store` is essential here: a cached POST response is a cached
    * working credential. */
@@ -106,6 +116,7 @@ export async function POST(request: Request) {
       referralCode: minted.referralCode,
       expiresAt: minted.expiresAt.toISOString(),
       singleUse: minted.singleUse,
+      maxDevices: minted.maxDevices,
     },
     201,
     { "Cache-Control": "no-store" },

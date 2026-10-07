@@ -1,6 +1,8 @@
 import { guard } from "@/lib/api/guard";
 import { apiFail } from "@/lib/api/response";
+import { viaCourse } from "@/lib/auth/scope";
 import { renderCertificatePdf } from "@/lib/certificates/render";
+import { prisma } from "@/lib/db";
 
 /**
  * GET /api/certificates/:id/pdf
@@ -14,8 +16,17 @@ import { renderCertificatePdf } from "@/lib/certificates/render";
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
-  const gate = await guard("certificate.read");
+  const gate = await guard("certificate.read", { trainerScoped: true });
   if (!gate.ok) return gate.response;
+
+  /* Ownership first: a trainer must not be able to render another trainer's certificate. */
+  if (gate.trainerScope) {
+    const owned = await prisma.certificate.findFirst({
+      where: { id, ...viaCourse(gate.trainerScope) },
+      select: { id: true },
+    });
+    if (!owned) return apiFail("That certificate does not exist.", 404);
+  }
 
   try {
     const rendered = await renderCertificatePdf(id);

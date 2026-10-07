@@ -1,167 +1,109 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { KeyRoundIcon, ShieldCheckIcon } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { LoaderIcon, ShieldAlertIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { api, ApiError } from "@/lib/api/client";
-import { useQueryClient } from "@tanstack/react-query";
 
 /**
- * /access/[token] — redeem an invitation.
+ * /access/[token] — open the dashboard from a link the owner sent you.
  *
- * The token arrives as a path segment because that is how the owner shares it (it is
- * what `mintAccessLink` produces and what gets pasted into a message). It is sent to
- * the server in a POST **body** from here, not re-fetched as a GET on the URL: a
- * credential in a query string ends up in `Referer` headers and proxy logs, and this
- * one creates an account.
+ * There is nothing to fill in: team members have no password, the link is the
+ * credential. The page redeems it once on load and goes to the dashboard.
  *
- * Redeeming mints a complete session and drops the visitor straight into the app —
- * there is no second factor to enrol anymore (sign-in is email OTP from /login).
+ * The token is sent in a POST body, not re-fetched as a GET on the URL: a credential
+ * in a query string ends up in Referer headers and proxy logs. Failures are explained
+ * in plain words and say what to do next, without saying anything that would help
+ * someone probe for live links.
  */
 
-const schema = z.object({
-  fullName: z.string().min(2, "Enter your full name.").max(120),
-  email: z
-    .string()
-    .min(1, "Enter your email address.")
-    .email("That does not look like an email address."),
-  password: z
-    .string()
-    .min(12, "Use at least 12 characters.")
-    .max(200, "That password is too long."),
-});
+type Failure = { title: string; body: string };
 
-type Values = z.infer<typeof schema>;
+function explain(error: unknown): Failure {
+  if (error instanceof ApiError) {
+    if (error.status === 403) {
+      return { title: "This link can't be used on another device", body: error.message };
+    }
+    if (error.status === 429) {
+      return { title: "Too many attempts", body: "Please wait a few minutes and try again." };
+    }
+    if (error.status === 410 || error.status === 422) {
+      return {
+        title: "This link no longer works",
+        body: "It may have expired, been used already, or been withdrawn. Ask the academy owner to send you a new one.",
+      };
+    }
+    return { title: "We could not open that link", body: error.message };
+  }
+  return {
+    title: "We could not open that link",
+    body: "Check your connection and try again. If it keeps failing, ask the academy owner for a new link.",
+  };
+}
 
 export default function RedeemAccessLinkPage() {
   const params = useParams<{ token: string }>();
   const token = params.token ?? "";
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [serverError, setServerError] = React.useState<string | null>(null);
 
-  const form = useForm<Values>({
-    resolver: zodResolver(schema),
-    defaultValues: { fullName: "", email: "", password: "" },
-    mode: "onSubmit",
-  });
+  const [failure, setFailure] = React.useState<Failure | null>(null);
+  /* React strict mode runs effects twice in development; a link must be redeemed once. */
+  const started = React.useRef(false);
 
-  const onSubmit = (values: Values) => {
-    setServerError(null);
+  React.useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
+    if (token.length < 20) {
+      setFailure({
+        title: "This link is incomplete",
+        body: "Ask the academy owner to send it again. Make sure you copied the whole address.",
+      });
+      return;
+    }
 
     api
-      .post<{ nextStep: string; activeDevices: number }>("/access-links/redeem", {
-        token,
-        ...values,
-      })
+      .post<{ nextStep: string }>("/access-links/redeem", { token })
       .then(async () => {
-        /* Hydrate the store with the new session before routing, so the app
-         * shell does not bounce on a stale `user: null`. */
+        /* Hydrate the store with the new session before routing, so the app shell
+         * does not bounce on a stale `user: null`. */
         await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
         router.replace("/dashboard");
         router.refresh();
       })
-      .catch((error: unknown) => {
-        setServerError(
-          error instanceof ApiError
-            ? error.message
-            : "This invitation could not be redeemed. Try again.",
-        );
-      });
-  };
+      .catch((error: unknown) => setFailure(explain(error)));
+  }, [token, router, queryClient]);
+
+  if (!failure) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+          <LoaderIcon className="size-6 animate-spin text-ink-2" />
+          <p className="text-sm text-ink-2">Opening your dashboard...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
-      <CardHeader className="gap-1">
-        <CardTitle className="text-lg">Accept your invitation</CardTitle>
-        <CardDescription>
-          Set your details to activate your Kigali Safety Academy account.
-        </CardDescription>
+      <CardHeader className="items-center gap-2 text-center">
+        <span className="flex size-12 items-center justify-center rounded-full bg-red-bg text-red" aria-hidden>
+          <ShieldAlertIcon className="size-6" />
+        </span>
+        <CardTitle className="text-lg">{failure.title}</CardTitle>
+        <CardDescription>{failure.body}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Alert>
-          <ShieldCheckIcon />
-          <AlertDescription>
-            Accepting activates your account and signs you in — your courses,
-            exams and certificates are waiting on the dashboard.
-          </AlertDescription>
-        </Alert>
-
-        {serverError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{serverError}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="fullName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full name</FormLabel>
-                  <FormControl>
-                    <Input autoComplete="name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email address</FormLabel>
-                  <FormControl>
-                    <Input type="email" autoComplete="email" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" autoComplete="new-password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button
-              type="submit"
-              className="w-full gap-1.5"
-              disabled={form.formState.isSubmitting || token.length < 20}
-            >
-              <KeyRoundIcon className="size-4" />
-              Activate my account
-            </Button>
-          </form>
-        </Form>
-
-        {token.length < 20 ? (
-          <p className="text-xs text-red">
-            This invitation link is incomplete. Ask the academy owner to resend it.
-          </p>
-        ) : null}
+      <CardContent className="flex justify-center">
+        <Button asChild variant="outline">
+          <Link href="/login">Go to sign in</Link>
+        </Button>
       </CardContent>
     </Card>
   );

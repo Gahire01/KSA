@@ -27,8 +27,11 @@ import type { Role } from "@/lib/types";
  * unlimited guesses.
  */
 
-export const ACCESS_LINK_DEFAULT_DAYS = 14;
-export const ACCESS_LINK_MAX_DAYS = 90;
+/** A link lives 24 hours unless the owner picks otherwise, and never past 30 days. */
+export const ACCESS_LINK_DEFAULT_HOURS = 24;
+export const ACCESS_LINK_MAX_HOURS = 720;
+/** The most devices one link may be signed in on. */
+export const ACCESS_LINK_MAX_DEVICES = 5;
 
 /** A referral code is short and human-typed, so its alphabet excludes look-alikes. */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -42,8 +45,9 @@ export interface MintAccessLinkInput {
   role: Role;
   trainerId?: string | null;
   label?: string | null;
-  expiresInDays?: number;
+  expiresInHours?: number;
   singleUse?: boolean;
+  maxDevices?: number;
 }
 
 export interface MintedAccessLink {
@@ -54,6 +58,7 @@ export interface MintedAccessLink {
   referralCode: string;
   expiresAt: Date;
   singleUse: boolean;
+  maxDevices: number;
 }
 
 function randomReferralCode(length = 8): string {
@@ -75,8 +80,12 @@ function randomReferralCode(length = 8): string {
 export async function mintAccessLink(input: MintAccessLinkInput): Promise<MintedAccessLink> {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashToken(token);
-  const days = Math.min(Math.max(input.expiresInDays ?? ACCESS_LINK_DEFAULT_DAYS, 1), ACCESS_LINK_MAX_DAYS);
-  const expiresAt = new Date(Date.now() + days * 86_400_000);
+  const hours = Math.min(
+    Math.max(input.expiresInHours ?? ACCESS_LINK_DEFAULT_HOURS, 1),
+    ACCESS_LINK_MAX_HOURS,
+  );
+  const expiresAt = new Date(Date.now() + hours * 3_600_000);
+  const maxDevices = Math.min(Math.max(input.maxDevices ?? ACCESS_LINK_MAX_DEVICES, 1), ACCESS_LINK_MAX_DEVICES);
 
   /* The referral code is unique, so retry on the (very unlikely) clash. */
   let referralCode = "";
@@ -95,6 +104,7 @@ export async function mintAccessLink(input: MintAccessLinkInput): Promise<Minted
           label: input.label?.trim() || null,
           expiresAt,
           singleUse: input.singleUse ?? false,
+          maxDevices,
           createdById: input.createdById,
         },
         select: { id: true, referralCode: true },
@@ -117,6 +127,7 @@ export async function mintAccessLink(input: MintAccessLinkInput): Promise<Minted
     url: appUrl(`/access/${token}`),
     expiresAt,
     singleUse: input.singleUse ?? false,
+    maxDevices,
   };
 }
 
@@ -133,7 +144,7 @@ export type AccessLinkStatus = "ACTIVE" | "USED" | "EXPIRED" | "REVOKED";
 export async function resolveAccessLink(
   token: string,
 ): Promise<
-  | { ok: true; link: { id: string; role: Role; trainerId: string | null; singleUse: boolean; expiresAt: Date; revokedAt: Date | null; usedAt: Date | null } }
+  | { ok: true; link: { id: string; role: Role; trainerId: string | null; label: string | null; singleUse: boolean; maxDevices: number; expiresAt: Date; revokedAt: Date | null; usedAt: Date | null } }
   | { ok: false; status: AccessLinkStatus | "UNKNOWN" }
 > {
   if (!token) return { ok: false, status: "UNKNOWN" };
@@ -144,7 +155,9 @@ export async function resolveAccessLink(
       id: true,
       role: true,
       trainerId: true,
+      label: true,
       singleUse: true,
+      maxDevices: true,
       expiresAt: true,
       revokedAt: true,
       usedAt: true,

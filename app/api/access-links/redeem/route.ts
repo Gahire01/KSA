@@ -6,34 +6,33 @@ import {
   rateLimitFail,
 } from "@/lib/api/rate-limit";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
+import { resolveAccessPrincipal } from "@/lib/auth/access-principal";
 import { consumeAccessLink, resolveAccessLink } from "@/lib/auth/access-links";
-import { recordDevice } from "@/lib/auth/devices";
-import { hashPassword } from "@/lib/auth/password";
+import { admitDevice } from "@/lib/auth/devices";
 import { createSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
 /**
- * POST /api/access-links/redeem
+ * POST /api/access-links/redeem { token }
  *
- * Turns a shareable link into an account and a session.
+ * Turns a shareable link into a signed-in session. Team members have no password:
+ * the link is the credential, so this is the most valuable unauthenticated endpoint
+ * in the product and each rule below is load bearing.
  *
- * This is the most valuable unauthenticated endpoint in the product: a valid token
- * creates a real, usable account. Four things follow from that, and each is load
- * bearing:
- *
- * 1. **The token arrives in the body, not the path.** A token in a URL lands in
- *    `Referer` headers, proxy access logs and browser history. This way it does not.
- * 2. **The session is complete on creation.** Sign-in is email OTP from /login and
- *    nothing branches on `Session.mfaPassed` anymore, so an invited account lands on
- *    the dashboard the moment it is minted. The column is kept for a possible TOTP
- *    return, and `User.totpSecret` stays empty until then.
- * 3. **The single-use link is spent before the account exists.** `consumeAccessLink`
- *    is a compare-and-set, so two simultaneous redemptions cannot both get in. The
- *    trade-off is that a failure *after* the spend burns the link; that is the right
- *    way round, because the alternative is two accounts from one invitation.
- * 4. **The device is recorded under the 5-device cap** like any other sign-in, so an
- *    invite link is not a way around it.
+ * 1. **The token arrives in the body, not the path**, so it never lands in Referer
+ *    headers, proxy logs or browser history.
+ * 2. **One message for every dead link.** Unknown, revoked, used and expired all
+ *    answer the same, so a stale link cannot be used to probe for live ones.
+ * 3. **Devices are limited per link (default and maximum 5).** The sixth is refused
+ *    with a 403, never swapped in for the oldest, and a device the owner removed
+ *    stays removed.
+ * 4. **The session lives and dies with the link.** It is capped at the link's expiry,
+ *    and getSession ends it the moment the link is revoked or lapses.
+ * 5. **A single-use link is spent atomically**, but only after the device is admitted,
+ *    so a full or removed device does not burn it.
  */
+
+const DEAD = "This link is not valid. Ask the academy for a new one.";
 
 export async function POST(request: Request) {
   const limit = rateLimit(
@@ -47,97 +46,97 @@ export async function POST(request: Request) {
   const parsed = redeemAccessLinkSchema.safeParse(body);
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
-  const { token, email, password, fullName } = parsed.data;
-  const normalisedEmail = email.toLowerCase();
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const userAgent = request.headers.get("user-agent");
 
-  /* One message for unknown, revoked, used and expired. Telling a recipient which of
-   * the four it was would let anyone holding a stale link probe for valid ones. */
-  const resolved = await resolveAccessLink(token);
+  const resolved = await resolveAccessLink(parsed.data.token);
 
   if (!resolved.ok) {
-    await prisma.auditLog.create({
-      data: {
-        actorEmail: normalisedEmail,
-        action: "access.redeem.failed",
-        entityType: "AccessLink",
-        meta: JSON.stringify({ reason: resolved.status }),
-      },
-    });
-    return apiFail("This invitation link is not valid.", 410);
+    await prisma.auditLog
+      .create({
+        data: { action: "access.redeem.failed", entityType: "AccessLink", meta: JSON.stringify({ reason: resolved.status }), ip },
+      })
+      .catch((error: unknown) => console.error("[access] audit write failed", error));
+    return apiFail(DEAD, 410);
   }
 
-  /* An account that already exists keeps using password login. Redeeming over it
-   * would let anyone holding a link silently reset somebody's access. */
-  const existing = await prisma.user.findUnique({
-    where: { email: normalisedEmail },
-    select: { id: true },
+  const { link } = resolved;
+
+  const principal = await resolveAccessPrincipal({
+    kind: "link",
+    id: link.id,
+    role: link.role,
+    trainerId: link.trainerId,
+    label: link.label,
+  });
+  if (!principal.ok) return apiFail(DEAD, 410);
+
+  const admitted = await admitDevice({
+    userId: principal.userId,
+    accessLinkId: link.id,
+    maxDevices: link.maxDevices,
+    userAgent,
+    ip,
   });
 
-  if (existing) {
+  if (!admitted.ok) {
+    await prisma.auditLog
+      .create({
+        data: {
+          action: "access.redeem.blocked",
+          entityType: "AccessLink",
+          entityId: link.id,
+          meta: JSON.stringify({ reason: admitted.reason, maxDevices: link.maxDevices }),
+          ip,
+        },
+      })
+      .catch((error: unknown) => console.error("[access] audit write failed", error));
+
     return apiFail(
-      "An account already exists for that email. Sign in with your password.",
-      409,
+      admitted.reason === "full"
+        ? `This link is already in use on ${admitted.maxDevices} devices. Ask the academy owner to remove one or send you a new link.`
+        : "This device was removed from the link by the academy owner.",
+      403,
     );
   }
 
-  /* Spend the link first. Compare-and-set, so a concurrent second redemption loses. */
-  if (resolved.link.singleUse && !(await consumeAccessLink(resolved.link.id))) {
-    return apiFail("This invitation link has already been used.", 410);
+  /* Compare-and-set: two devices redeeming a single-use link at once cannot both win. */
+  if (link.singleUse && !(await consumeAccessLink(link.id))) {
+    /* Lost the race: back this device out so it does not hold a slot on a spent link. */
+    if (admitted.isNew) {
+      await prisma.deviceSession.delete({ where: { id: admitted.deviceRowId } }).catch(() => undefined);
+    }
+    return apiFail(DEAD, 410);
   }
 
-  const user = await prisma.user.create({
-    data: {
-      email: normalisedEmail,
-      name: fullName,
-      passwordHash: await hashPassword(password),
-      role: resolved.link.role,
-      /* No TOTP secret: this account signs in with its password and, from /login,
-       * an emailed code. Enrolment is not part of the flow. */
-      totpEnabled: false,
-      lastLoginAt: new Date(),
-    },
-    select: { id: true, email: true, role: true, totpEnabled: true },
-  });
-
   await createSession({
-    userId: user.id,
+    userId: principal.userId,
     mfaPassed: true,
-    accessLinkId: resolved.link.id,
-    ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-    userAgent: request.headers.get("user-agent"),
+    accessLinkId: link.id,
+    ip,
+    userAgent,
+    maxExpiresAt: link.expiresAt,
   });
 
-  const device = await recordDevice({
-    userId: user.id,
-    accessLinkId: resolved.link.id,
-    userAgent: request.headers.get("user-agent"),
-    ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      actorId: user.id,
-      actorEmail: user.email,
-      action: "access.redeem",
-      entityType: "AccessLink",
-      entityId: resolved.link.id,
-      meta: JSON.stringify({
-        role: user.role,
-        trainerId: resolved.link.trainerId,
-        activeDevices: device.activeCount,
-      }),
-    },
-  });
+  await prisma.auditLog
+    .create({
+      data: {
+        actorId: principal.userId,
+        action: "access.redeem",
+        entityType: "AccessLink",
+        entityId: link.id,
+        meta: JSON.stringify({ role: link.role, activeDevices: admitted.activeCount }),
+        ip,
+      },
+    })
+    .catch((error: unknown) => console.error("[access] audit write failed", error));
 
   return apiOk(
     {
-      email: user.email,
-      role: user.role,
-      totpEnabled: user.totpEnabled,
-      /* There is no second factor in the sign-in path anymore, so the invited
-       * account goes straight through. */
+      role: link.role,
       nextStep: "dashboard" as const,
-      activeDevices: device.activeCount,
+      activeDevices: admitted.activeCount,
+      maxDevices: admitted.maxDevices,
     },
     201,
     { "Cache-Control": "no-store" },

@@ -1,5 +1,7 @@
 "use client";
 
+import { csvCell } from "@/lib/utils/csv";
+
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -231,7 +233,7 @@ export default function TraineesPage() {
               t.enrolledAt.slice(0, 10),
               t.deadline.slice(0, 10),
             ]
-              .map((v) => `"${String(v).replaceAll('"', '""')}"`)
+              .map(csvCell)
               .join(","),
           );
         const blob = new Blob([[header.join(","), ...lines].join("\n")], {

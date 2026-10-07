@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiNotFound, apiOk, zodMessage } from "@/lib/api/response";
+import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 
 const reviewSchema = z
@@ -19,7 +20,7 @@ const reviewSchema = z
  * so the record of what the runner reported stays intact.
  */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  const gate = await guard("exam.send");
+  const gate = await guard("exam.send", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const { id } = await context.params;
@@ -28,8 +29,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = reviewSchema.safeParse(body);
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
-  const attempt = await prisma.examAttempt.findUnique({
-    where: { id },
+  const attempt = await prisma.examAttempt.findFirst({
+    where: { id, ...viaCourse(gate.trainerScope) },
     select: { integrityFlags: true },
   });
   if (!attempt) return apiNotFound("Attempt");

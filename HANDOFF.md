@@ -891,3 +891,30 @@ Resumed at: Part F. Remaining: I (Twilio), audits of G/H/J/K/L/M/N, smoke, deplo
 
 Review: 2 independent reviews + 1 re-review. Fixed: CAS status guard, backfill, resend after reset, single-tab race, atomic flags, page recovery (retry/auto-submit), reset on expired link, unknown-token oracle on next/integrity-flag, wrong "submitted" message, blur counter at cap, flag-review 404.
 Known/not changed: reissue/reset email can be sent then lose a race (dead link in inbox, trainee not locked out); audit writes are best-effort; answer/submit routes overwrite blurCount with the client value (pre-existing, revisit in Part H); a blocked tab never unblocks if the owner closes; /status failure falls to the OTP box.
+
+
+## Session - Claude - 2026-10-07 - Parts I, G, H, J, L, M, N, E, K (summary)
+
+Completed in code (none of it run against a real database or browser; see BLOCKERS):
+- I  WhatsApp via Twilio: lib/whatsapp/twilio.ts (E.164 normalising, Lookup cached 24h, send), POST /api/whatsapp/lookup (20/min/IP), channel + "verify first" + resolved-number preview + Retry failed in /exams/new. Soft-fails to email-only when TWILIO_* is missing. NOTE: the Lookup "whatsapp" field is taken from the spec; if the Twilio account does not return it the result is "unknown" and the send proceeds.
+- G  Question import (CSV paste/file + .xlsx, dependency-free reader with zip-bomb cap) at /exams/[courseId]/import -> POST /api/questions/import (preview/commit, 5,000 rows, one transaction, formula cells rejected). 31/31 library tests passed. Auto second attempt on first fail, owner-only extra attempt (POST /api/attempts/:id/grant), GET /api/exams/attempts/:token/time, answers accepted until clock + 30s grace, submit grades what was saved (flag late_submit), server-side auto-submit past 5 focus losses. Course form defaults now 50% / 2 attempts.
+- H  Lockdown hook (lib/hooks/use-exam-lockdown.ts), briefing screen before the code box (Begin enters fullscreen), 30s server clock sync, PrintScreen blur, devtools guess (flag only).
+- J  Certificate PDF + sheet rewritten to the J.2 layout with QR (qrcode), no expiry anywhere (status = VALID | REVOKED only), filename {studentNumber}.pdf, signer on the verify page. Student numbers: trainee's own numeric number, else register name match, else max+1; NEW trainees are now numeric and continue from 457 (they were "KSA-0001" and string-sorted). REMOVED from the certificate sheet: "Republic of Rwanda - MINECOFIN accredited" and a sample "Official stamp" image. Confirm with the client whether the accreditation line is true before restoring it.
+- L/M/N  Motion layer (CSS, reduced-motion safe), lazy charts + command palette, refetchOnWindowFocus, button press feedback, install-app button, theme #0F2340. Service worker kept deliberately stricter than the spec: it NEVER caches /api (a cached /api/trainees on a shared phone is a data leak) or /exam/.
+- E  REBUILT to the spec: team members have NO login. Redeem is token-only (POST /api/access-links/redeem), a link session runs as the named trainer (TRAINER) or a per-link service account (ADMIN), the 6th device gets 403 (never evicts), an owner-removed device stays removed, sessions are capped at the link's expiry and die on revoke. Referral codes redeem the same way (POST /api/referral-codes/redeem). /login has "Have an access link or referral code?". Trainers: real GET/POST /api/trainers, picker in the course form + access dialog. Spec paths /settings/access and /settings/referrals re-export /access.
+- K  Fixed from the audit: CSRF (middleware.ts: Sec-Fetch-Site/Origin, 12/12 tests), audit entries on trainee/course/category/question/trainer/login/logout/session mutations, CSV formula escaping on all four exports, nightly cleanup cron (/api/cron/cleanup + vercel.json; needs CRON_SECRET), login/resend no longer reveals whether an account exists, session rotation on sign-in, seed/reset-owner no longer fall back to a password written in the repo and no longer print it, deleting a trainee/course that has certificates is refused (it would have cascaded and erased them), course trainer must be a real active trainer, TRAINER row-level scoping on every trainer-reachable route (guard(..., {trainerScoped:true}) + lib/auth/scope.ts).
+
+BLOCKERS / NOT DONE (cannot be done from this machine)
+- No DATABASE_URL: migrations 20261007120000..20261007160000 are hand-written and UNAPPLIED; seed not run; smoke tests 1-24 NOT run; Lighthouse NOT run.
+- No Twilio / Resend / Vercel credentials: WhatsApp/email delivery, deploy and production smoke NOT done.
+- NOT pushed: the repo is Gahire01/KSA and the signed-in GitHub account is gmflaubert. Work is on local branch ksa-launch.
+- Not looked at in a browser: the new certificate layout, signature pad, lockdown behaviour, motion. PDFs were rendered (valid, 1 page each incl. extreme names) but not visually inspected.
+
+KNOWN GAPS (honest list)
+- The dashboard, reports, payments, audit-log, exams list/detail, trainers and trainees-import pages still render from lib/mock. The real attempt page is /exams/[courseId]/attempts/[attemptId] and nothing links to it yet.
+- Rate limiting is in memory per instance and trusts the first X-Forwarded-For value; SSE notifications use an in-memory broadcaster, so they do not cross serverless instances. Move both to Postgres/Redis for production.
+- Unverified raw SQL (jsonb append/review, trainee number MAX, referral consume) - no DB to run it against.
+- TOTP routes (dormant) let any session overwrite the secret; harmless while TOTP is off, fix if it returns.
+- HANDOFF.md (earlier sessions) contains the database pooler hostname; rotate the DB password before sharing the repo.
+- tmp-e2e.ts, tmp-dbcheck.ts, tmp-backdate-otp.ts are tracked scratch files (one uses $queryRawUnsafe); remove them.
+- Only one signature per student number: a trainee certified in a second course gets the next free number (the column is unique).

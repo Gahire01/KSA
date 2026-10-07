@@ -7,8 +7,9 @@ import { prisma } from "@/lib/db";
 /**
  * /api/referral-codes — owner-managed attribution codes.
  *
- * Unlike access links, a referral code is stored in the clear and returned freely:
- * it is an attribution label, not a credential. It cannot sign anyone in.
+ * A referral code is stored in the clear (the owner needs to read it back), but it IS a
+ * credential: typed on the sign-in page it opens a session, so it follows the same
+ * device limit and can be revoked. Treat it like a password you chose to be readable.
  */
 
 export async function GET(request: Request) {
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
       maxUses: true,
       timesUsed: true,
       expiresAt: true,
+      revokedAt: true,
       createdAt: true,
       createdBy: { select: { name: true, email: true } },
       _count: { select: { devices: true } },
@@ -42,7 +44,13 @@ export async function GET(request: Request) {
     items: codes.map((c) => ({
       ...c,
       remaining: Math.max(0, c.maxUses - c.timesUsed),
-      status: c.expiresAt <= now ? "EXPIRED" : c.timesUsed >= c.maxUses ? "USED" : "ACTIVE",
+      status: c.revokedAt
+        ? "REVOKED"
+        : c.expiresAt <= now
+          ? "EXPIRED"
+          : c.timesUsed >= c.maxUses
+            ? "USED"
+            : "ACTIVE",
     })),
     total: codes.length,
   });

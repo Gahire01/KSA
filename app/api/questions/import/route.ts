@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { guard } from "@/lib/api/guard";
 import { clientKey, rateLimit, rateLimitFail } from "@/lib/api/rate-limit";
 import { apiFail, apiNotFound, apiOk } from "@/lib/api/response";
+import { ownsCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import { requestIp } from "@/lib/exams/attempt";
 import { MAX_IMPORT_BYTES, parseCsv, readXlsx, validateRows } from "@/lib/exams/import";
@@ -27,8 +28,21 @@ const CHUNK = 1000;
 
 const newId = () => randomBytes(12).toString("hex");
 
+/**
+ * UTF-8 if the bytes are valid UTF-8, otherwise Windows-1252, which is what Excel's
+ * "CSV (Comma delimited)" writes on Windows. Reading that as UTF-8 would silently turn
+ * every accented letter into a replacement character.
+ */
+function decodeText(bytes: Buffer): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
+
 export async function POST(request: Request) {
-  const gate = await guard("question.write");
+  const gate = await guard("question.write", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const limit = rateLimit(clientKey(request, "question-import"), 20, 60 * 1000);
@@ -43,8 +57,11 @@ export async function POST(request: Request) {
     return apiFail("Choose a course.", 422);
   }
 
-  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { id: true, name: true } });
-  if (!course) return apiNotFound("Course");
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: { id: true, name: true, trainerId: true },
+  });
+  if (!course || !ownsCourse(gate.trainerScope, course)) return apiNotFound("Course");
 
   /* Read the input: a file, or pasted text. */
   let rows: string[][] | null;
@@ -55,7 +72,7 @@ export async function POST(request: Request) {
     if (file.size > MAX_IMPORT_BYTES) return apiFail("The file is larger than 5 MB.", 413);
     const bytes = Buffer.from(await file.arrayBuffer());
     const isZip = bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
-    rows = isZip ? readXlsx(bytes) : parseCsv(bytes.toString("utf8"));
+    rows = isZip ? readXlsx(bytes) : parseCsv(decodeText(bytes));
     if (!rows) return apiFail("That spreadsheet could not be read. Save it as .xlsx or CSV and try again.", 422);
   } else if (typeof pasted === "string" && pasted.trim()) {
     if (pasted.length > MAX_IMPORT_BYTES) return apiFail("The pasted text is too large.", 413);

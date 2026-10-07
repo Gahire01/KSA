@@ -2,6 +2,7 @@ import { guard } from "@/lib/api/guard";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { certificateListSelect, certificateStatus } from "@/lib/certificates/status";
 import { certificateListQuerySchema } from "@/lib/api/certificate-schemas";
+import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 
@@ -13,7 +14,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
  */
 
 export async function GET(request: Request) {
-  const gate = await guard("certificate.read");
+  const gate = await guard("certificate.read", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const url = new URL(request.url);
@@ -32,6 +33,8 @@ export async function GET(request: Request) {
    * else is stored, so it filters in SQL and keeps the query cheap. */
   const rows = await prisma.certificate.findMany({
     where: {
+      /* A trainer sees only certificates for their own courses. */
+      ...viaCourse(gate.trainerScope),
       ...(courseIds?.length ? { courseId: { in: courseIds } } : {}),
       ...(issuedFrom || issuedTo
         ? {

@@ -76,24 +76,34 @@ export async function issueAttempt(input: {
     token,
   );
 
-  const attempt = await prisma.examAttempt.create({
-    data: {
-      tokenHash: hashExamToken(token),
-      traineeId: trainee.id,
-      courseId: course.id,
-      otpHash: await hashSecret(otp),
-      otpExpiresAt: otpExpiry(),
-      otpAttempts: 0,
-      manifest: JSON.stringify(manifest),
-      status: "PENDING",
-      attemptNumber: input.attemptNumber,
-      durationMin: course.examDurationMin,
-      linkExpiresAt: linkExpiryFromNow(input.linkHours ?? LINK_DEFAULT_HOURS),
-      linkMaxUses: 1,
-      linkUses: 0,
-    },
-    select: { id: true },
-  });
+  let attempt: { id: string };
+  try {
+    attempt = await prisma.examAttempt.create({
+      data: {
+        tokenHash: hashExamToken(token),
+        traineeId: trainee.id,
+        courseId: course.id,
+        otpHash: await hashSecret(otp),
+        otpExpiresAt: otpExpiry(),
+        otpAttempts: 0,
+        manifest: JSON.stringify(manifest),
+        status: "PENDING",
+        attemptNumber: input.attemptNumber,
+        durationMin: course.examDurationMin,
+        linkExpiresAt: linkExpiryFromNow(input.linkHours ?? LINK_DEFAULT_HOURS),
+        linkMaxUses: 1,
+        linkUses: 0,
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    /* The unique (trainee, course, attempt number) index: the same attempt already exists,
+     * created by a concurrent call. Not an error, and not ours to duplicate. */
+    if ((error as { code?: string } | null)?.code === "P2002") {
+      return { ok: false, reason: "That attempt already exists." };
+    }
+    throw error;
+  }
 
   const url = appUrl(`/exam/${token}`);
   const mail = examLinkEmail({

@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 
+import { AccessEntry } from "@/components/auth/AccessEntry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -551,6 +552,10 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
+
+          <div className="mt-5">
+            <AccessEntry />
+          </div>
 
           <p className="mt-5 text-center text-[10px] text-ink-3">
             Built by Gahire Abdilillah

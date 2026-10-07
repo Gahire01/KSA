@@ -53,7 +53,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const currentDeviceId = await resolveDeviceId();
 
   const target = await prisma.deviceSession.findFirst({
-    where: { id, userId },
+    where: { id, userId, accessLinkId: null, referralCodeId: null },
     select: { id: true, deviceHash: true, revokedAt: true },
   });
 

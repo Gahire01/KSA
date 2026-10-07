@@ -2,6 +2,7 @@ import { attemptLinkActionSchema } from "@/lib/api/exam-schemas";
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiNotFound, apiOk, zodMessage } from "@/lib/api/response";
 import { hashSecret } from "@/lib/auth/password";
+import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import { appUrl, sendEmail } from "@/lib/email/send";
 import { examLinkEmail, otpCodeOnlyEmail } from "@/lib/email/templates";
@@ -38,7 +39,7 @@ import {
  * behind a code that never arrived.
  */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const gate = await guard("exam.send");
+  const gate = await guard("exam.send", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const { id } = await context.params;
@@ -48,8 +49,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
   const { action } = parsed.data;
 
-  const attempt = await prisma.examAttempt.findUnique({
-    where: { id },
+  const attempt = await prisma.examAttempt.findFirst({
+    where: { id, ...viaCourse(gate.trainerScope) },
     select: {
       id: true,
       status: true,

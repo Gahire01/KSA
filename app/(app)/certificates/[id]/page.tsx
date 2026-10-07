@@ -102,7 +102,12 @@ export default function CertificateDetailPage() {
   const [revokeNotes, setRevokeNotes] = React.useState("");
 
   const [origin, setOrigin] = React.useState("");
-  React.useEffect(() => setOrigin(window.location.origin), []);
+  /* The configured public address first, so the QR on screen is the one that gets printed
+   * (the PDF uses it too); the browser's own origin only as a fallback in development. */
+  React.useEffect(
+    () => setOrigin((process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin).replace(/\/+$/, "")),
+    [],
+  );
 
   const certQuery = useQuery({
     queryKey: ["certificate", id],

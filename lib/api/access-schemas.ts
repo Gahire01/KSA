@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { ACCESS_LINK_MAX_DAYS } from "@/lib/auth/access-links";
+import {
+  ACCESS_LINK_MAX_DEVICES,
+  ACCESS_LINK_MAX_HOURS,
+} from "@/lib/auth/access-links";
 
 /**
  * Access-link and device request schemas.
@@ -17,14 +20,12 @@ export const accessLinkCreateSchema = z
      * named choice rather than a default in a dropdown. */
     role: z.enum(["ADMIN", "TRAINER"]),
     trainerId: z.string().trim().min(1).max(60).nullish(),
-    label: z.string().trim().max(120).nullish(),
-    expiresInDays: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(ACCESS_LINK_MAX_DAYS)
-      .optional(),
+    label: z.string().trim().min(1, "Give the link a label so you recognise it later.").max(120),
+    /** Hours until the link stops working. Default 24, max 720 (30 days). */
+    expiresInHours: z.coerce.number().int().min(1).max(ACCESS_LINK_MAX_HOURS).optional(),
     singleUse: z.boolean().default(false),
+    /** Devices that may be signed in through this link, 1 to 5 (default 5). */
+    maxDevices: z.coerce.number().int().min(1).max(ACCESS_LINK_MAX_DEVICES).optional(),
   })
   .strict()
   .refine(
@@ -49,13 +50,20 @@ export const referralCodeCreateSchema = z
  * Redeeming a link is the highest-value unauthenticated action in the product, so it
  * takes the token in the body rather than the URL. A token in a path lands in
  * `Referer` headers, proxy logs and browser history; in a POST body it does not.
+ *
+ * There is nothing else to send: team members have no email or password. The link
+ * itself is the credential.
  */
 export const redeemAccessLinkSchema = z
   .object({
     token: z.string().trim().min(20).max(200),
-    email: z.string().trim().email().max(200),
-    password: z.string().min(12).max(200),
-    fullName: z.string().trim().min(2).max(120),
+  })
+  .strict();
+
+/** A referral code typed on the sign-in page. */
+export const redeemReferralSchema = z
+  .object({
+    code: z.string().trim().min(4).max(32),
   })
   .strict();
 

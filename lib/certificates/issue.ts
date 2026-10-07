@@ -194,13 +194,18 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
       select: { studentNumber: true },
     });
 
-    const first = highest
-      ? 0
-      : Math.max(studentNumberStart(), await highestRegisterNumber());
     /* First try the number the student already holds (their own trainee number or
-     * their register entry). If that is taken or collides, fall back to the next
-     * free number after the highest issued. */
-    const fallback = (highest?.studentNumber ?? first) + 1 + attempt;
+     * their register entry). If that is taken or collides, fall back to the next free
+     * number: one past the highest of every number already spoken for, i.e. issued on a
+     * certificate, held by a trainee (which covers the whole register), or the
+     * configured starting point. Taking the highest of all three keeps a person with
+     * no number from being handed another student's register number. */
+    const floor = Math.max(
+      highest?.studentNumber ?? 0,
+      await highestRegisterNumber(),
+      studentNumberStart() - 1,
+    );
+    const fallback = floor + 1 + attempt;
     const next = attempt === 0 && preferred !== null ? preferred : fallback;
 
     const verificationToken = randomBytes(32).toString("base64url");
@@ -250,6 +255,31 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
       if (!isNumberClash) {
         console.error("[certificates] issuance failed", error);
         return null;
+      }
+
+      /* The same attempt already has a certificate: a submit and a replay raced and the
+       * other one won. That is not a number clash and retrying cannot help. Hand back the
+       * winner's row, and send nothing: it already emailed this certificate. */
+      if (input.attemptId) {
+        const raced = await prisma.certificate.findUnique({
+          where: { attemptId: input.attemptId },
+          include: { trainee: true, course: true },
+        });
+        if (raced) {
+          return {
+            certificate: {
+              id: raced.id,
+              studentNumber: raced.studentNumber,
+              verificationToken: raced.verificationToken,
+              contentHash: raced.contentHash,
+              issuedAt: raced.issuedAt,
+              expiresAt: raced.expiresAt,
+              traineeName: raced.trainee.fullName,
+              courseName: raced.course.name,
+            },
+            emailed: true,
+          };
+        }
       }
     }
   }

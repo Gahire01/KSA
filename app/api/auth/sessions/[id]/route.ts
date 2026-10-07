@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiNotFound, apiOk } from "@/lib/api/response";
+import { actorOf, audit } from "@/lib/audit";
 import { clearSessionCookie, readSessionCookie } from "@/lib/auth/cookies";
 import { revokeSessionById } from "@/lib/auth/session";
 
@@ -31,6 +32,13 @@ export async function DELETE(
     const token = await readSessionCookie();
     if (token) await clearSessionCookie();
   }
+
+  await audit({
+    ...actorOf(gate.session),
+    action: "auth.session.revoke",
+    entityType: "Session",
+    meta: { wasCurrent: id === gate.session.id },
+  });
 
   return apiOk({ revoked: true, wasCurrent: id === gate.session.id });
 }

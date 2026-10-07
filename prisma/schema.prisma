@@ -93,6 +93,9 @@ model Session {
   ip           String?
   userAgent    String?
   accessLinkId String?
+  /// The referral code this session came from, when it came from one. Lets a revoked
+  /// or lapsed code end the sessions it produced, and marks the session as "shared".
+  referralCodeId String?
   createdAt    DateTime    @default(now())
   /// Touched at most every few minutes while the session is in use, so the
   /// sessions list can show "last seen" without a write on every request.
@@ -102,6 +105,7 @@ model Session {
 
   @@index([userId])
   @@index([accessLinkId])
+  @@index([referralCodeId])
   @@index([expiresAt])
 }
 
@@ -290,6 +294,9 @@ model ExamAttempt {
   @@index([traineeId, courseId])
   @@index([createdAt])
   @@index([status, createdAt])
+  /// A trainee has at most one sitting per attempt number on a course, so two sends or a
+  /// send racing the automatic second attempt cannot create the same one twice.
+  @@unique([traineeId, courseId, attemptNumber])
 }
 
 /// A saved answer. Upserted by the autosave endpoint as the runner moves.
@@ -360,6 +367,8 @@ model AccessLink {
   label        String?
   expiresAt    DateTime
   singleUse    Boolean  @default(false)
+  /// How many distinct devices may hold a session from this link (1 to 5).
+  maxDevices   Int      @default(5)
   usedAt       DateTime?
   revokedAt    DateTime?
   createdById  String
@@ -382,6 +391,7 @@ model ReferralCode {
   maxUses     Int      @default(1)
   timesUsed   Int      @default(0)
   expiresAt   DateTime
+  revokedAt   DateTime?
   createdById String
   createdAt   DateTime @default(now())
   createdBy   User      @relation("ReferralCodeCreator", fields: [createdById], references: [id], onDelete: Cascade)
@@ -418,6 +428,11 @@ model DeviceSession {
   @@index([userId])
   @@index([userId, revokedAt])
   @@index([accessLinkId, deviceHash])
+  /// One row per device per link or code: two simultaneous first redemptions from one
+  /// browser cannot take two slots. (NULLs are distinct in Postgres, so the account's own
+  /// sign-ins, which carry neither id, are unaffected.)
+  @@unique([accessLinkId, deviceHash])
+  @@unique([referralCodeId, deviceHash])
 }
 
 model Notification {

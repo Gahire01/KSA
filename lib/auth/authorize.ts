@@ -34,6 +34,8 @@ export type AuthzAction =
   | "device.self"
   | "access.manage"
   | "signature.manage"
+  | "trainer.read"
+  | "trainer.manage"
   | "device.manage"
   | "audit.read"
   | "report.read";
@@ -85,11 +87,13 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
   /* The question bank returns the answer key (`isCorrect`) so staff can set the
    * paper, so trainers are excluded from the grant itself rather than relying on
    * the missing-resource trap. */
-  "question.read": STAFF_ROLES,
-  "question.write": STAFF_ROLES,
+  "question.read": ALL_ROLES,
+  "question.write": ALL_ROLES,
 
   "exam.read": ALL_ROLES,
-  "exam.send": STAFF_ROLES,
+  /* Trainers send exams and write questions for THEIR OWN courses: every route behind
+   * these grants opts into `trainerScoped` and filters by the course's trainer. */
+  "exam.send": ALL_ROLES,
   "exam.grade": STAFF_ROLES,
   /* Granting an attempt beyond the course limit is an owner decision. */
   "exam.grant": new Set<Role>(["OWNER"]),
@@ -109,6 +113,9 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
   "access.manage": new Set<Role>(["OWNER"]),
   /* Drawing, uploading and locking the certificate signature. Owner only. */
   "signature.manage": new Set<Role>(["OWNER"]),
+  /* Listing trainers (to assign a course) is staff; creating one is the owner's call. */
+  "trainer.read": STAFF_ROLES,
+  "trainer.manage": new Set<Role>(["OWNER"]),
   "device.manage": new Set<Role>(["OWNER"]),
   "audit.read": new Set<Role>(["OWNER"]),
   "report.read": STAFF_ROLES,
@@ -130,6 +137,9 @@ export function isWriteAction(action: AuthzAction): boolean {
 const SELF_SCOPED: ReadonlySet<AuthzAction> = new Set<AuthzAction>([
   "notification.read",
   "device.self",
+  /* Category names are shared reference data (they label courses); nothing in them is
+   * specific to one trainer. */
+  "category.read",
 ]);
 
 /**

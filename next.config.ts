@@ -42,6 +42,12 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   typedRoutes: false,
   devIndicators: false,
+  /* The certificate PDF reads the logo and the legacy signature straight off disk. Next's
+   * file tracing only follows imports, so without this a serverless deploy would drop
+   * those files and every PDF would silently print without them. */
+  outputFileTracingIncludes: {
+    "/api/certificates/[id]/pdf": ["./public/logo.png", "./public/certificate/signature.png"],
+  },
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
   },

@@ -4,7 +4,7 @@ import { examAnswerSchema } from "@/lib/api/exam-schemas";
 import { EXAM_AUTOSAVE_LIMIT, clientKey, rateLimit, rateLimitFail } from "@/lib/api/rate-limit";
 import { apiFail, zodMessage } from "@/lib/api/response";
 import { prisma } from "@/lib/db";
-import { loadAttemptByToken, manifestOf, secondsRemaining } from "@/lib/exams/attempt";
+import { loadAttemptByToken, manifestOf, secondsPastDeadline } from "@/lib/exams/attempt";
 import { SUBMIT_GRACE_SECONDS } from "@/lib/exams/finalize";
 import { readExamSession } from "@/lib/exams/session-cookie";
 
@@ -45,7 +45,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
 
   /* The grace covers the final autosave that races the submit; past it nothing
    * more is accepted, so a late submit can only ever grade what was saved in time. */
-  if (secondsRemaining(attempt) + SUBMIT_GRACE_SECONDS <= 0) {
+  if (secondsPastDeadline(attempt) > SUBMIT_GRACE_SECONDS) {
     return apiFail("Time is up. Submit your answers.", 410);
   }
 
@@ -56,7 +56,7 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const manifest = manifestOf(attempt);
   if (!manifest) return apiFail("This exam paper could not be read.", 500);
 
-  const { questionId, optionId, blurCount } = parsed.data;
+  const { questionId, optionId } = parsed.data;
 
   if (!manifest.questionIds.includes(questionId)) {
     return apiFail("That question is not part of this exam.", 422);
@@ -79,12 +79,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     update: { optionId: finalOptionId, answeredAt: new Date() },
   });
 
-  if (typeof blurCount === "number" && blurCount > attempt.blurCount) {
-    await prisma.examAttempt.update({
-      where: { id: attempt.id },
-      data: { blurCount },
-    });
-  }
+  /* A `blurCount` sent by the client is accepted by the schema (older runners send it)
+   * but deliberately ignored: the focus-loss count is the server's alone, written by the
+   * integrity-flag route. Trusting a client number let it race the server's own and
+   * either double count or overwrite it with a stale value. */
 
   return NextResponse.json({
     ok: true,

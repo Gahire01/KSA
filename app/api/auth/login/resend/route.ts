@@ -45,17 +45,19 @@ export async function POST(request: NextRequest) {
     return response;
   }
 
+  /* Every non-error outcome answers `sent: true`, whether or not a mail went out, so
+   * the response cannot be used to learn which addresses are accounts. */
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (!user) return apiOk({ sent: false });
+  if (!user) return apiOk({ sent: true });
 
   const otp = await prisma.loginOtp.findFirst({ where: { userId: user.id } });
-  if (!otp) return apiOk({ sent: false });
+  if (!otp) return apiOk({ sent: true });
 
   /* 60-second cooldown: a double click, a impatient retry or a mail client
    * that swallowed the first one all land here and hear "ok" without a second
    * message going out. */
   if (Date.now() - otp.lastSentAt.getTime() < RESEND_COOLDOWN_MS) {
-    return apiOk({ sent: false });
+    return apiOk({ sent: true });
   }
 
   const code = randomInt(100000, 999999).toString().padStart(6, "0");

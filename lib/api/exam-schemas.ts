@@ -18,7 +18,13 @@ export const examOtpSchema = z
 
 export const examSendSchema = z
   .object({
-    traineeIds: z.array(z.string().trim().min(1)).min(1, "Choose at least one trainee.").max(500),
+    /* Capped at 100: each trainee costs a WhatsApp lookup, a send and an email, one after
+     * another, and a bigger batch can outrun a serverless function's time limit and
+     * leave a half-sent batch. The send page already works in pages of 100. */
+    traineeIds: z
+      .array(z.string().trim().min(1).max(64))
+      .min(1, "Choose at least one trainee.")
+      .max(100, "Send to at most 100 trainees at a time."),
     /** Hours until the link stops working. Default 72, max 720 (30 days). */
     linkExpiresInHours: z.coerce.number().int().min(1).max(720).optional(),
     /** Where to deliver the link and code. Default email only. */

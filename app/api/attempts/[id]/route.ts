@@ -1,5 +1,6 @@
 import { guard } from "@/lib/api/guard";
 import { apiNotFound, apiOk } from "@/lib/api/response";
+import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import { linkState } from "@/lib/exams/link";
 
@@ -11,13 +12,13 @@ import { linkState } from "@/lib/exams/link";
  * key. Staff can see how a trainee scored, never how to answer.
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
-  const gate = await guard("exam.send");
+  const gate = await guard("exam.send", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const { id } = await context.params;
 
-  const attempt = await prisma.examAttempt.findUnique({
-    where: { id },
+  const attempt = await prisma.examAttempt.findFirst({
+    where: { id, ...viaCourse(gate.trainerScope) },
     select: {
       id: true,
       status: true,

@@ -1,5 +1,7 @@
 "use client";
 
+import { csvCell } from "@/lib/utils/csv";
+
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -332,9 +334,8 @@ export default function CertificatesPage() {
       "revoked_at",
       "revoked_reason",
     ];
-    /* Quote every field and double any embedded quote: a trainee name containing a
-     * comma must not be able to forge a column in the download. */
-    const quote = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+    /* csvCell quotes every field, doubles embedded quotes (a name with a comma cannot
+     * forge a column) and defuses cells that start like a spreadsheet formula. */
     const lines = chosen.map((c) =>
       [
         c.studentNumber,
@@ -349,7 +350,7 @@ export default function CertificatesPage() {
         c.revokedAt?.slice(0, 10) ?? "",
         c.revokedReason ?? "",
       ]
-        .map(quote)
+        .map(csvCell)
         .join(","),
     );
     const blob = new Blob([[header.join(","), ...lines].join("\n")], {

@@ -42,7 +42,6 @@ if (!connectionString) {
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
 const DEFAULT_EMAIL = "gahiredev01@gmail.com";
-const DEFAULT_PASSWORD = "ChangeMe123!";
 
 type Options = {
   email: string;
@@ -64,7 +63,12 @@ function parseArgs(argv: string[]): Options {
       options.password = next;
       i += 1;
     } else if (flag === "--reset-password") {
-      options.password = process.env.SEED_OWNER_PASSWORD ?? DEFAULT_PASSWORD;
+      /* No built-in fallback: a password written in this repo is not a password. */
+      const fromEnv = process.env.SEED_OWNER_PASSWORD;
+      if (!fromEnv || fromEnv.length < 12) {
+        throw new Error("--reset-password needs SEED_OWNER_PASSWORD set to at least 12 characters.");
+      }
+      options.password = fromEnv;
     } else if (flag === "--keep-sessions") {
       options.keepSessions = true;
     } else if (flag === "--help" || flag === "-h") {
@@ -74,7 +78,7 @@ function parseArgs(argv: string[]): Options {
           "",
           "  --email <addr>       account to reset        (default: gahiredev01@gmail.com)",
           "  --password <value>   set this password        (default: leave unchanged)",
-          "  --reset-password     set SEED_OWNER_PASSWORD  (default: ChangeMe123!)",
+          "  --reset-password     set the password from SEED_OWNER_PASSWORD (required, 12+ chars)",
           "  --keep-sessions       do not end sessions or revoke devices",
         ].join("\n"),
       );
@@ -152,9 +156,10 @@ async function main() {
   console.log(`  sessions   ${sessions} ended`);
   console.log(`  devices    ${devices} revoked`);
   console.log("");
+  /* The password is never echoed: terminal scrollback and CI logs outlive the run. */
   console.log(
     `Owner reset. Email: ${user.email}. Password: ${
-      options.password ?? "(unchanged — SEED_OWNER_PASSWORD: " + (process.env.SEED_OWNER_PASSWORD ?? DEFAULT_PASSWORD) + ")"
+      options.password ? "set from the value you supplied" : "unchanged"
     }. Log in to receive an email code.`,
   );
   console.log("Done.");

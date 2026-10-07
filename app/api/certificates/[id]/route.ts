@@ -1,6 +1,7 @@
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiOk } from "@/lib/api/response";
 import { certificateStatus } from "@/lib/certificates/status";
+import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 
 /**
@@ -41,10 +42,13 @@ const detailSelect = {
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
-  const gate = await guard("certificate.read");
+  const gate = await guard("certificate.read", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
-  const cert = await prisma.certificate.findUnique({ where: { id }, select: detailSelect });
+  const cert = await prisma.certificate.findFirst({
+    where: { id, ...viaCourse(gate.trainerScope) },
+    select: detailSelect,
+  });
 
   if (!cert) return apiFail("That certificate does not exist.", 404);
 

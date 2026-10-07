@@ -110,8 +110,10 @@ export async function recordDevice(input: RecordDeviceInput): Promise<RecordDevi
   const deviceId = await resolveDeviceId();
   const deviceHash = hashDeviceId(deviceId);
 
+  /* The account's own sign-ins only: rows that belong to a link or a code are theirs
+   * to manage, and a password-style sign-in must never revive or collide with one. */
   const existing = await prisma.deviceSession.findFirst({
-    where: { userId: input.userId, deviceHash },
+    where: { userId: input.userId, deviceHash, accessLinkId: null, referralCodeId: null },
     select: { id: true, revokedAt: true },
   });
 
@@ -184,12 +186,35 @@ export async function peekDeviceId(): Promise<string | null> {
  */
 export type DeviceState = "active" | "revoked" | "unknown";
 
-export async function deviceState(userId: string): Promise<DeviceState> {
+export async function deviceState(
+  userId: string,
+  via: { accessLinkId?: string | null; referralCodeId?: string | null } = {},
+): Promise<DeviceState> {
   const deviceId = await peekDeviceId();
   if (!deviceId) return "unknown";
 
+  const deviceHash = hashDeviceId(deviceId);
+
+  /* A session is only as good as the device row of the SAME grant that produced it.
+   * A link session is checked against that link's row alone, a code session against
+   * that code's, and an ordinary sign-in against the account's own rows (neither id).
+   * Otherwise a trainer reached through two links, or through a link and their own
+   * login, would let one grant's live row keep another grant's removed device alive
+   * (or one revocation kill a session it was never entitled to end). */
+  const scope = via.accessLinkId
+    ? { accessLinkId: via.accessLinkId }
+    : via.referralCodeId
+      ? { referralCodeId: via.referralCodeId }
+      : { accessLinkId: null, referralCodeId: null };
+
+  const live = await prisma.deviceSession.findFirst({
+    where: { userId, deviceHash, revokedAt: null, ...scope },
+    select: { id: true },
+  });
+  if (live) return "active";
+
   const row = await prisma.deviceSession.findFirst({
-    where: { userId, deviceHash: hashDeviceId(deviceId) },
+    where: { userId, deviceHash, ...scope },
     select: { revokedAt: true },
   });
 
@@ -197,8 +222,126 @@ export async function deviceState(userId: string): Promise<DeviceState> {
   return row.revokedAt ? "revoked" : "active";
 }
 
+export type AdmitResult =
+  | {
+      ok: true;
+      activeCount: number;
+      maxDevices: number;
+      /** True when this call registered the device (rather than recognising it). */
+      isNew: boolean;
+      /** The DeviceSession row, so a caller can back the admission out. */
+      deviceRowId: string;
+    }
+  | { ok: false; reason: "full" | "removed"; activeCount: number; maxDevices: number };
+
+/**
+ * Admits a device to a link or referral code, with a hard per-link limit.
+ *
+ * This is the rule for link-issued access (team members): the sixth device is
+ * REFUSED, not swapped in for the oldest. A link is a shared credential, so quietly
+ * kicking one holder off to admit another would hand the owner no way to tell who is
+ * actually using it. The owner can free a slot by removing a device.
+ *
+ *  - A device already registered on this link is let straight back in.
+ *  - A device the owner removed stays removed: re-redeeming the same link from it
+ *    is refused, otherwise "remove device" would do nothing while the link lives.
+ *  - Two devices racing for the last slot are settled by recounting after the
+ *    insert; the one that finds the count over the limit backs out.
+ */
+export async function admitDevice(input: {
+  userId: string;
+  accessLinkId?: string | null;
+  referralCodeId?: string | null;
+  maxDevices: number;
+  userAgent?: string | null;
+  ip?: string | null;
+}): Promise<AdmitResult> {
+  const deviceHash = hashDeviceId(await resolveDeviceId());
+  const scope = input.accessLinkId
+    ? { accessLinkId: input.accessLinkId }
+    : { referralCodeId: input.referralCodeId ?? null };
+
+  const countActive = () => prisma.deviceSession.count({ where: { ...scope, revokedAt: null } });
+  const { maxDevices } = input;
+
+  const existing = await prisma.deviceSession.findFirst({
+    where: { ...scope, deviceHash },
+    select: { id: true, revokedAt: true },
+  });
+
+  if (existing) {
+    if (existing.revokedAt) {
+      return { ok: false, reason: "removed", activeCount: await countActive(), maxDevices };
+    }
+    await prisma.deviceSession.update({
+      where: { id: existing.id },
+      data: {
+        lastSeenAt: new Date(),
+        ipAddress: input.ip ?? null,
+        userAgent: input.userAgent?.slice(0, 500) ?? null,
+      },
+    });
+    return {
+      ok: true,
+      activeCount: await countActive(),
+      maxDevices,
+      isNew: false,
+      deviceRowId: existing.id,
+    };
+  }
+
+  if ((await countActive()) >= maxDevices) {
+    return { ok: false, reason: "full", activeCount: maxDevices, maxDevices };
+  }
+
+  let created: { id: string };
+  try {
+    created = await prisma.deviceSession.create({
+      data: {
+        userId: input.userId,
+        accessLinkId: input.accessLinkId ?? null,
+        referralCodeId: input.referralCodeId ?? null,
+        deviceHash,
+        userAgent: input.userAgent?.slice(0, 500) ?? null,
+        ipAddress: input.ip ?? null,
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    /* The unique (link, device) index: this same browser redeemed twice at once and the
+     * other request won. It is one device, already registered, so recognise it. */
+    if ((error as { code?: string } | null)?.code === "P2002") {
+      const winner = await prisma.deviceSession.findFirst({
+        where: { ...scope, deviceHash },
+        select: { id: true, revokedAt: true },
+      });
+      if (winner && !winner.revokedAt) {
+        return {
+          ok: true,
+          activeCount: await countActive(),
+          maxDevices,
+          isNew: false,
+          deviceRowId: winner.id,
+        };
+      }
+    }
+    throw error;
+  }
+
+  const after = await countActive();
+  if (after > maxDevices) {
+    await prisma.deviceSession.delete({ where: { id: created.id } }).catch(() => undefined);
+    return { ok: false, reason: "full", activeCount: maxDevices, maxDevices };
+  }
+
+  return { ok: true, activeCount: after, maxDevices, isNew: true, deviceRowId: created.id };
+}
+
+/** The account's own signed-in devices. Link and code devices are counted per link. */
 export async function activeDeviceCount(userId: string): Promise<number> {
-  return prisma.deviceSession.count({ where: { userId, revokedAt: null } });
+  return prisma.deviceSession.count({
+    where: { userId, revokedAt: null, accessLinkId: null, referralCodeId: null },
+  });
 }
 
 /**
@@ -230,8 +373,10 @@ export async function enforceDeviceCap(
   /* Order by lastSeenAt ascending so the oldest is first, then revoke exactly as
    * many as the overflow rather than clearing the whole list. */
   const surplus = activeCount - MAX_DEVICES;
+  /* Own sign-ins only. A device admitted through a link has its own per-link limit and
+   * is never swapped out by an unrelated sign-in or by another link's devices. */
   const evict = await prisma.deviceSession.findMany({
-    where: { userId, revokedAt: null },
+    where: { userId, revokedAt: null, accessLinkId: null, referralCodeId: null },
     orderBy: { lastSeenAt: "asc" },
     take: surplus,
     select: { id: true },
@@ -252,7 +397,13 @@ export async function enforceDeviceCap(
 export async function revokeAllDevices(userId: string, exceptDeviceId?: string): Promise<number> {
   const current = exceptDeviceId ? hashDeviceId(exceptDeviceId) : null;
   const rows = await prisma.deviceSession.findMany({
-    where: { userId, revokedAt: null, ...(current ? { deviceHash: { not: current } } : {}) },
+    where: {
+      userId,
+      revokedAt: null,
+      accessLinkId: null,
+      referralCodeId: null,
+      ...(current ? { deviceHash: { not: current } } : {}),
+    },
     select: { id: true },
   });
   if (rows.length === 0) return 0;

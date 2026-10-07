@@ -1,6 +1,7 @@
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { categoryCreateSchema } from "@/lib/api/schemas";
+import { actorOf, audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { getCategoriesCached, invalidateCategories } from "@/lib/data-cache";
 
@@ -31,6 +32,14 @@ export async function POST(request: Request) {
 
   const category = await prisma.category.create({ data: { name } });
   await invalidateCategories();
+
+  await audit({
+    ...actorOf(gate.session),
+    action: "category.create",
+    entityType: "Category",
+    entityId: category.id,
+    meta: { name: category.name },
+  });
 
   return apiOk({ id: category.id, name: category.name, courseCount: 0 }, 201);
 }

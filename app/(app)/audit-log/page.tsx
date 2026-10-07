@@ -1,5 +1,7 @@
 "use client";
 
+import { csvCell } from "@/lib/utils/csv";
+
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -388,7 +390,7 @@ export default function AuditLogPage() {
                       a.entityLabel,
                       a.ip,
                     ]
-                      .map((v) => `"${String(v).replaceAll('"', '""')}"`)
+                      .map(csvCell)
                       .join(","),
                   );
                   const blob = new Blob([[header.join(","), ...lines].join("\n")], {

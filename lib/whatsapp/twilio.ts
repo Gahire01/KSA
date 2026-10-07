@@ -33,21 +33,28 @@ export function whatsappConfigured(): boolean {
 }
 
 /**
- * Best-effort E.164. A leading + is kept, 250... and local 07... (Rwanda, the
- * academy's home market) are completed, and anything else is rejected rather
- * than guessed. The all-zero placeholder used for register-seeded trainees is
- * never a real number.
+ * Best-effort E.164. A leading + is kept and 250... is accepted. A LOCAL number
+ * (07..., no country code) is completed as Rwandan only when the trainee's country
+ * says Rwanda: a Ugandan or Congolese local number must not be silently sent to a
+ * stranger in Kigali along with an exam code. Anything else is rejected rather than
+ * guessed. The all-zero placeholder used for register-seeded trainees is never a
+ * real number.
  */
-export function normalizeE164(raw: string | null | undefined): string | null {
+export function normalizeE164(
+  raw: string | null | undefined,
+  country?: string | null,
+): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   const digits = trimmed.replace(/\D/g, "");
   if (digits.length < 8 || /^0+$/.test(digits.replace(/^250/, ""))) return null;
 
+  const isRwanda = /rwanda/i.test(country ?? "");
+
   let e164: string;
   if (trimmed.startsWith("+")) e164 = `+${digits}`;
   else if (digits.startsWith("250") && digits.length === 12) e164 = `+${digits}`;
-  else if (digits.startsWith("0") && digits.length === 10) e164 = `+250${digits.slice(1)}`;
+  else if (isRwanda && digits.startsWith("0") && digits.length === 10) e164 = `+250${digits.slice(1)}`;
   else return null;
 
   return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : null;

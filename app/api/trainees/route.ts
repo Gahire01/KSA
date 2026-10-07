@@ -1,6 +1,8 @@
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { traineeCreateSchema, traineeListQuerySchema } from "@/lib/api/schemas";
+import { actorOf, audit } from "@/lib/audit";
+import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { REGISTER_MAX_STUDENT_NUMBER } from "../../../scripts/student-list/register-numbers";
@@ -33,7 +35,7 @@ async function nextTraineeNo(): Promise<string> {
 
 /** GET /api/trainees — search, filter, paginated. */
 export async function GET(request: Request) {
-  const gate = await guard("trainee.read");
+  const gate = await guard("trainee.read", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const url = new URL(request.url);
@@ -55,6 +57,8 @@ export async function GET(request: Request) {
   const countries = d.country ?? d.countries;
 
   const where: Prisma.TraineeWhereInput = {
+    /* A trainer sees only trainees enrolled on their own courses. */
+    ...viaCourse(gate.trainerScope),
     ...(statuses?.length ? { status: { in: [...statuses] } } : {}),
     ...(courseIds?.length ? { courseId: { in: courseIds } } : {}),
     ...(categoryIds?.length ? { categoryId: { in: categoryIds } } : {}),
@@ -155,6 +159,14 @@ export async function POST(request: Request) {
           notes: data.notes ?? null,
         },
         include: traineeInclude,
+      });
+
+      await audit({
+        ...actorOf(gate.session),
+        action: "trainee.create",
+        entityType: "Trainee",
+        entityId: trainee.id,
+        meta: { traineeNo: trainee.traineeNo, courseId },
       });
 
       return apiOk(trainee, 201);

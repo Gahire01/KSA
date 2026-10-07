@@ -3,6 +3,7 @@ import { z } from "zod";
 import { guard } from "@/lib/api/guard";
 import { clientKey, rateLimit, rateLimitFail } from "@/lib/api/rate-limit";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
+import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import { lookupWhatsapp, normalizeE164, whatsappConfigured } from "@/lib/whatsapp/twilio";
 
@@ -22,7 +23,7 @@ const bodySchema = z
  * service.
  */
 export async function POST(request: Request) {
-  const gate = await guard("exam.send");
+  const gate = await guard("exam.send", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const limit = rateLimit(clientKey(request, "whatsapp-lookup"), 20, 60 * 1000);
@@ -33,15 +34,15 @@ export async function POST(request: Request) {
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
   const trainees = await prisma.trainee.findMany({
-    where: { id: { in: parsed.data.traineeIds } },
-    select: { id: true, phone: true },
+    where: { id: { in: parsed.data.traineeIds }, ...viaCourse(gate.trainerScope) },
+    select: { id: true, phone: true, countryCode: true },
   });
 
   const configured = whatsappConfigured();
 
   const items = await Promise.all(
     trainees.map(async (t) => {
-      const e164 = normalizeE164(t.phone);
+      const e164 = normalizeE164(t.phone, t.countryCode);
       if (!e164) return { traineeId: t.id, e164: null, whatsapp: "invalid" as const };
       return {
         traineeId: t.id,

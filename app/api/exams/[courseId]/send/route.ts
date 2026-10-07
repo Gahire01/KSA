@@ -1,6 +1,7 @@
 import { guard } from "@/lib/api/guard";
 import { examSendSchema } from "@/lib/api/exam-schemas";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
+import { ownsCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import { examLinkEmail } from "@/lib/email/templates";
 import { appUrl, sendEmail } from "@/lib/email/send";
@@ -37,7 +38,7 @@ import {
 
 export async function POST(request: Request, context: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await context.params;
-  const gate = await guard("exam.send");
+  const gate = await guard("exam.send", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const body: unknown = await request.json().catch(() => null);
@@ -63,7 +64,8 @@ export async function POST(request: Request, context: { params: Promise<{ course
     },
   });
 
-  if (!course) return apiFail("That course does not exist.", 404);
+  /* A trainer can only send exams for their own courses. */
+  if (!course || !ownsCourse(gate.trainerScope, course)) return apiFail("That course does not exist.", 404);
   if (!course.isActive) return apiFail("That course is not active.", 422);
   if (course.questions.length < 1) {
     return apiFail("Add at least one question to this course before sending an exam.", 422);
@@ -71,24 +73,33 @@ export async function POST(request: Request, context: { params: Promise<{ course
 
   const trainees = await prisma.trainee.findMany({
     where: { id: { in: traineeIds }, courseId },
-    select: { id: true, fullName: true, email: true, phone: true, status: true },
+    select: { id: true, fullName: true, email: true, phone: true, countryCode: true, status: true },
   });
 
   if (trainees.length === 0) {
     return apiFail("None of those trainees are enrolled on this course.", 422);
   }
 
-  /* Only offer a trainee another attempt if the course allows one. */
-  const priorCounts = await prisma.examAttempt.groupBy({
-    by: ["traineeId"],
-    where: {
-      traineeId: { in: trainees.map((t) => t.id) },
-      status: { in: ["SUBMITTED", "PASSED", "FAILED"] },
-    },
-    _count: { _all: true },
+  /* What each trainee has already done on THIS course, so a send can't hand out more
+   * sittings than the course allows, a second one on top of a link that is still open
+   * (the failed first attempt emails attempt 2 by itself), or one to someone who passed. */
+  const history = await prisma.examAttempt.findMany({
+    where: { traineeId: { in: trainees.map((t) => t.id) }, courseId },
+    select: { traineeId: true, status: true, attemptNumber: true },
   });
 
-  const usedMap = new Map(priorCounts.map((row) => [row.traineeId, row._count._all]));
+  const summary = new Map<
+    string,
+    { used: number; passed: boolean; open: boolean; lastNumber: number }
+  >();
+  for (const row of history) {
+    const s = summary.get(row.traineeId) ?? { used: 0, passed: false, open: false, lastNumber: 0 };
+    if (row.status === "SUBMITTED" || row.status === "PASSED" || row.status === "FAILED") s.used += 1;
+    if (row.status === "PASSED") s.passed = true;
+    if (row.status === "PENDING" || row.status === "STARTED") s.open = true;
+    s.lastNumber = Math.max(s.lastNumber, row.attemptNumber);
+    summary.set(row.traineeId, s);
+  }
 
 
   /* One window for the whole batch, fixed at send time. OTP stays 30 minutes. */
@@ -119,9 +130,23 @@ export async function POST(request: Request, context: { params: Promise<{ course
   const skipped: Array<{ traineeId: string; name: string; reason: string }> = [];
 
   for (const trainee of trainees) {
-    const used = usedMap.get(trainee.id) ?? 0;
+    const past = summary.get(trainee.id) ?? { used: 0, passed: false, open: false, lastNumber: 0 };
 
-    if (used >= course.maxAttempts) {
+    if (past.passed) {
+      skipped.push({ traineeId: trainee.id, name: trainee.fullName, reason: "Already passed this course." });
+      continue;
+    }
+
+    if (past.open) {
+      skipped.push({
+        traineeId: trainee.id,
+        name: trainee.fullName,
+        reason: "Already has an open exam link. Reissue that attempt instead of sending another.",
+      });
+      continue;
+    }
+
+    if (past.used >= course.maxAttempts) {
       skipped.push({
         traineeId: trainee.id,
         name: trainee.fullName,
@@ -135,7 +160,7 @@ export async function POST(request: Request, context: { params: Promise<{ course
     let phone: string | null = null;
     let whatsappNote: string | null = null;
     if (useWhatsapp) {
-      phone = normalizeE164(trainee.phone);
+      phone = normalizeE164(trainee.phone, trainee.countryCode);
       if (!phone) {
         whatsappNote = "No valid WhatsApp number on file.";
       } else if (verifyWhatsapp) {
@@ -165,24 +190,40 @@ export async function POST(request: Request, context: { params: Promise<{ course
       token,
     );
 
-    const attempt = await prisma.examAttempt.create({
-      data: {
-        tokenHash: hashExamToken(token),
-        traineeId: trainee.id,
-        courseId: course.id,
-        otpHash,
-        otpExpiresAt: otpExpiry(),
-        otpAttempts: 0,
-        manifest: JSON.stringify(manifest),
-        status: "PENDING",
-        attemptNumber: used + 1,
-        durationMin: course.examDurationMin,
-        linkExpiresAt,
-        linkMaxUses: 1,
-        linkUses: 0,
-        ip,
-      },
-    });
+    let attempt: { id: string };
+    try {
+      attempt = await prisma.examAttempt.create({
+        data: {
+          tokenHash: hashExamToken(token),
+          traineeId: trainee.id,
+          courseId: course.id,
+          otpHash,
+          otpExpiresAt: otpExpiry(),
+          otpAttempts: 0,
+          manifest: JSON.stringify(manifest),
+          status: "PENDING",
+          attemptNumber: past.lastNumber + 1,
+          durationMin: course.examDurationMin,
+          linkExpiresAt,
+          linkMaxUses: 1,
+          linkUses: 0,
+          ip,
+        },
+        select: { id: true },
+      });
+    } catch (error) {
+      /* The unique (trainee, course, attempt number) index: another send or the automatic
+       * second attempt got there first. That is a skip, not a failure. */
+      if ((error as { code?: string } | null)?.code === "P2002") {
+        skipped.push({
+          traineeId: trainee.id,
+          name: trainee.fullName,
+          reason: "An exam was sent to this trainee a moment ago.",
+        });
+        continue;
+      }
+      throw error;
+    }
 
     const examUrl = appUrl(`/exam/${token}`);
     const email = examLinkEmail({

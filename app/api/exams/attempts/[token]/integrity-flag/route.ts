@@ -71,7 +71,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
 
   if (isBlur && blurCount !== null && blurCount > MAX_BLURS) {
     const result = await finalizeAttempt(attempt, { token, autoFlag: "too_many_blurs" });
-    if (result.ok) {
+    /* Only claim the auto-submit when this request actually ended the sitting. If the
+     * trainee's own submit won the race, `alreadySubmitted` is set and they are shown
+     * their normal result instead of a message about leaving the window. */
+    if (result.ok && !result.data.alreadySubmitted) {
       return NextResponse.json({ ok: true, data: { recorded: true, autoSubmitted: true, result: result.data } });
     }
   }

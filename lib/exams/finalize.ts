@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/db";
 import { issueCertificate } from "@/lib/certificates/issue";
-import { type LoadedAttempt, manifestOf, requestIp, requestUserAgent, secondsRemaining } from "@/lib/exams/attempt";
+import {
+  type LoadedAttempt,
+  manifestOf,
+  requestIp,
+  requestUserAgent,
+  secondsPastDeadline,
+} from "@/lib/exams/attempt";
 import { appendIntegrityFlag } from "@/lib/exams/flags";
 import { issueAttempt } from "@/lib/exams/issue-attempt";
 import { clearExamSessionCookie } from "@/lib/exams/session-cookie";
@@ -39,11 +45,21 @@ export async function recordedResult(attempt: LoadedAttempt): Promise<FinalizeRe
         })
       : null;
 
+  const maxAttempts = attempt.course.maxAttempts;
+
   return {
     ok: true,
     data: {
       alreadySubmitted: true,
       status: attempt.status,
+      /* The same shape as a first-time result, so the screen renders a replayed or
+       * raced submit exactly as it would the original (a PASSED trainee must not be
+       * shown "Not passed" because `passed` came back undefined). */
+      passed: attempt.status === "PASSED",
+      exhausted: attempt.status === "FAILED",
+      attemptNumber: attempt.attemptNumber,
+      maxAttempts,
+      attemptsRemaining: Math.max(0, maxAttempts - attempt.attemptNumber),
       scorePct: attempt.scorePct,
       correctCount: attempt.correctCount,
       totalCount: attempt.totalCount,
@@ -62,7 +78,7 @@ export async function recordedResult(attempt: LoadedAttempt): Promise<FinalizeRe
 
 export async function finalizeAttempt(
   attempt: LoadedAttempt,
-  options: { token: string; blurCount?: number; autoFlag?: "too_many_blurs" },
+  options: { token: string; autoFlag?: "too_many_blurs" },
 ): Promise<FinalizeResult> {
   const manifest = manifestOf(attempt);
   if (!manifest) return { ok: false, status: 500, error: "This exam paper could not be read." };
@@ -101,7 +117,9 @@ export async function finalizeAttempt(
   const totalCount = questionIds.length;
   const scorePct = totalCount === 0 ? 0 : Math.round((correctCount / totalCount) * 100);
   const passMarkPct = attempt.course.passMarkPct;
-  const passed = totalCount > 0 && scorePct >= passMarkPct;
+  /* Compared exactly, not on the rounded percentage: 99 of 200 is 49.5% and must not
+   * round up into a pass on a 50% mark. */
+  const passed = totalCount > 0 && correctCount * 100 >= passMarkPct * totalCount;
 
   /* Running out of attempts closes the enrolment as FAILED rather than leaving it
    * pending forever. An owner-granted extra attempt works the same way. */
@@ -123,8 +141,8 @@ export async function finalizeAttempt(
       scorePct,
       correctCount,
       totalCount,
-      /* Never lowered by a client-supplied value. */
-      blurCount: Math.max(attempt.blurCount, options.blurCount ?? 0),
+      /* blurCount is not touched here: it is the server's own running count, and the row
+       * loaded above may already be stale by the flag that triggered this auto-submit. */
       ip: attempt.ip ?? ip,
       userAgent: attempt.userAgent ?? userAgent,
       otpHash: "",
@@ -143,7 +161,7 @@ export async function finalizeAttempt(
   }
 
   /* Flags that explain how the sitting ended. */
-  if (secondsRemaining(attempt) + SUBMIT_GRACE_SECONDS <= 0) {
+  if (secondsPastDeadline(attempt) > SUBMIT_GRACE_SECONDS) {
     await appendIntegrityFlag(attempt.id, "late_submit").catch(() => undefined);
   }
   if (options.autoFlag) {

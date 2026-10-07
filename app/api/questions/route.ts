@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 
 import { guard } from "@/lib/api/guard";
 import { questionCreateSchema } from "@/lib/api/exam-schemas";
-import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
+import { apiFail, apiNotFound, apiOk, zodMessage } from "@/lib/api/response";
+import { actorOf, audit } from "@/lib/audit";
+import { ownsCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 
 /**
@@ -14,13 +16,17 @@ import { prisma } from "@/lib/db";
  */
 
 export async function GET(request: Request) {
-  const gate = await guard("question.read");
+  const gate = await guard("question.read", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const url = new URL(request.url);
   const courseId = url.searchParams.get("courseId")?.trim();
 
-  if (!courseId) return apiFail("Choose a course.", 422);
+  if (!courseId || courseId.length > 64) return apiFail("Choose a course.", 422);
+
+  /* A trainer reads the bank of their own courses only. */
+  const owned = await prisma.course.findUnique({ where: { id: courseId }, select: { trainerId: true } });
+  if (!owned || !ownsCourse(gate.trainerScope, owned)) return apiNotFound("Course");
 
   const questions = await prisma.question.findMany({
     where: { courseId },
@@ -46,7 +52,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const gate = await guard("question.write");
+  const gate = await guard("question.write", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const body: unknown = await request.json().catch(() => null);
@@ -59,7 +65,7 @@ export async function POST(request: Request) {
     where: { id: courseId },
     select: { id: true, trainerId: true },
   });
-  if (!course) return apiFail("That course does not exist.", 404);
+  if (!course || !ownsCourse(gate.trainerScope, course)) return apiFail("That course does not exist.", 404);
 
   /* Position continues the existing sequence rather than restarting at 1, so
    * the (courseId, position) unique index holds. */
@@ -95,6 +101,14 @@ export async function POST(request: Request) {
         select: { id: true, text: true, isCorrect: true },
       },
     },
+  });
+
+  await audit({
+    ...actorOf(gate.session),
+    action: "question.create",
+    entityType: "Question",
+    entityId: question.id,
+    meta: { courseId },
   });
 
   return NextResponse.json({ ok: true, data: question }, { status: 201 });

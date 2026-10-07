@@ -1,13 +1,15 @@
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { courseCreateSchema, courseListQuerySchema } from "@/lib/api/schemas";
+import { actorOf, audit } from "@/lib/audit";
+import { courseWhere, isActiveTrainer } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { invalidateCourses } from "@/lib/data-cache";
 
 /** GET /api/courses — search, filter by category/active, paginated. */
 export async function GET(request: Request) {
-  const gate = await guard("course.read");
+  const gate = await guard("course.read", { trainerScoped: true });
   if (!gate.ok) return gate.response;
 
   const url = new URL(request.url);
@@ -21,6 +23,7 @@ export async function GET(request: Request) {
   const categoryIds = parsed.data.categoryId ?? parsed.data.categoryIds;
 
   const where: Prisma.CourseWhereInput = {
+    ...courseWhere(gate.trainerScope),
     ...(categoryIds?.length ? { categoryId: { in: categoryIds } } : {}),
     ...(typeof isActive === "boolean" ? { isActive } : {}),
     ...(search
@@ -76,6 +79,13 @@ export async function POST(request: Request) {
   if (!category) return apiFail("That category does not exist.", 422);
   if (duplicate) return apiFail(`Course code ${data.code} is already in use.`, 409);
 
+  /* "" means unassigned; anything else must be a real, active trainer. Otherwise a
+   * course could be pointed at an id that scopes nobody (or somebody it shouldn't). */
+  const trainerId = data.trainerId || null;
+  if (trainerId && !(await isActiveTrainer(trainerId))) {
+    return apiFail("That trainer does not exist or is not active.", 422);
+  }
+
   const course = await prisma.course.create({
     data: {
       code: data.code,
@@ -89,12 +99,20 @@ export async function POST(request: Request) {
       passMarkPct: data.passMarkPct,
       maxAttempts: data.maxAttempts,
       examDurationMin: data.examDurationMin,
-      trainerId: data.trainerId ?? null,
+      trainerId,
       isActive: data.isActive,
     },
     include: { category: { select: { id: true, name: true } } },
   });
   await invalidateCourses();
+
+  await audit({
+    ...actorOf(gate.session),
+    action: "course.create",
+    entityType: "Course",
+    entityId: course.id,
+    meta: { code: course.code, trainerId },
+  });
 
   return apiOk(course, 201);
 }

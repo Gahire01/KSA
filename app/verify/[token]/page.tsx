@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Logo } from "@/components/shared/Logo";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { SiteFooter } from "@/components/site/SiteFooter";
 import { Button } from "@/components/ui/button";
 import {
   CertificateNotFound,
@@ -75,10 +76,7 @@ export default async function VerifyTokenPage({
         </p>
       </main>
 
-      <footer className="border-t border-line py-6 text-center text-xs text-ink-3">
-        Kigali Safety Academy · KN 07/MIN/EDUC/2024 · public certificate
-        verification
-      </footer>
+      <SiteFooter note="Public certificate verification" />
     </div>
   );
 }

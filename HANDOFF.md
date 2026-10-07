@@ -968,3 +968,13 @@ KNOWN GAPS (honest list)
 - NEW components/site/CookieConsent.tsx (mounted in root layout): bottom banner, essential-cookie copy, links to /cookies, Accept / Essential only. Choice kept in localStorage key ksa:cookie-consent (deliberately NOT a cookie, so consent disclosure never adds a cookie).
 - /trainees/new: required "Data protection consent" checkbox (schema.refine boolean) with link to /privacy; blocks creation until confirmed.
 - tsc + lint green.
+
+### Part 6 - accessibility pass (5976fbd..)
+Audit result: the app was already strong on a11y - verified and left as-is where correct:
+- Alt text: the only 3 <img> tags (settings/signature) all have meaningful alt. No unlabeled <Image>.
+- Icon-only controls: all carry aria-label (CopyButton, Pagination, SearchInput clear, ThemeToggle, FilterChips, AvatarInitials, charts role=img). Topbar hamburger/collapse have aria-label + aria-pressed + aria-controls; sidebar nav has aria-current + aria-expanded/controls; bell/user menu labelled; CommandDialog + ConfirmDialog use proper dialog roles/text.
+- Landmarks: skip link + id=main-content on every main (verified in (auth) layout, /verify, /verify/[token], /offline). Focus-visible ring + outline in globals.css, prefers-reduced-motion honored in template/StatCard/skeleton/button animations.
+- Headings: single h1 per page; labels via FormLabel; login has autocomplete email/password; OTP boxes have one-time-code + aria-invalid + role=alert + aria-live countdown.
+- No tracking/advertising: zero analytics scripts, zero iframes/3rd-party embeds, no console.log in client code.
+FIXED: removed the last invented registration number "KN 07/MIN/EDUC/2024" from /verify/[token] footer - now SiteFooter (same as the Part 2 cleanup on login layout + /verify).
+tsc + lint green.

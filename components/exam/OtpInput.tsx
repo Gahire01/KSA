@@ -160,7 +160,7 @@ export function OtpInput({
             )}
             aria-live="polite"
           >
-            {expired ? "Code expired" : `Expires in ${mm}:${ss}`}
+            {expired ? "This code has expired. Request a new one below." : `Expires in ${mm}:${ss}`}
           </p>
         ) : null}
 
@@ -224,16 +224,21 @@ export function OtpInput({
 
         <div className="flex flex-col items-center gap-2 border-t border-line pt-4">
           <Button
-            variant="ghost"
+            variant={expired ? "default" : "ghost"}
             size="sm"
             onClick={onResend}
             /* Not disabled when the local countdown ends: that clock is advisory and starts at
-            page load, and the server already limits resends to 3 an hour. */
+            page load, and the server already limits resends to 3 an hour. Once the code has
+            expired there is no cooldown left to serve — the button is the way out. */
             disabled={resendBusy || busy}
             className="gap-1.5"
           >
             <MailIcon className="size-4" />
-            {resendBusy ? "Sending…" : "Didn't receive it? Resend code"}
+            {resendBusy
+              ? "Sending…"
+              : expired
+                ? "Send a new code"
+                : "Didn't receive it? Resend code"}
           </Button>
           {expired ? (
             <p className="text-xs text-ink-3">

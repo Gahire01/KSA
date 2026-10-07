@@ -183,6 +183,18 @@ export default function LoginPage() {
       } catch (error) {
         const status = error instanceof ApiError ? error.status : 0;
 
+        if (status === 410) {
+          /* Expired: inline, no redirect. Clear the boxes, stop the clock, drop
+           * the resend cooldown so a fresh code can be requested immediately. */
+          clearCode();
+          setSecondsLeft(0);
+          setResendIn(0);
+          setCodeError(
+            error instanceof ApiError ? error.message : "This code has expired. Request a new one below.",
+          );
+          return;
+        }
+
         if (status === 401) {
           /* Clear first, then state the reason: clearing also resets the error,
            * so the order of these two calls is what makes the message visible. */
@@ -263,8 +275,13 @@ export default function LoginPage() {
     );
   };
 
+  /* Once the code itself has expired there is no cooldown left to serve: the
+   * resend button opens up at once instead of making the user wait out a
+   * 60-second clock that started when the code was created. */
+  const resendGated = resendIn > 0 && secondsLeft > 0;
+
   const onResend = async () => {
-    if (resendIn > 0 || resend.isPending) return;
+    if (resendGated || resend.isPending) return;
 
     try {
       await resend.mutateAsync(email);
@@ -422,18 +439,35 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-4 flex items-center justify-between text-xs">
-              <button
-                type="button"
-                onClick={() => void onResend()}
-                disabled={resendIn > 0 || resend.isPending}
-                className={cn(
-                  "font-medium text-orange-d underline underline-offset-2",
-                  (resendIn > 0 || resend.isPending) && "cursor-not-allowed text-ink-3 no-underline",
-                )}
-              >
-                {resendIn > 0 ? `Didn't get it? Resend in ${resendIn}s` : "Didn't get the code? Resend"}
-              </button>
+            <div className="mt-4 flex items-center justify-between gap-3 text-xs">
+              {secondsLeft === 0 ? (
+                /* Expired: one obvious way out, with no cooldown in front of it. */
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void onResend()}
+                  disabled={resend.isPending}
+                  className="gap-1.5"
+                >
+                  <MailIcon className="size-3.5" />
+                  {resend.isPending ? "Sending…" : "Send a new code"}
+                </Button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void onResend()}
+                  disabled={resendGated || resend.isPending}
+                  className={cn(
+                    "font-medium text-orange-d underline underline-offset-2",
+                    (resendGated || resend.isPending) &&
+                      "cursor-not-allowed text-ink-3 no-underline",
+                  )}
+                >
+                  {resendGated
+                    ? `Didn't get it? Resend in ${resendIn}s`
+                    : "Didn't get the code? Resend"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={backToCredentials}

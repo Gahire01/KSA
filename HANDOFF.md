@@ -928,3 +928,30 @@ KNOWN GAPS (honest list)
 - Referral codes have no per-device list (revoking the whole code is the lever); link devices are listed and removable per device.
 - Lookalike/format cases: a quote preceded by a space in a CSV is not treated as quoted; UTF-16 CSV is supported only with a byte-order mark.
 - Per-link device limit uses a cookie-based device id: clearing cookies looks like a new device and uses a slot (the owner can remove it).
+
+## Session - 2026-10-07 overnight - Completion run (Parts 1-11)
+
+### Part 1 - Vercel build fix (DONE, pushed 09b90d7)
+- package.json: build = "prisma generate && next build", added postinstall = "prisma generate", engines.node -> "20.x".
+- prisma/schema.prisma generator output ../lib/generated/prisma + lib/db.ts import already correct (no change).
+- vercel.json: added buildCommand "pnpm build", installCommand "pnpm install".
+- Local verify: pnpm install, prisma generate, tsc --noEmit, pnpm build, pnpm lint ALL GREEN.
+
+### BLOCKERS
+- No Vercel CLI / token / gh CLI on this machine: cannot watch the Vercel build console. Fix is in place; verify at https://vercel.com when creds are available.
+- No Twilio credentials (WhatsApp send soft-fails to email).
+- Resend domain kigalisafety.dev not verified (emails go from onboarding@resend.dev sandbox).
+
+### Part 2 - placeholder data stripped (25b9038)
+- NEW lib/academy/constants.ts: single source of truth (name, tagline, city/country filled; address/phone/email/website/registrationNumber = "TO BE FILLED BY OWNER", nothing invented). Helpers academyFooterLine()/academyContactLine() drop placeholders instead of printing them.
+- Removed invented claims: "est. 2019 / ISO 45001 aligned" (login brand panel), "KN 07/MIN/EDUC/2024" registration number (login + /verify footers), fake address/phone (settings academy profile, payment receipt), "kigalisafetyacademy.com" (email footer), fake phone/email placeholders in trainee forms, example.com in the import template (now trainee1@ksa.test), "Try it with sample data" -> "Try the template".
+- Grep clean: zero matches for lorem ipsum / test trainee / John Doe / example.com / coming soon / testimonial in app/, components/, lib/.
+
+### Part 3 - OTP expiry UX (inline, no redirect)
+- lib/exams/link.ts: new OTP_EXPIRED_MESSAGE ("This code has expired. Request a new one below.").
+- POST /api/exams/attempts/:token/verify-otp: expired code now 410 OTP_EXPIRED_MESSAGE (was generic 401). Wrong code / unknown token still identical 401. Dead link keeps its own 410 copy.
+- POST /api/auth/login/verify: expired code now 410 with the same sentence (was 401 INVALID_CODE). Deliberate change: the recipient has already proved the password; wrong/no-code stays a single generic 401. HANDOFF login matrix test 5 expectation updated (was 401 identical).
+- /exam/[token]: on 410 with OTP_EXPIRED_MESSAGE the page STAYS on the OTP screen - inline error, boxes cleared + refocused (OtpInput reacts to error), countdown set to 0. Only a dead LINK leaves for the blocked screen.
+- /login: 410 -> inline error, boxes cleared/focused, secondsLeft 0, resendIn dropped to 0 so resend is available immediately; resend button becomes a prominent "Send a new code" button once expired (60s cooldown waived after expiry).
+- OtpInput: expired state now reads "This code has expired. Request a new one below." and the resend button becomes a primary "Send a new code" button.
+- tsc + lint green.

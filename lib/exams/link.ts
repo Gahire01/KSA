@@ -16,6 +16,14 @@ export const LINK_EXPIRED_MESSAGE =
 export const LINK_USED_MESSAGE =
   "This link has already been opened. If you need to retake the exam, contact the academy.";
 
+/**
+ * The six-digit code, not the link, has run out. Distinct from the link
+ * messages on purpose: the fix for this one is on the page itself — request a
+ * new code — so the OTP screen must recognise it and stay put instead of
+ * treating it as a dead link.
+ */
+export const OTP_EXPIRED_MESSAGE = "This code has expired. Request a new one below.";
+
 export type LinkState = "ok" | "expired" | "used";
 
 export interface LinkFields {

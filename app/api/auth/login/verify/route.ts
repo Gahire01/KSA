@@ -13,10 +13,10 @@ import { prisma } from "@/lib/db";
 const MAX_ATTEMPTS = 5;
 
 /**
- * The only sentence a rejected code ever produces. Wrong, expired and
+ * The sentence a rejected code produces when it is wrong or absent. Wrong and
  * "there was never one" are deliberately indistinguishable: telling them apart
- * would tell an attacker holding a password whether a code had been issued,
- * how long ago, and therefore when a fresh one would land.
+ * would tell an attacker holding a password whether a code had been issued.
+ * An EXPIRED code answers 410 with its own copy instead — see below.
  */
 const INVALID_CODE = "Invalid or expired code";
 
@@ -74,8 +74,8 @@ export async function POST(request: NextRequest) {
     select: { id: true, email: true, name: true, role: true, isActive: true },
   });
 
-  /* Unknown address, disabled account, no code on file, expired code and a
-   * wrong code all fall through to the same sentence and the same 401. */
+  /* Unknown address, disabled account, no code on file and a wrong code all
+   * fall through to the same sentence and the same 401. */
   if (!user || !user.isActive) return apiFail(INVALID_CODE, 401);
 
   const otp = await prisma.loginOtp.findFirst({ where: { userId: user.id } });
@@ -83,7 +83,10 @@ export async function POST(request: NextRequest) {
 
   if (otp.expiresAt.getTime() <= Date.now()) {
     await prisma.loginOtp.deleteMany({ where: { id: otp.id } }).catch(() => {});
-    return apiFail(INVALID_CODE, 401);
+    /* 410, not 401: the sign-in page has nothing to gain from hiding this —
+     * the recipient has already proved the password, and the fix (request a
+     * new code) is offered inline rather than by bouncing them out. */
+    return apiFail("This code has expired. Request a new one below.", 410);
   }
 
   if (otp.attempts >= MAX_ATTEMPTS) {

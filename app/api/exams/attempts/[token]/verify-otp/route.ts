@@ -12,7 +12,7 @@ import { verifyPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/db";
 import { loadAttemptByToken, manifestOf, requestIp, requestUserAgent } from "@/lib/exams/attempt";
 import { readExamSession, setExamSessionCookie } from "@/lib/exams/session-cookie";
-import { LINK_EXPIRED_MESSAGE, LINK_USED_MESSAGE, linkState } from "@/lib/exams/link";
+import { LINK_EXPIRED_MESSAGE, LINK_USED_MESSAGE, OTP_EXPIRED_MESSAGE, linkState } from "@/lib/exams/link";
 import { OTP_MAX_ATTEMPTS } from "@/lib/exams/token";
 
 /**
@@ -20,11 +20,14 @@ import { OTP_MAX_ATTEMPTS } from "@/lib/exams/token";
  *
  * Exchanges the emailed six-digit code for a paper.
  *
- * An unknown token, a wrong code and an expired code all return the same 401
+ * An unknown token and a wrong code return the same 401
  * `{ error: "Invalid or expired code" }`, so the page cannot tell a real token
- * from a guess. Someone holding a REAL token additionally sees 410 with the
- * "expired" or "already opened" copy (lib/exams/link.ts) and 409 when their own
- * tab already holds the exam; 429 covers the attempt cap and the IP limit.
+ * from a guess. An EXPIRED code on a real link returns 410 with
+ * OTP_EXPIRED_MESSAGE — the fix is a resend, which the page offers in place,
+ * so hiding it would only strand the trainee. Someone holding a REAL token
+ * additionally sees 410 with the "expired" or "already opened" link copy
+ * (lib/exams/link.ts) and 409 when their own tab already holds the exam;
+ * 429 covers the attempt cap and the IP limit.
  *
  * Nothing in the success body reveals which option is correct — see
  * lib/exams/manifest.ts, where the manifest holds ids only.
@@ -82,9 +85,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   }
 
   /* A started paper with uses left means staff reset the link; the cleared code
-   * hash means there is nothing to verify until they issue a fresh one. */
+   * hash means there is nothing to verify until they issue a fresh one. An
+   * expired code is reported distinctly (410) so the OTP screen can stay put
+   * and offer a resend — a dead LINK keeps its own 410 copy below. */
   if (!attempt.otpHash || attempt.otpExpiresAt <= now) {
-    return apiFail(GENERIC, 401);
+    return apiFail(OTP_EXPIRED_MESSAGE, 410);
   }
 
   if (attempt.otpAttempts >= OTP_MAX_ATTEMPTS) {

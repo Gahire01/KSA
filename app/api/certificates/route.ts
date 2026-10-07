@@ -61,9 +61,8 @@ export async function GET(request: Request) {
     orderBy: [{ issuedAt: "desc" }],
   });
 
-  const now = new Date();
   const decorated = rows
-    .map((row) => ({ ...row, status: certificateStatus(row, now) }))
+    .map((row) => ({ ...row, status: certificateStatus(row) }))
     .filter((row) => (status?.length ? status.includes(row.status) : true));
 
   const total = decorated.length;

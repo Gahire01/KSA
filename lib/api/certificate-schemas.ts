@@ -8,7 +8,7 @@ import { z } from "zod";
  * key is a 422 rather than being silently dropped.
  */
 
-const STATUSES = ["VALID", "EXPIRING", "EXPIRED", "REVOKED"] as const;
+const STATUSES = ["VALID", "REVOKED"] as const;
 
 const isoDate = z
   .string()

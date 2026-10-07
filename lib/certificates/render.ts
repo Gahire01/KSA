@@ -1,4 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import React from "react";
 
 import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/issue";
@@ -20,13 +21,10 @@ const pdfSelect = {
   studentNumber: true,
   topicsSnapshot: true,
   durationSnapshot: true,
-  trainerNameSnapshot: true,
-  trainerTitleSnapshot: true,
   signatureUrlSnapshot: true,
   signerNameSnapshot: true,
   signerTitleSnapshot: true,
   issuedAt: true,
-  expiresAt: true,
   revokedAt: true,
   revokedReason: true,
   verificationToken: true,
@@ -72,6 +70,7 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
   if (!cert) return null;
 
   const status = certificateStatus(cert);
+  const verifyUrl = appUrl(`/verify/${cert.verificationToken}`);
 
   const doc: CertificateDoc = {
     studentNumber: cert.studentNumber,
@@ -80,15 +79,15 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
     topics: cert.topicsSnapshot,
     duration: cert.durationSnapshot,
     issuedAt: cert.issuedAt,
-    expiresAt: cert.expiresAt,
-    trainerName: cert.trainerNameSnapshot,
-    trainerTitle: cert.trainerTitleSnapshot,
     /* Certificates issued before the signature system carry no snapshot; they
      * keep the Director name and static image they were originally printed with. */
     directorName: cert.signerNameSnapshot ?? DIRECTOR_NAME,
     directorTitle: cert.signerTitleSnapshot ?? DIRECTOR_TITLE,
     signatureSrc: await resolveSignatureSrc(cert.signatureUrlSnapshot, cert.signerNameSnapshot),
-    verifyUrl: appUrl(`/verify/${cert.verificationToken}`),
+    verifyUrl,
+    /* The QR encodes exactly the printed URL: {APP_URL}/verify/{verificationToken},
+     * unique per certificate. */
+    qrSrc: await QRCode.toDataURL(verifyUrl, { margin: 1, width: 300, errorCorrectionLevel: "M" }),
     status,
   };
 
@@ -97,17 +96,10 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
     React.createElement(CertificateDocument, { doc }),
   );
 
-  /* A slug of the name keeps the download recognisable in a file listing without
-   * letting a crafted name escape the filename. */
-  const slug = cert.trainee.fullName
-    .normalize("NFKD")
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48)
-    .toLowerCase();
-
+  /* The student number alone: numeric, so nothing a name could inject reaches
+   * the Content-Disposition header. */
   return {
     buffer: Buffer.from(buffer),
-    filename: `ksa-certificate-${cert.studentNumber}${slug ? `-${slug}` : ""}.pdf`,
+    filename: `${cert.studentNumber}.pdf`,
   };
 }

@@ -50,6 +50,7 @@ export default function ExamPage() {
   const [result, setResult] = React.useState<RunnerResult | null>(null);
   const [blockedMessage, setBlockedMessage] = React.useState<string>(LINK_USED_MESSAGE);
   const [reloadKey, setReloadKey] = React.useState(0);
+  const [briefed, setBriefed] = React.useState(false);
 
   /* One tab per exam: a second tab on the same paper is blocked, not the first. */
   const tabState = useSingleTab(token, phase === "paper");
@@ -281,6 +282,31 @@ export default function ExamPage() {
       );
     }
     return <ExamRunner token={token} paper={paper} onSubmitted={onSubmitted} />;
+  }
+
+  /* Briefing first. "Begin" is a click, which is what lets the browser grant
+   * fullscreen, and the exam clock has not started yet (it starts when the code is
+   * accepted), so reading this costs no exam time. */
+  if (!briefed) {
+    return (
+      <div className="mx-auto max-w-xl space-y-5 px-4 py-16 text-center">
+        <Logo />
+        <h1 className="font-display text-xl text-ink">Before you begin</h1>
+        <p className="text-base text-ink-2">
+          This exam is monitored. Right-click, copy, and switching tabs are disabled. Focus loss is recorded.
+          Click &lsquo;Begin&rsquo; to start.
+        </p>
+        <Button
+          type="button"
+          onClick={() => {
+            void document.documentElement.requestFullscreen?.().catch(() => undefined);
+            setBriefed(true);
+          }}
+        >
+          Begin
+        </Button>
+      </div>
+    );
   }
 
   return (

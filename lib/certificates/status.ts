@@ -1,3 +1,4 @@
+import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/signer";
 import type { CertificateStatus } from "@/lib/types";
 
 /**
@@ -11,27 +12,18 @@ import type { CertificateStatus } from "@/lib/types";
  * also have expired, because "we withdrew this" is the more important message.
  */
 
-export const EXPIRING_WINDOW_DAYS = 30;
-
 export interface CertificateDates {
   revokedAt: Date | null;
-  expiresAt: Date | null;
+  /** Legacy column, ignored: certificates never expire. */
+  expiresAt?: Date | null;
 }
 
-export function certificateStatus(
-  cert: CertificateDates,
-  now: Date = new Date(),
-): CertificateStatus {
-  if (cert.revokedAt) return "REVOKED";
-
-  if (cert.expiresAt) {
-    if (cert.expiresAt <= now) return "EXPIRED";
-    if (cert.expiresAt.getTime() - now.getTime() <= EXPIRING_WINDOW_DAYS * 86_400_000) {
-      return "EXPIRING";
-    }
-  }
-
-  return "VALID";
+/**
+ * A certificate is VALID until it is revoked. It never expires, whatever the
+ * legacy `expiresAt` column holds, so nothing can read as expired or expiring.
+ */
+export function certificateStatus(cert: CertificateDates): CertificateStatus {
+  return cert.revokedAt ? "REVOKED" : "VALID";
 }
 
 /**
@@ -47,7 +39,6 @@ export const certificateListSelect = {
   courseId: true,
   verificationToken: true,
   issuedAt: true,
-  expiresAt: true,
   revokedAt: true,
   revokedReason: true,
   topicsSnapshot: true,
@@ -68,13 +59,15 @@ export const certificateListSelect = {
 export function publicCertificate(cert: {
   studentNumber: number;
   issuedAt: Date;
-  expiresAt: Date | null;
   revokedAt: Date | null;
   revokedReason: string | null;
   topicsSnapshot: string[];
   durationSnapshot: string;
   trainerNameSnapshot: string;
   trainerTitleSnapshot: string;
+  /** Null on certificates issued before the signature system: the Director. */
+  signerNameSnapshot: string | null;
+  signerTitleSnapshot: string | null;
   trainee: { fullName: string };
   course: { name: string; code: string };
 }): Record<string, unknown> {
@@ -91,9 +84,10 @@ export function publicCertificate(cert: {
     topics: cert.topicsSnapshot,
     duration: cert.durationSnapshot,
     issuedAt: cert.issuedAt.toISOString(),
-    expiresAt: cert.expiresAt ? cert.expiresAt.toISOString() : null,
     trainerName: cert.trainerNameSnapshot,
     trainerTitle: cert.trainerTitleSnapshot,
+    signerName: cert.signerNameSnapshot ?? DIRECTOR_NAME,
+    signerTitle: cert.signerTitleSnapshot ?? DIRECTOR_TITLE,
     /* Revocation is public in full: an employer must be able to see why a
      * certificate was withdrawn, not just that it was. */
     revokedAt: cert.revokedAt ? cert.revokedAt.toISOString() : null,

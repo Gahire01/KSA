@@ -3,7 +3,6 @@ import {
   BadgeCheckIcon,
   CalendarIcon,
   GraduationCapIcon,
-  ShieldAlertIcon,
   ShieldCheckIcon,
   ShieldXIcon,
 } from "lucide-react";
@@ -42,20 +41,6 @@ const STATUS_COPY: Record<
     icon: ShieldCheckIcon,
     tone: "text-green",
     border: "border-green/40",
-  },
-  EXPIRING: {
-    heading: "Valid, renewal due",
-    body: "This certificate is still valid but expires within the next 30 days. Renew it to stay compliant.",
-    icon: ShieldAlertIcon,
-    tone: "text-amber",
-    border: "border-amber/40",
-  },
-  EXPIRED: {
-    heading: "Expired certificate",
-    body: "The validity period has ended. The holder must retake the course to be recertified.",
-    icon: ShieldXIcon,
-    tone: "text-red",
-    border: "border-red/40",
   },
   REVOKED: {
     heading: "Revoked certificate",
@@ -118,10 +103,16 @@ export function CertificateResult({ cert }: { cert: PublicCertificate }) {
             sub={cert.topics.length > 0 ? cert.topics.join(" · ") : undefined}
           />
           <Detail
-            icon={<ShieldCheckIcon className="size-4" />}
-            label="Signed by"
+            icon={<GraduationCapIcon className="size-4" />}
+            label="Trainer"
             value={cert.trainerName}
             sub={`${cert.trainerTitle}, Kigali Safety Academy`}
+          />
+          <Detail
+            icon={<ShieldCheckIcon className="size-4" />}
+            label="Signed by"
+            value={cert.signerName}
+            sub={`${cert.signerTitle}, Kigali Safety Academy`}
           />
         </dl>
 

@@ -22,6 +22,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatDateTime, formatNumber, formatPercent } from "@/lib/utils/format";
 import { api, ApiError } from "@/lib/api/client";
+import { useExamLockdown } from "@/lib/hooks/use-exam-lockdown";
 
 /**
  * The exam runner.
@@ -81,7 +82,6 @@ export function ExamRunner({
   const [index, setIndex] = React.useState(0);
   const [answers, setAnswers] = React.useState<Record<string, string>>(paper.answers);
   const [flagged, setFlagged] = React.useState<Set<string>>(new Set());
-  const [blurCount, setBlurCount] = React.useState(0);
   const [submitOpen, setSubmitOpen] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -98,8 +98,20 @@ export function ExamRunner({
   const saveTimer = React.useRef<number | null>(null);
   const autoSubmitted = React.useRef(false);
 
-  /* Server-authoritative clock: seeded from secondsLeft, then decremented
-   * locally. The periodic refetch of /next corrects any drift. */
+  /* Lockdown: blocked actions, focus-loss counting, fullscreen state. The server
+   * owns the consequence: past five focus losses it closes the sitting itself and
+   * tells us so here. */
+  const { blurCount, fullscreen, screenHidden, requestFullscreen } = useExamLockdown({
+    token,
+    onAutoSubmitted: (result) => {
+      autoSubmitted.current = true;
+      onSubmitted(result as RunnerResult);
+    },
+  });
+
+  /* Server-authoritative clock: seeded from secondsLeft, decremented locally each
+   * second, and re-synced from /time every 30 seconds so a changed system clock
+   * or a throttled background tab cannot gain or lose time. */
   const [secondsLeft, setSecondsLeft] = React.useState(paper.secondsLeft);
 
   const questions = paper.questions;
@@ -156,12 +168,18 @@ export function ExamRunner({
     }
   }, [blurCount, flushPendingSave, onSubmitted, token]);
 
-  /* Integrity: count focus losses while the paper is open. */
+  /* Re-sync the clock with the server every 30 seconds. */
   React.useEffect(() => {
-    const onBlur = () => setBlurCount((n) => n + 1);
-    window.addEventListener("blur", onBlur);
-    return () => window.removeEventListener("blur", onBlur);
-  }, []);
+    const id = window.setInterval(() => {
+      api
+        .get<{ secondsRemaining: number }>(`/exams/attempts/${encodeURIComponent(token)}/time`)
+        .then((t) => setSecondsLeft(Math.max(0, t.secondsRemaining)))
+        .catch(() => {
+          /* Keep counting locally; the next poll or the server's own checks decide. */
+        });
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, [token]);
 
   /* Timer. On expiry the paper submits itself, exactly once: `autoSubmitted` keeps
    * the zero-second tick from firing a second submit while the first is in flight. */
@@ -221,14 +239,26 @@ export function ExamRunner({
   const ss = String(secondsLeft % 60).padStart(2, "0");
 
   return (
-    <div className="min-h-dvh bg-paper">
+    <div
+      className={`min-h-dvh bg-paper select-none ${screenHidden ? "blur-xl" : ""}`}
+      /* user-select is also set inline: Safari still needs the prefixed property. */
+      style={{ WebkitUserSelect: "none", userSelect: "none" }}
+    >
+      {!fullscreen ? (
+        <div role="status" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+          The exam works best in fullscreen.{" "}
+          <button type="button" onClick={requestFullscreen} className="font-medium underline underline-offset-2">
+            Enter fullscreen
+          </button>
+        </div>
+      ) : null}
       <header className="sticky top-0 z-20 border-b border-line bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink">{paper.courseName}</p>
             <p className="truncate text-xs text-ink-2">
               Question {index + 1} of {questions.length} · {answered} answered
-              {blurCount > 0 ? ` · ${blurCount} focus loss${blurCount === 1 ? "" : "es"}` : ""}
+              {blurCount > 0 ? ` · Focus lost: ${blurCount}` : ""}
             </p>
           </div>
           <div className="flex items-center gap-3">

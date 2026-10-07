@@ -44,8 +44,6 @@ const STATUSES: CertificateStatus[] = ["VALID", "REVOKED"];
 
 const STATUS_LABEL: Record<CertificateStatus, string> = {
   VALID: "Valid",
-  EXPIRING: "Expiring soon",
-  EXPIRED: "Expired",
   REVOKED: "Revoked",
 };
 
@@ -165,8 +163,6 @@ export default function CertificatesPage() {
   const counts = React.useMemo(() => {
     const out: Record<CertificateStatus, number> = {
       VALID: 0,
-      EXPIRING: 0,
-      EXPIRED: 0,
       REVOKED: 0,
     };
     for (const c of rows) out[c.status] += 1;

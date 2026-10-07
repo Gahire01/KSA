@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 
 import { prisma } from "@/lib/db";
+import { preferredStudentNumber } from "@/lib/certificates/student-number";
 import { getActiveSignature } from "@/lib/signature/active";
 import { canonicalJson, sha256Hex } from "@/lib/exams/manifest";
 import { certificateEmail } from "@/lib/email/templates";
@@ -24,8 +25,9 @@ import { REGISTER_NEXT_STUDENT_NUMBER } from "../../scripts/student-list/registe
  *    duplicate.
  */
 
-export const DIRECTOR_NAME = "Fredson Niyoniringiye";
-export const DIRECTOR_TITLE = "Director";
+import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/signer";
+
+export { DIRECTOR_NAME, DIRECTOR_TITLE };
 
 /**
  * First student number when the certificate table is empty.
@@ -181,6 +183,11 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
     expiresAt: Date | null;
   } | null = null;
 
+  const preferred = await preferredStudentNumber({
+    traineeNo: trainee.traineeNo,
+    fullName: trainee.fullName,
+  });
+
   for (let attempt = 0; attempt < 3 && !allocated; attempt += 1) {
     const highest = await prisma.certificate.findFirst({
       orderBy: { studentNumber: "desc" },
@@ -190,7 +197,11 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
     const first = highest
       ? 0
       : Math.max(studentNumberStart(), await highestRegisterNumber());
-    const next = (highest?.studentNumber ?? first) + 1 + attempt;
+    /* First try the number the student already holds (their own trainee number or
+     * their register entry). If that is taken or collides, fall back to the next
+     * free number after the highest issued. */
+    const fallback = (highest?.studentNumber ?? first) + 1 + attempt;
+    const next = attempt === 0 && preferred !== null ? preferred : fallback;
 
     const verificationToken = randomBytes(32).toString("base64url");
 

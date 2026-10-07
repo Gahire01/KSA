@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { QRCodeSVG } from "qrcode.react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -46,8 +47,6 @@ import type { CertificateStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<CertificateStatus, string> = {
   VALID: "Valid",
-  EXPIRING: "Expiring soon",
-  EXPIRED: "Expired",
   REVOKED: "Revoked",
 };
 
@@ -218,8 +217,8 @@ export default function CertificateDetailPage() {
                 style={{ backgroundImage: "url('/cert-bg.svg')", backgroundSize: "cover" }}
                 aria-hidden
               />
-              <div className="relative space-y-6 text-center">
-                <div className="flex flex-col items-center gap-2">
+              <div className="relative flex flex-col items-center gap-6 text-center">
+                <div className="flex flex-col items-center gap-3">
                   <Image
                     src="/logo.png"
                     alt="Kigali Safety Academy"
@@ -228,95 +227,74 @@ export default function CertificateDetailPage() {
                     className="h-20 w-20 rounded-xl"
                     priority={false}
                   />
-                  <div className="text-center">
-                    <p className="font-display text-base leading-tight font-semibold text-ink">
-                      Kigali Safety Academy
-                    </p>
-                    <p className="text-[10px] tracking-widest text-ink-2 uppercase">
-                      Republic of Rwanda · MINECOFIN accredited
-                    </p>
-                  </div>
+                  <p className="font-display text-[28px] leading-tight font-semibold tracking-wide text-[#0F2340] uppercase">
+                    Kigali Safety Academy
+                  </p>
+                  <div className="h-px w-24 bg-line" aria-hidden />
                 </div>
 
-                <div>
-                  <p className="font-display text-[11px] tracking-[0.3em] text-orange uppercase">
-                    Certificate of completion
-                  </p>
-                  <p className="mt-2 font-display text-xl text-ink-2 sm:text-2xl">
-                    This certifies that
-                  </p>
-                  <p className="mt-3 font-display text-3xl font-semibold text-ink sm:text-4xl">
+                <div className="space-y-3">
+                  <p className="text-sm text-ink-2">This is to certify that</p>
+                  <p className="font-display text-[34px] leading-tight font-semibold text-[#0F2340]">
                     {cert.trainee.fullName}
                   </p>
-                  <p className="mt-1 font-mono text-xs text-ink-3">
-                    {cert.trainee.traineeNo}
-                    {cert.trainee.categoryName ? ` · ${cert.trainee.categoryName}` : ""}
+                  <p className="mx-auto max-w-xl text-sm leading-relaxed text-ink-2">
+                    Has successfully completed KSAcademy occupational Health and Safety Course in
                   </p>
+                  <p className="font-display text-2xl font-semibold tracking-wide text-orange uppercase">
+                    {cert.course.name}
+                  </p>
+                  {cert.topicsSnapshot.length > 0 ? (
+                    <p className="mx-auto max-w-2xl text-sm text-ink-2">
+                      Topics covered : {cert.topicsSnapshot.join(" , ")}
+                    </p>
+                  ) : null}
                 </div>
 
-                <p className="mx-auto max-w-lg text-sm leading-relaxed text-ink-2">
-                  has satisfied every requirement of the approved training programme
-                </p>
-                <p className="font-display text-2xl font-semibold text-ink">{cert.course.name}</p>
-                <p className="text-sm text-ink-2">
-                  {cert.durationSnapshot}
-                  {cert.topicsSnapshot.length > 0
-                    ? ` · covering ${cert.topicsSnapshot.join(" , ")}`
-                    : ""}
-                </p>
-
-                <div className="mx-auto grid max-w-xl gap-4 pt-2 sm:grid-cols-3">
-                  <SignOff
-                    label="Issue date"
-                    value={formatDate(cert.issuedAt, "dd.MM.yyyy")}
-                  />
-                  <SignOff
-                    label="Certificate no."
-                    value={String(cert.studentNumber)}
-                    mono
-                  />
-                </div>
-
-                <div className="flex flex-col items-center gap-1 pt-2">
-                  <div className="flex h-[60px] w-[180px] items-end justify-center">
-                    {cert.signerNameSnapshot === null ? (
-                      /* Issued before the signature system: original static image. */
-                      <Image
-                        src="/certificate/signature.png"
-                        alt="Signature of the Director"
-                        width={160}
-                        height={120}
-                        className="max-h-[60px] w-auto max-w-[180px] object-contain"
-                        priority={false}
-                      />
-                    ) : cert.signatureUrlSnapshot ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- served from our own API, no optimiser needed
-                      <img
-                        src={cert.signatureUrlSnapshot}
-                        alt={`Signature of ${cert.signerNameSnapshot ?? "the signer"}`}
-                        className="max-h-[60px] max-w-[180px] object-contain"
-                      />
-                    ) : null}
+                <div className="grid w-full items-end gap-6 pt-4 sm:grid-cols-3">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex h-[60px] w-[180px] items-end justify-center">
+                      {cert.signerNameSnapshot === null ? (
+                        /* Issued before the signature system: original static image. */
+                        <Image
+                          src="/certificate/signature.png"
+                          alt="Signature of the Director"
+                          width={160}
+                          height={120}
+                          className="max-h-[60px] w-auto max-w-[180px] object-contain"
+                          priority={false}
+                        />
+                      ) : cert.signatureUrlSnapshot ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- served from our own API, no optimiser needed
+                        <img
+                          src={cert.signatureUrlSnapshot}
+                          alt={`Signature of ${cert.signerNameSnapshot ?? "the signer"}`}
+                          className="max-h-[60px] max-w-[180px] object-contain"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="h-px w-40 bg-line" aria-hidden />
+                    <p className="font-display text-sm text-ink">
+                      {cert.signerNameSnapshot ?? "Fredson Niyoniringiye"}
+                    </p>
+                    <p className="text-[10px] tracking-wider text-ink-2 uppercase">
+                      {cert.signerTitleSnapshot ?? "Director"}
+                    </p>
                   </div>
-                  <div className="h-px w-40 bg-line" aria-hidden />
-                  <p className="font-display text-sm text-ink">
-                    {cert.signerNameSnapshot ?? "Fredson Niyoniringiye"}
-                  </p>
-                  <p className="text-[10px] tracking-wider text-ink-2 uppercase">
-                    {cert.signerTitleSnapshot ?? "Director"}
-                  </p>
-                  <Image
-                    src="/stamp-sample.png"
-                    alt="Official stamp"
-                    width={64}
-                    height={64}
-                    className="mt-1 size-16 opacity-80 grayscale"
-                  />
+
+                  <div className="flex flex-col items-center gap-1">
+                    <QRCodeSVG value={verifyUrl || " "} size={96} level="M" marginSize={1} />
+                    <p className="text-[10px] tracking-wider text-ink-2 uppercase">Scan to verify</p>
+                  </div>
+
+                  <div className="space-y-1 text-sm text-ink-2 sm:text-right">
+                    <p>Student #{cert.studentNumber}</p>
+                    <p>Issued {formatDate(cert.issuedAt, "dd.MM.yyyy")}</p>
+                    <p>Duration {cert.durationSnapshot}</p>
+                  </div>
                 </div>
 
-                <p className="font-mono text-[10px] text-ink-3">
-                  Verify at {verifyUrl || "…"}
-                </p>
+                <p className="font-mono text-[10px] text-ink-3">Verify at {verifyUrl || "…"}</p>
               </div>
 
               {isVoided ? (
@@ -491,31 +469,6 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-baseline justify-between gap-3">
       <dt className="text-xs text-ink-2">{label}</dt>
       <dd className="min-w-0 truncate text-right text-xs font-medium text-ink">{value}</dd>
-    </div>
-  );
-}
-
-function SignOff({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-[10px] tracking-wider text-ink-2 uppercase">{label}</p>
-      <p
-        className={
-          mono
-            ? "mt-0.5 font-mono text-xs text-ink"
-            : "mt-0.5 text-sm font-medium text-ink"
-        }
-      >
-        {value}
-      </p>
     </div>
   );
 }

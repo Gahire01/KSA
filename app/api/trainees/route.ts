@@ -3,6 +3,7 @@ import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { traineeCreateSchema, traineeListQuerySchema } from "@/lib/api/schemas";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { REGISTER_MAX_STUDENT_NUMBER } from "../../../scripts/student-list/register-numbers";
 
 export const traineeInclude = {
   course: { select: { id: true, code: true, name: true, priceRwf: true } },
@@ -10,22 +11,24 @@ export const traineeInclude = {
 } as const;
 
 /**
- * Next enrolment number, e.g. KSA-0001.
+ * Next student number: plain digits, continuing from the highest number held
+ * (never below the academy's register, whose last slot is 456, so the first new
+ * trainee is 457). No prefix: this is also the number printed on the certificate.
  *
- * Derived from the highest existing number rather than a Postgres sequence so it
- * needs no extra schema object. Two simultaneous creates could pick the same
- * number; the unique index then rejects the loser, which the caller retries.
+ * The maximum is taken numerically in SQL over the all-digit numbers only. A
+ * string sort would rank "99" above "456", and a legacy "KSA-0001" above both.
+ * Two simultaneous creates could pick the same number; the unique index then
+ * rejects the loser, which the caller retries.
  */
 async function nextTraineeNo(): Promise<string> {
-  const last = await prisma.trainee.findFirst({
-    orderBy: { traineeNo: "desc" },
-    select: { traineeNo: true },
-  });
+  const rows = await prisma.$queryRaw<Array<{ highest: number | null }>>`
+    SELECT MAX("traineeNo"::bigint)::int AS highest
+    FROM "Trainee"
+    WHERE "traineeNo" ~ '^[0-9]{1,9}$'
+  `;
 
-  const current = last ? Number.parseInt(last.traineeNo.replace(/\D/g, ""), 10) : 0;
-  const next = Number.isFinite(current) ? current + 1 : 1;
-
-  return `KSA-${String(next).padStart(4, "0")}`;
+  const highest = Math.max(rows[0]?.highest ?? 0, REGISTER_MAX_STUDENT_NUMBER);
+  return String(highest + 1);
 }
 
 /** GET /api/trainees — search, filter, paginated. */

@@ -11,15 +11,24 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * The printed certificate.
+ * The printed certificate (A4 landscape, 842 x 595 pt).
  *
  * Built from the **snapshot** columns, never from the live course and trainee rows.
  * A course retitled or a trainee renamed next month must not change a certificate
  * somebody is already holding, so everything printed here is frozen at issue time.
  *
- * Fonts are registered from files on disk rather than fetched over the network: a
- * PDF render must not depend on Google Fonts being reachable, and a cold render
- * should not block on it.
+ * Layout:
+ *   top     logo, KIGALI SAFETY ACADEMY, divider
+ *   centre  "This is to certify that", trainee name, the completion line, the
+ *           course in capitals, the topics covered
+ *   bottom  three columns: signature block | QR code to the verify page |
+ *           student number, issue date, duration
+ *
+ * Sizes are the web spec's pixels converted to PDF points (x 0.75). There is no
+ * expiry anywhere on it: a certificate does not lapse.
+ *
+ * Fonts are the built-in Helvetica family, so a render never depends on the
+ * network or on a font file being shipped.
  */
 
 export interface CertificateDoc {
@@ -29,13 +38,12 @@ export interface CertificateDoc {
   topics: string[];
   duration: string;
   issuedAt: Date;
-  expiresAt: Date | null;
-  trainerName: string;
-  trainerTitle: string;
   directorName: string;
   directorTitle: string;
   /** Data URI of the snapshotted signature. undefined = legacy static asset; null = none. */
   signatureSrc?: string | null;
+  /** Data URI (PNG) of the QR code for `verifyUrl`. */
+  qrSrc?: string | null;
   verifyUrl: string;
   status: string;
 }
@@ -43,6 +51,8 @@ export interface CertificateDoc {
 const palette = {
   ink: "#1A1A1A",
   ink2: "#4B5563",
+  navy: "#0F2340",
+  orange: "#E8590C",
   line: "#D8D3CB",
   green: "#166534",
   red: "#B91C1C",
@@ -52,106 +62,85 @@ const palette = {
 const styles = StyleSheet.create({
   page: {
     backgroundColor: palette.paper,
-    paddingTop: 46,
-    paddingBottom: 54,
-    paddingHorizontal: 46,
+    padding: 28,
     fontFamily: "Helvetica",
     color: palette.ink,
   },
   frame: {
     borderWidth: 2,
     borderColor: palette.green,
-    paddingTop: 34,
-    paddingBottom: 30,
-    paddingHorizontal: 30,
-    height: "100%",
+    padding: 14,
+    flex: 1,
   },
   innerFrame: {
     borderWidth: 0.5,
     borderColor: palette.line,
     flex: 1,
     alignItems: "center",
-    paddingTop: 26,
-    paddingHorizontal: 22,
+    paddingTop: 16,
+    paddingBottom: 14,
+    paddingHorizontal: 28,
   },
-  org: { fontSize: 11, letterSpacing: 2.4, color: palette.ink2 },
-  logo: { width: 60, height: 60, alignSelf: "center", marginBottom: 10 },
-  /* Both columns reserve the same 60pt band, bottom-aligned, so the signature
-   * line sits on one baseline whether or not an image is present. */
-  signatureBand: { height: 60, width: 180, justifyContent: "flex-end", alignItems: "center" },
-  signatureImage: { maxWidth: 180, maxHeight: 60, objectFit: "contain" },
-  title: { fontSize: 25, marginTop: 12, letterSpacing: 1.2 },  rule: {
-    width: 74,
-    height: 1.5,
-    backgroundColor: palette.green,
-    marginTop: 14,
-    marginBottom: 22,
+  logo: { width: 60, height: 60 },
+  org: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 21,
+    letterSpacing: 1.6,
+    color: palette.navy,
+    marginTop: 8,
   },
-  certifies: { fontSize: 10.5, color: palette.ink2 },
-  name: { fontSize: 21, marginTop: 9 },
-  lineUnderName: {
-    width: "72%",
-    height: 0.5,
-    backgroundColor: palette.line,
+  divider: { width: 90, height: 1, backgroundColor: palette.line, marginTop: 8 },
+  certifies: { fontSize: 11, color: palette.ink2, marginTop: 14 },
+  name: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 26,
+    color: palette.navy,
     marginTop: 6,
-    marginBottom: 16,
-  },
-  body: { fontSize: 10.5, color: palette.ink2, textAlign: "center", maxWidth: 400 },
-  course: { fontSize: 15, marginTop: 14, textAlign: "center" },
-  topics: {
-    marginTop: 12,
-    fontSize: 10,
-    color: palette.ink2,
     textAlign: "center",
-    maxWidth: 420,
   },
-  facts: {
-    marginTop: 20,
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  fact: { alignItems: "center", flex: 1 },
-  factLabel: {
-    fontSize: 7.5,
-    letterSpacing: 1.2,
-    color: palette.ink2,
+  body: { fontSize: 11, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 560 },
+  course: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 17,
+    color: palette.orange,
     textTransform: "uppercase",
+    textAlign: "center",
+    marginTop: 8,
+    maxWidth: 640,
   },
-  factValue: { fontSize: 10.5, marginTop: 4 },
-  signatures: {
-    marginTop: "auto",
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingTop: 18,
-  },
-  signature: { width: "42%", alignItems: "center" },
-  signatureLine: {
-    width: "100%",
-    height: 0.5,
-    backgroundColor: palette.line,
-    marginBottom: 6,
-  },
-  signatureName: { fontSize: 10.5 },
-  signatureTitle: { fontSize: 8.5, color: palette.ink2, marginTop: 2 },
-  footer: {
-    position: "absolute",
-    bottom: 26,
-    left: 46,
-    right: 46,
-    alignItems: "center",
-  },
-  footerText: { fontSize: 7.5, color: palette.ink2 },
-  verifyToken: { fontSize: 7, color: palette.ink2, marginTop: 3 },
+  topics: { fontSize: 10, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 640 },
   revoked: {
-    marginTop: 14,
+    marginTop: 10,
     borderWidth: 1.5,
     borderColor: palette.red,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 14,
   },
   revokedText: { fontSize: 10, color: palette.red, letterSpacing: 1.6 },
+  bottom: {
+    marginTop: "auto",
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    paddingTop: 10,
+  },
+  colLeft: { width: "32%", alignItems: "center" },
+  colCenter: { width: "24%", alignItems: "center" },
+  colRight: { width: "32%", alignItems: "flex-end" },
+  /* Both signature columns reserve the same 60pt band, bottom-aligned, so the
+   * signature line sits on one baseline whether or not an image is present. */
+  signatureBand: { height: 45, width: 135, justifyContent: "flex-end", alignItems: "center" },
+  signatureImage: { maxWidth: 135, maxHeight: 45, objectFit: "contain" },
+  signatureLine: { width: "100%", height: 0.5, backgroundColor: palette.ink2, marginBottom: 4 },
+  signatureName: { fontFamily: "Helvetica-Bold", fontSize: 10.5, color: palette.navy },
+  signatureTitle: { fontSize: 8.5, color: palette.ink2, marginTop: 2 },
+  qr: { width: 66, height: 66 },
+  qrLabel: { fontSize: 7, color: palette.ink2, marginTop: 3, letterSpacing: 0.8 },
+  factLine: { fontSize: 10, color: palette.ink2, marginTop: 3 },
+  factStrong: { fontFamily: "Helvetica-Bold", color: palette.navy },
+  footer: { position: "absolute", bottom: 8, left: 28, right: 28, alignItems: "center" },
+  footerText: { fontSize: 7, color: palette.ink2 },
 });
 
 /**
@@ -260,35 +249,17 @@ export function CertificateDocument({
               <Image src={logo.src} style={styles.logo} />
             ) : null}
             <Text style={styles.org}>KIGALI SAFETY ACADEMY</Text>
-            <Text style={styles.title}>CERTIFICATE OF COMPLETION</Text>
-            <View style={[styles.rule, { backgroundColor: accent }]} />
+            <View style={styles.divider} />
 
-            <Text style={styles.certifies}>This certifies that</Text>
+            <Text style={styles.certifies}>This is to certify that</Text>
             <Text style={styles.name}>{doc.traineeName}</Text>
-            <View style={styles.lineUnderName} />
-
             <Text style={styles.body}>
-              has successfully completed all requirements for
+              Has successfully completed KSAcademy occupational Health and Safety Course in
             </Text>
             <Text style={styles.course}>{doc.courseName}</Text>
             {doc.topics.length > 0 ? (
-              <Text style={styles.topics}>Covering: {doc.topics.join(" , ")}</Text>
+              <Text style={styles.topics}>Topics covered : {doc.topics.join(" , ")}</Text>
             ) : null}
-
-            <View style={styles.facts}>
-              <View style={styles.fact}>
-                <Text style={styles.factLabel}>Student number</Text>
-                <Text style={styles.factValue}>{doc.studentNumber}</Text>
-              </View>
-              <View style={styles.fact}>
-                <Text style={styles.factLabel}>Duration</Text>
-                <Text style={styles.factValue}>{doc.duration}</Text>
-              </View>
-              <View style={styles.fact}>
-                <Text style={styles.factLabel}>Issued</Text>
-                <Text style={styles.factValue}>{formatDate(doc.issuedAt)}</Text>
-              </View>
-            </View>
 
             {revoked ? (
               <View style={styles.revoked}>
@@ -296,14 +267,8 @@ export function CertificateDocument({
               </View>
             ) : null}
 
-            <View style={styles.signatures}>
-              <View style={styles.signature}>
-                <View style={styles.signatureBand} />
-                <View style={styles.signatureLine} />
-                <Text style={styles.signatureName}>{doc.trainerName}</Text>
-                <Text style={styles.signatureTitle}>{doc.trainerTitle}</Text>
-              </View>
-              <View style={styles.signature}>
+            <View style={styles.bottom}>
+              <View style={styles.colLeft}>
                 <View style={styles.signatureBand}>
                   {signature ? (
                     // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
@@ -314,17 +279,32 @@ export function CertificateDocument({
                 <Text style={styles.signatureName}>{doc.directorName}</Text>
                 <Text style={styles.signatureTitle}>{doc.directorTitle}</Text>
               </View>
+
+              <View style={styles.colCenter}>
+                {doc.qrSrc ? (
+                  // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+                  <Image src={doc.qrSrc} style={styles.qr} />
+                ) : null}
+                <Text style={styles.qrLabel}>SCAN TO VERIFY</Text>
+              </View>
+
+              <View style={styles.colRight}>
+                <Text style={styles.factLine}>
+                  Student <Text style={styles.factStrong}>#{doc.studentNumber}</Text>
+                </Text>
+                <Text style={styles.factLine}>
+                  Issued <Text style={styles.factStrong}>{formatDate(doc.issuedAt)}</Text>
+                </Text>
+                <Text style={styles.factLine}>
+                  Duration <Text style={styles.factStrong}>{doc.duration}</Text>
+                </Text>
+              </View>
             </View>
           </View>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Verify this certificate at {doc.verifyUrl}
-          </Text>
-          <Text style={styles.verifyToken}>
-            Student number {doc.studentNumber} · issued {formatDate(doc.issuedAt)}
-          </Text>
+          <Text style={styles.footerText}>Verify this certificate at {doc.verifyUrl}</Text>
         </View>
       </Page>
     </Document>

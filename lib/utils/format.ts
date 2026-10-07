@@ -234,8 +234,6 @@ export function categoryLabel(value: string): string {
 
 export const CERTIFICATE_STATUS_LABEL: Record<string, string> = {
   VALID: "Valid",
-  EXPIRING: "Expiring soon",
-  EXPIRED: "Expired",
   REVOKED: "Revoked",
   PENDING: "Pending issue",
 };

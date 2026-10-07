@@ -417,6 +417,7 @@ model DeviceSession {
   @@index([referralCodeId])
   @@index([userId])
   @@index([userId, revokedAt])
+  @@index([accessLinkId, deviceHash])
 }
 
 model Notification {

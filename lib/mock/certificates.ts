@@ -25,7 +25,7 @@ interface CertPlan {
   courseId: string;
   issuedOffsetDays: number;
   validityMonths: number | null;
-  status: "VALID" | "EXPIRING" | "EXPIRED" | "REVOKED";
+  status: "VALID" | "REVOKED";
   revokeReason?: string;
 }
 

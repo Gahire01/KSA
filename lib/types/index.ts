@@ -54,7 +54,8 @@ export type EnrollmentStatus =
 
 export type PaymentMethod = "CASH" | "MOMO" | "BANK" | "CARD";
 
-export type CertificateStatus = "VALID" | "EXPIRING" | "EXPIRED" | "REVOKED";
+/** A certificate is valid until revoked. It never expires. */
+export type CertificateStatus = "VALID" | "REVOKED";
 
 export type AttemptStatus =
   | "SENT"

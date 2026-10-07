@@ -25,9 +25,10 @@ export interface PublicCertificate {
   topics: string[];
   duration: string;
   issuedAt: string;
-  expiresAt: string | null;
   trainerName: string;
   trainerTitle: string;
+  signerName: string;
+  signerTitle: string;
   revokedAt: string | null;
   revokedReason: string | null;
 }
@@ -35,13 +36,14 @@ export interface PublicCertificate {
 const verifySelect = {
   studentNumber: true,
   issuedAt: true,
-  expiresAt: true,
   revokedAt: true,
   revokedReason: true,
   topicsSnapshot: true,
   durationSnapshot: true,
   trainerNameSnapshot: true,
   trainerTitleSnapshot: true,
+  signerNameSnapshot: true,
+  signerTitleSnapshot: true,
   trainee: { select: { fullName: true } },
   course: { select: { name: true, code: true } },
 } as const;

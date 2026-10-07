@@ -961,3 +961,10 @@ KNOWN GAPS (honest list)
 - Fixed: shell() and BRAND_FOOTER are now exported from lib/email/templates.ts; notificationEmailHtml now renders inside shell() (logo header) with the brand footer (website line only once ACADEMY.website is real). "Update" eyebrow + Open button kept.
 - NOT built: no code actually emits "deadline.approaching" today (type is registered in the configs only) - a datetime-based reminder cron is a stretch item, not a Part 4 fix. Logged as stretch.
 - tsc + lint green.
+
+### Part 5 - legal pages, shared footer, cookie consent (776f15d..)
+- NEW public legal pages under /privacy, /terms, /cookies, /refund-policy (legal-grade prose, no invented contact details - references "contact details published on this site" while ACADEMY.address/phone/email stay TO BE FILLED BY OWNER). Shared shell components/legal/LegalPage.tsx (same header as /verify + SiteFooter; metadata title set per page).
+- NEW components/site/SiteFooter.tsx: brand + reg line, real contact line only (city while address unfilled), copyright year, legal links. Now used on /verify (with its "Public certificate verification" note), (auth) layout (compact) and all legal pages - one place, no drift.
+- NEW components/site/CookieConsent.tsx (mounted in root layout): bottom banner, essential-cookie copy, links to /cookies, Accept / Essential only. Choice kept in localStorage key ksa:cookie-consent (deliberately NOT a cookie, so consent disclosure never adds a cookie).
+- /trainees/new: required "Data protection consent" checkbox (schema.refine boolean) with link to /privacy; blocks creation until confirmed.
+- tsc + lint green.

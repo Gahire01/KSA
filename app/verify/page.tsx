@@ -7,10 +7,10 @@ import { SearchIcon } from "lucide-react";
 
 import { Logo } from "@/components/shared/Logo";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { SiteFooter } from "@/components/site/SiteFooter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { academyFooterLine } from "@/lib/academy/constants";
 import { extractToken } from "@/lib/certificates/token";
 
 /**
@@ -131,10 +131,7 @@ export default function VerifyCertificatePage() {
         </Card>
       </main>
 
-      <footer className="border-t border-line py-6 text-center text-xs text-ink-3">
-        {academyFooterLine()} · public certificate
-        verification
-      </footer>
+      <SiteFooter note="Public certificate verification" />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { z } from "zod";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -36,6 +37,7 @@ import { toTraineeInput } from "@/lib/api/adapters";
 import { useCategories, useCourses, useCreateTrainee } from "@/lib/api/hooks";
 import { formatRwf } from "@/lib/utils/format";
 import { COUNTRIES, type Category } from "@/lib/types";
+import { ACADEMY } from "@/lib/academy/constants";
 
 /* Courses for the select dropdown; bounded by the API's MAX_PAGE_SIZE. */
 const COURSE_OPTION_LIMIT = 100;
@@ -54,6 +56,9 @@ const schema = z.object({
     .number({ invalid_type_error: "Enter an amount." })
     .min(0, "Amount cannot be negative."),
   notes: z.string().max(500, "Keep notes under 500 characters.").optional(),
+  consent: z
+    .boolean()
+    .refine((value) => value === true, "Confirm that the trainee consented to their data being stored."),
 });
 
 type Values = z.infer<typeof schema>;
@@ -78,6 +83,7 @@ export default function NewTraineePage() {
       courseId: "",
       amountPaidRwf: 0,
       notes: "",
+      consent: false,
     },
   });
 
@@ -311,6 +317,51 @@ export default function NewTraineePage() {
               </AlertDescription>
             </Alert>
           ) : null}
+
+          <Card>
+            <CardHeader className="gap-1">
+              <CardTitle className="text-base">Data protection consent</CardTitle>
+              <CardDescription>
+                Required before a record is created.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="consent"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-start gap-2.5">
+                      <FormControl>
+                        <Checkbox
+                          id="trainee-consent"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className="mt-0.5"
+                        />
+                      </FormControl>
+                      <label
+                        htmlFor="trainee-consent"
+                        className="text-sm leading-relaxed text-ink-2"
+                      >
+                        I confirm the trainee was told that their enrolment data — name, contact
+                        details, course progress, exam results and payments — is stored by{" "}
+                        {ACADEMY.name} for certification and compliance, and that they can
+                        request a copy or deletion of their records.{" "}
+                        <Link
+                          href="/privacy"
+                          className="text-orange-d underline underline-offset-2"
+                        >
+                          Privacy policy
+                        </Link>
+                      </label>
+                    </div>
+                    <FormMessage>{form.formState.errors.consent?.message}</FormMessage>
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Button asChild variant="ghost" size="sm" className="gap-1.5">

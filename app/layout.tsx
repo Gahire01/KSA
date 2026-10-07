@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Suspense } from "react";
 
 import { Providers } from "@/components/providers";
+import { CookieConsent } from "@/components/site/CookieConsent";
 import { ServiceWorkerRegistration } from "@/components/pwa/service-worker-registration";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -85,6 +86,7 @@ export default function RootLayout({
         </Suspense>
         <Toaster />
         <ServiceWorkerRegistration />
+        <CookieConsent />
       </body>
     </html>
   );

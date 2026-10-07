@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { Logo } from "@/components/shared/Logo";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
-import { academyFooterLine } from "@/lib/academy/constants";
+import { SiteFooter } from "@/components/site/SiteFooter";
 import { ShieldCheckIcon, Clock3Icon, FileCheckIcon } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -106,8 +106,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="w-full max-w-sm">{children}</div>
         </div>
 
-        <div className="px-6 pb-6 text-center text-xs text-ink-3">
-          <p>{academyFooterLine()}</p>
+        <div className="py-6">
+          <SiteFooter compact />
         </div>
       </main>
     </div>

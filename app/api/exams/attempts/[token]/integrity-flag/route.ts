@@ -30,10 +30,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   }
 
   const body: unknown = await request.json().catch(() => null);
-  const type = body && typeof body === "object" && "type" in body ? (body as any).type : null;
+  const b = (body ?? null) as Record<string, unknown> | null;
 
   const allowed = ["focus_blur", "copy_attempt", "cut_attempt", "paste_attempt", "contextmenu", "shortcut", "print_attempt", "devtools_suspected", "tab_switch"];
-  if (typeof type !== "string" || !allowed.includes(type)) {
+  if (typeof t !== "string" || !allowed.includes(t)) {
     return apiFail("Invalid flag type.", 422);
   }
 
@@ -41,8 +41,8 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   const flags = [...existing, { type, at: new Date().toISOString() }];
 
   await prisma.examAttempt.update({
-    where: { id: attempt.id },
-    data: { integrityFlags: flags as any },
+  const flags = [...existing, { type: t, at: new Date().toISOString() }];
+  const flags = [...existing, { type: String(t), at: new Date().toISOString() }];
   });
 
   return NextResponse.json({ ok: true, data: { recorded: true } });

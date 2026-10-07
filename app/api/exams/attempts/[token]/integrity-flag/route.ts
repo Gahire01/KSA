@@ -11,7 +11,7 @@ const INTEGRITY_LIMIT = { max: 30, windowMs: 60 * 1000 } as const;
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
 
-  const limit = rateLimit(exam-integrity:, INTEGRITY_LIMIT.max, INTEGRITY_LIMIT.windowMs);
+  const limit = rateLimit("exam-integrity:" + token, INTEGRITY_LIMIT.max, INTEGRITY_LIMIT.windowMs);
   if (!limit.ok) return rateLimitFail(limit.retryAfterSeconds);
 
   const ipLimit = rateLimit(

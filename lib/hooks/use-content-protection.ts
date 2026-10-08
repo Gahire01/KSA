@@ -6,13 +6,17 @@ import { toast } from "sonner";
 import { api } from "@/lib/api/client";
 
 /**
- * Exam-page lockdown (Part H). Only mounted by the exam runner.
+ * Content protection for the exam page. Only mounted by the exam runner.
  *
- * This is deterrence and evidence, not a sandbox: a browser cannot stop a
- * determined person, and nothing here claims to. What it does is make casual
- * copying awkward, record what happened for a human to review, and let the SERVER
- * decide consequences (the focus-loss limit is enforced in the integrity-flag
- * route, not here).
+ * What it does, honestly: it BLOCKS copy, cut, paste, right-click and the
+ * save / print / view-source / devtools shortcuts; it DETERS screenshots (the
+ * PrintScreen key blurs the paper for a second, and ExamWatermark tiles the trainee's
+ * name and number over it) and tab switching (every departure is logged); and it
+ * makes a second tab in the same browser block itself (see use-single-tab.ts).
+ * What it CANNOT do: stop a phone camera, an OS screenshot tool or hardware
+ * capture. This is deterrence and evidence, not a sandbox, and nothing here claims
+ * otherwise. The SERVER decides consequences (the tab-leave rule lives in the
+ * integrity-flag route, not here).
  *
  * Blocked, each with a short toast and a recorded flag: right-click, F12,
  * Ctrl/Cmd+Shift+I/J/C, Ctrl/Cmd+U/S/P/A, copy, cut and paste. Leaving the exam
@@ -59,7 +63,7 @@ const BLOCKED_MESSAGES: Record<string, string> = {
   shortcut: "That shortcut is disabled during the exam.",
 };
 
-export function useExamLockdown(options: {
+export function useContentProtection(options: {
   token: string;
   /** Called when the server ended the sitting (too many focus losses). */
   onAutoSubmitted: (result: unknown) => void;
@@ -141,7 +145,7 @@ export function useExamLockdown(options: {
       const blocked =
         e.key === "F12" ||
         (mod && e.shiftKey && (key === "i" || key === "j" || key === "c")) ||
-        (mod && !e.shiftKey && (key === "u" || key === "s" || key === "p" || key === "a"));
+        (mod && !e.shiftKey && ["a", "c", "p", "s", "u", "v", "x"].includes(key));
 
       if (blocked) {
         e.preventDefault();

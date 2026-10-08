@@ -126,9 +126,10 @@ export function CertificateResult({ cert }: { cert: PublicCertificate }) {
           </div>
         ) : null}
 
-        <p className="border-t border-line pt-4 font-mono text-xs text-ink-3">
-          Certificate no. {cert.studentNumber}
-        </p>
+        <div className="space-y-1 border-t border-line pt-4 font-mono text-xs text-ink-3">
+          <p>Certificate no. {cert.studentNumber}</p>
+          <p className="break-all">Content hash (SHA-256): {cert.contentHash}</p>
+        </div>
       </CardContent>
     </Card>
   );

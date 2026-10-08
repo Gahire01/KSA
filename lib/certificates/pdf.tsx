@@ -46,6 +46,8 @@ export interface CertificateDoc {
   /** Data URI (PNG) of the QR code for `verifyUrl`. */
   qrSrc?: string | null;
   verifyUrl: string;
+  /** SHA-256 of the frozen certificate snapshot (Certificate.contentHash). */
+  contentHash: string;
 }
 
 const palette = {
@@ -139,7 +141,8 @@ const styles = StyleSheet.create({
   factLine: { fontSize: 8.25, color: palette.ink2 },
   factStrong: { fontFamily: "Helvetica-Bold", color: palette.navy },
   footer: { position: "absolute", bottom: 8, left: 28, right: 28, alignItems: "center" },
-  footerText: { fontSize: 7, color: palette.ink2 },
+  /* 7px at the x 0.75 scale, monospaced: a quiet line that ties a copy to its holder. */
+  footerText: { fontFamily: "Courier", fontSize: 5.25, color: palette.ink2 },
 });
 
 /**
@@ -235,7 +238,9 @@ export function CertificateDocument({
     <Document
       title={`Certificate ${doc.studentNumber}`}
       author="Kigali Safety Academy"
-      subject={doc.courseName}
+      /* The SHA-256 of the certificate's frozen snapshot: the same value /verify shows,
+       * so a PDF can be matched to the register without trusting its look. */
+      subject={doc.contentHash}
       keywords={`certificate,${doc.studentNumber},ksa`}
     >
       <Page size="A4" orientation="landscape" style={styles.page}>
@@ -292,7 +297,9 @@ export function CertificateDocument({
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Verify this certificate at {doc.verifyUrl}</Text>
+          <Text style={styles.footerText}>
+            Issued to {doc.traineeName} · Student #{doc.studentNumber}
+          </Text>
         </View>
       </Page>
     </Document>

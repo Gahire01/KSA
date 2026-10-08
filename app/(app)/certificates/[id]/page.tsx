@@ -11,7 +11,6 @@ import {
   DownloadIcon,
   FileTextIcon,
   HashIcon,
-  PrinterIcon,
   ShieldCheckIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -181,15 +180,6 @@ export default function CertificateDetailPage() {
         }
         actions={
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 print:hidden"
-              onClick={() => window.print()}
-            >
-              <PrinterIcon className="size-4" />
-              Print
-            </Button>
             <Button asChild variant="outline" size="sm" className="gap-1.5 print:hidden">
               <a href={`/api/certificates/${cert.id}/pdf`} download>
                 <DownloadIcon className="size-4" />

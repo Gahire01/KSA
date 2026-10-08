@@ -95,6 +95,8 @@ export async function GET(_request: Request, context: { params: Promise<{ token:
       examDurationMin: attempt.durationMin,
       courseName: attempt.course.name,
       traineeName: attempt.trainee.fullName,
+      /* The trainee's own number, for the on-screen watermark. */
+      traineeNo: attempt.trainee.traineeNo,
       passMarkPct: attempt.course.passMarkPct,
       attemptNumber: attempt.attemptNumber,
       maxAttempts: attempt.course.maxAttempts,

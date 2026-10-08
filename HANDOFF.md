@@ -1,3 +1,15 @@
+## Content protection â€” what works, what doesn't
+Blocked: copy, cut, right-click, save image, select-all,
+  devtools shortcuts (F12, Ctrl+Shift+I/J), view-source, print,
+  save.
+Deterred: screenshots (via watermark), tab switching (via
+  focus-loss logging), second tab (via BroadcastChannel).
+NOT stoppable: phone camera, OS screenshot tools, hardware
+  capture.
+We make cheating hard and traceable, not impossible.
+
+---
+
 ## Morning summary â€” 2026-10-08 (verification + gap-closing run, from clone at ksa-work/KSA)
 
 The brief was run against a repo that earlier sessions had already worked through. This run audited every part against the current code and closed only the real gaps.
@@ -870,7 +882,7 @@ pnpm build: GREEN (Next 15.5.26, all routes compiled; /dashboard 140 kB first-lo
 - Notification type "certificate.expiring" removed from the union and all maps (types, settings, notifications page, /api/notifications KNOWN_TYPES, SSE stream key mapping). "exam.link.expiring" kept (exam links genuinely expire). No background jobs/cron exist to remove.
 - Course.validityMonths: now null in seed.ts (all 8 courses) and all mock courses. CourseForm no longer collects a validity field (removed schema field, default, hydration and FormField); course API create/update no longer write it; course detail no longer shows a validity row/pill.
 - mocks: dashboard no longer surfaces expiring/expired certificate alerts; mock certificates are VALID unless revoked (brief's revoked sample retained). Dashboard "Upcoming deadlines" description no longer says "expiring certificates".
-- Verify: pnpm build GREEN, tsc clean, eslint clean (0 warnings).## Student Numbering — Source of Truth
+- Verify: pnpm build GREEN, tsc clean, eslint clean (0 warnings).## Student Numbering ï¿½ Source of Truth
 
 - Source: public/student/KIGALI SAFETY ACADEMY STUDENTS LIST.docx (Word table, 2 columns: number | name)
 - Register rows parsed: 443; unique students: 382; aliases: 57; number collisions: 3 (#74, #214, #231); skipped: 2 (#5 \"## the certificate was skipped\", #344 \"ane\")
@@ -880,7 +892,7 @@ pnpm build: GREEN (Next 15.5.26, all routes compiled; /dashboard 140 kB first-lo
 - Manifest: scripts/student-list/student-numbers.json (382 students); summary: scripts/student-list/register-numbers.ts (REGISTER_MAX_STUDENT_NUMBER=456, REGISTER_NEXT_STUDENT_NUMBER=457)
 - Seeding: scripts/seed-from-student-list.ts imports the register idempotently, creates only numeric trainee numbers (plain register numbers), does NOT enroll (courseId null), and uses placeholder contacts (student-<n>@register.example, +250000000000, Rwanda, category Firefighters). Rows edited by the owner keep their real contacts and are never overwritten; re-runs clean stale placeholder rows for removed fragments.
 - Certificate allocation: new certificates start at max(certificate.studentNumber, REGISTER_NEXT_STUDENT_NUMBER) and increment, preserving uniqueness via the index and retry on clashes (see lib/certificates/issue.ts).
-## Session — 2026-10-07T09:00:00Z — Morning resume
+## Session ï¿½ 2026-10-07T09:00:00Z ï¿½ Morning resume
 
 - git log --oneline -10: clean recent commits (latest c736c09)
 - git status: clean (working tree)

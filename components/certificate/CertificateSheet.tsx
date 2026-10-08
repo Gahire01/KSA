@@ -35,7 +35,7 @@ export interface CertificateSheetData {
 export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetData; verifyUrl: string }) {
   return (
     <div
-      className="relative overflow-hidden rounded-xl border-2 border-[#0F2340] bg-card p-2.5 select-none print:rounded-none sm:p-3"
+      className="relative overflow-hidden rounded-xl border-2 border-[#0F2340] bg-card p-2.5 select-none print:hidden sm:p-3"
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >

@@ -340,7 +340,7 @@ export default function TraineeDetailPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <Button asChild variant="ghost" size="sm">
-                            <Link href={`/exams/attempts/${a.id}`}>Open</Link>
+                            <Link href={`/exams/${a.courseId}/attempts/${a.id}`}>Open</Link>
                           </Button>
                         </TableCell>
                       </TableRow>

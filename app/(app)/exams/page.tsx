@@ -5,249 +5,176 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  AlertTriangleIcon,
-  CalendarClockIcon,
-  CheckCircle2Icon,
-  ClockIcon,
-  FlagIcon,
-  PlusIcon,
-  SendIcon,
-  UsersIcon,
-} from "lucide-react";
+import { ClockIcon, FileQuestionIcon, SendIcon } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { SearchInput } from "@/components/shared/SearchInput";
-import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
 import { DataTable } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
-import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { Badge } from "@/components/ui/badge";
+import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDebounce } from "@/lib/hooks/use-debounce";
-import { mockApi } from "@/lib/mock";
-import { useAuthStore } from "@/lib/stores/auth-store";
-import { formatDate, formatDateTime, formatNumber, formatPercent } from "@/lib/utils/format";
-import type { Exam, ExamAttempt } from "@/lib/types";
+import { api } from "@/lib/api/client";
+import { formatDateTime, formatNumber } from "@/lib/utils/format";
 
-const EXAM_STATUS = ["ACTIVE", "SCHEDULED", "COMPLETED", "DRAFT"] as const;
-const ATTEMPT_STATUSES = [
-  "SENT",
-  "STARTED",
-  "SUBMITTED",
-  "PASSED",
-  "FAILED",
-  "VOID",
-] as const;
+/**
+ * /exams — the exams the academy runs, and every sitting so far.
+ *
+ * An "exam" is a course: its paper comes from the course's question bank and is
+ * frozen per trainee on their attempt. Both tables read the database.
+ */
 
-const EXAM_STATUS_LABEL: Record<string, string> = {
-  ACTIVE: "Active",
-  SCHEDULED: "Scheduled",
-  COMPLETED: "Completed",
-  DRAFT: "Draft",
+interface ExamOverviewRow {
+  id: string;
+  code: string;
+  name: string;
+  passMarkPct: number;
+  maxAttempts: number;
+  examDurationMin: number;
+  questionCount: number;
+  attempts: { total: number; waiting: number; inProgress: number; passed: number; failed: number };
+}
+
+interface AttemptRow {
+  id: string;
+  status: string;
+  attemptNumber: number;
+  scorePct: number | null;
+  blurCount: number;
+  submittedAt: string | null;
+  createdAt: string;
+  trainee: { id: string; fullName: string; traineeNo: string };
+  course: { id: string; name: string; code: string };
+}
+
+const ATTEMPT_STATUSES = ["PENDING", "STARTED", "SUBMITTED", "PASSED", "FAILED", "VOID"] as const;
+const STATUS_LABEL: Record<string, string> = {
+  PENDING: "Sent, not opened",
+  STARTED: "In progress",
+  SUBMITTED: "Not passed",
+  PASSED: "Passed",
+  FAILED: "Failed",
+  VOID: "Void",
 };
 
 export default function ExamsPage() {
   const router = useRouter();
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const role = currentUser?.role ?? "ADMIN";
-  const isTrainer = role === "TRAINER";
-  const canSchedule = role === "OWNER" || role === "ADMIN";
+  const [statuses, setStatuses] = React.useState<string[]>([]);
+  const [courseIds, setCourseIds] = React.useState<string[]>([]);
 
-  const [search, setSearch] = React.useState("");
-  const debounced = useDebounce(search, 250);
-  const [examStatuses, setExamStatuses] = React.useState<string[]>([]);
-  const [attemptStatuses, setAttemptStatuses] = React.useState<string[]>([]);
-  const [flaggedOnly, setFlaggedOnly] = React.useState(false);
-  const [hydrated, setHydrated] = React.useState(false);
-
-  /* Dashboard deep links: /exams?filter=flagged or ?status=ACTIVE */
-  React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("filter") === "flagged") setFlaggedOnly(true);
-    const status = params.get("status");
-    if (status && EXAM_STATUS_LABEL[status]) setExamStatuses([status]);
-    setHydrated(true);
-  }, []);
-  void hydrated;
-
-  const coursesQuery = useQuery({
-    queryKey: ["courses", "options"],
-    queryFn: () => mockApi.courses.list(),
-    staleTime: 5 * 60_000,
+  const overview = useQuery({
+    queryKey: ["exams", "overview"],
+    queryFn: () => api.get<{ items: ExamOverviewRow[] }>("/exams/overview"),
+    staleTime: 30_000,
   });
-  const courses = React.useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
-
-  const scopeCourseIds = React.useMemo(() => {
-    if (!isTrainer || !currentUser?.trainerId) return undefined;
-    return courses.filter((c) => c.trainerId === currentUser.trainerId).map((c) => c.id);
-  }, [isTrainer, currentUser?.trainerId, courses]);
-
-  const examsQuery = useQuery({
-    queryKey: ["exams", debounced, examStatuses, scopeCourseIds ?? "all"],
-    queryFn: () =>
-      mockApi.exams.list(
-        {
-          search: debounced || undefined,
-          status: examStatuses.length === 1 ? examStatuses[0] : undefined,
-        },
-        scopeCourseIds,
-      ),
-    enabled: coursesQuery.isSuccess,
-  });
+  const courses = React.useMemo(() => overview.data?.items ?? [], [overview.data]);
 
   const attemptsQuery = useQuery({
-    queryKey: ["attempts", attemptStatuses, flaggedOnly, debounced],
+    queryKey: ["exams", "attempts", statuses, courseIds],
     queryFn: () =>
-      mockApi.attempts.list({
-        statuses: attemptStatuses as never,
-        flaggedOnly: flaggedOnly || undefined,
-        search: debounced || undefined,
+      api.get<{ items: AttemptRow[] }>("/exams", {
+        pageSize: 100,
+        /* The API filters on one value each; more than one is narrowed client-side below. */
+        status: statuses.length === 1 ? statuses[0] : undefined,
+        courseId: courseIds.length === 1 ? courseIds[0] : undefined,
       }),
+    staleTime: 15_000,
   });
-
-  const attempts = React.useMemo(() => {
-    const rows = attemptsQuery.data ?? [];
-    if (!scopeCourseIds || scopeCourseIds.length === 0) return rows;
-    return rows.filter((a) => scopeCourseIds.includes(a.courseId));
-  }, [attemptsQuery.data, scopeCourseIds]);
-  const exams = React.useMemo(
+  const attempts = React.useMemo(
     () =>
-      (examsQuery.data ?? []).filter(
-        (e) => examStatuses.length === 0 || examStatuses.includes(e.status),
+      (attemptsQuery.data?.items ?? []).filter(
+        (a) =>
+          (statuses.length === 0 || statuses.includes(a.status)) &&
+          (courseIds.length === 0 || courseIds.includes(a.course.id)),
       ),
-    [examsQuery.data, examStatuses],
+    [attemptsQuery.data, statuses, courseIds],
   );
 
-  const courseName = React.useCallback(
-    (id: string) => courses.find((c) => c.id === id)?.name ?? "—",
-    [courses],
-  );
-
-  /* Attempt rows only carry trainee ids, so resolve names from the roster. */
-  const rosterQuery = useQuery({
-    queryKey: ["trainees", "roster-map"],
-    queryFn: () => mockApi.trainees.all(scopeCourseIds),
-    staleTime: 60_000,
-  });
-  const nameById = React.useMemo(() => {
-    const map = new Map<string, { name: string; traineeNo: string }>();
-    for (const t of rosterQuery.data ?? []) map.set(t.id, { name: t.name, traineeNo: t.traineeNo });
-    return map;
-  }, [rosterQuery.data]);
-
-  const traineeName = React.useCallback((id: string) => nameById.get(id)?.name ?? id, [nameById]);
-  const traineeNo = React.useCallback(
-    (id: string) => nameById.get(id)?.traineeNo ?? "—",
-    [nameById],
-  );
-
-  const examColumns = React.useMemo<ColumnDef<Exam, unknown>[]>(
+  const courseColumns = React.useMemo<ColumnDef<ExamOverviewRow, unknown>[]>(
     () => [
       {
-        id: "title",
+        id: "course",
         header: "Exam",
-        accessorFn: (e) => e.title,
+        accessorFn: (c) => c.name,
         cell: ({ row }) => (
           <div className="min-w-0">
-            <p className="truncate font-medium text-ink">{row.original.title}</p>
-            <p className="truncate text-xs text-ink-2">{courseName(row.original.courseId)}</p>
+            <p className="truncate text-sm font-medium text-ink">{row.original.name}</p>
+            <p className="font-mono text-xs text-ink-3">{row.original.code}</p>
           </div>
         ),
       },
       {
-        id: "status",
-        header: "Status",
-        accessorFn: (e) => e.status,
-        cell: ({ row }) => (
-          <StatusBadge
-            status={row.original.status === "ACTIVE" ? "active" : row.original.status.toLowerCase()}
-            label={EXAM_STATUS_LABEL[row.original.status]}
-          />
-        ),
-      },
-      {
         id: "questions",
-        header: "Served",
-        accessorFn: (e) => e.questionsToServe,
-        cell: ({ row }) => (
-          <span className="text-sm whitespace-nowrap tabular text-ink-2">
-            {row.original.questionsToServe} of {row.original.questionCount}
-          </span>
-        ),
+        header: "Questions",
+        accessorFn: (c) => c.questionCount,
+        cell: ({ row }) =>
+          row.original.questionCount === 0 ? (
+            <span className="text-sm text-amber">None yet</span>
+          ) : (
+            <span className="text-sm tabular text-ink">{formatNumber(row.original.questionCount)}</span>
+          ),
       },
       {
-        id: "passMark",
-        header: "Pass mark",
-        accessorFn: (e) => e.passMarkPct,
+        id: "rules",
+        header: "Rules",
+        accessorFn: (c) => c.examDurationMin,
         cell: ({ row }) => (
-          <span className="text-sm tabular text-ink-2">{row.original.passMarkPct}%</span>
-        ),
-      },
-      {
-        id: "duration",
-        header: "Time",
-        accessorFn: (e) => e.durationMin,
-        cell: ({ row }) => (
-          <span className="flex items-center gap-1 text-sm whitespace-nowrap text-ink-2">
+          <span className="flex items-center gap-1.5 text-sm whitespace-nowrap text-ink-2">
             <ClockIcon className="size-3.5" />
-            {row.original.durationMin} min
+            {row.original.examDurationMin} min · pass {row.original.passMarkPct}% · {row.original.maxAttempts} attempts
           </span>
         ),
       },
       {
-        id: "recipients",
-        header: "Recipients",
-        accessorFn: (e) => e.recipientsCount,
+        id: "attempts",
+        header: "Sittings",
+        accessorFn: (c) => c.attempts.total,
         cell: ({ row }) => (
-          <span className="text-sm tabular text-ink-2">
-            {formatNumber(row.original.recipientsCount)}
+          <span className="text-sm whitespace-nowrap text-ink-2 tabular">
+            {row.original.attempts.total} · {row.original.attempts.passed} passed ·{" "}
+            {row.original.attempts.failed} not passed
           </span>
         ),
       },
       {
-        id: "sentAt",
-        header: "Sent",
-        accessorFn: (e) => e.sentAt ?? "",
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        enableHiding: false,
         cell: ({ row }) => (
-          <span className="text-sm whitespace-nowrap text-ink-2">
-            {row.original.sentAt ? formatDate(row.original.sentAt) : "Not sent"}
-          </span>
-        ),
-      },
-      {
-        id: "closesAt",
-        header: "Closes",
-        accessorFn: (e) => e.closesAt ?? "",
-        cell: ({ row }) => (
-          <span className="text-sm whitespace-nowrap text-ink-2">
-            {row.original.closesAt ? formatDate(row.original.closesAt) : "—"}
-          </span>
+          <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <Link href={`/exams/${row.original.id}`}>
+                <FileQuestionIcon className="size-3.5" />
+                Question bank
+              </Link>
+            </Button>
+            <Button asChild size="sm" className="gap-1.5">
+              <Link href={`/exams/new?courseId=${row.original.id}`}>
+                <SendIcon className="size-3.5" />
+                Send exam
+              </Link>
+            </Button>
+          </div>
         ),
       },
     ],
-    [courseName],
+    [],
   );
 
-  const attemptColumns = React.useMemo<ColumnDef<ExamAttempt, unknown>[]>(
+  const attemptColumns = React.useMemo<ColumnDef<AttemptRow, unknown>[]>(
     () => [
       {
         id: "trainee",
         header: "Trainee",
-        accessorFn: (a) => traineeName(a.traineeId),
+        accessorFn: (a) => a.trainee.fullName,
         cell: ({ row }) => (
           <div className="flex items-center gap-2.5">
-            <AvatarInitials name={traineeName(row.original.traineeId)} size="sm" />
+            <AvatarInitials name={row.original.trainee.fullName} size="sm" />
             <div className="min-w-0">
-              <p className="truncate font-medium text-ink">
-                {traineeName(row.original.traineeId)}
-              </p>
-              <p className="truncate font-mono text-xs text-ink-3">
-                {traineeNo(row.original.traineeId)}
-              </p>
+              <p className="truncate text-sm font-medium text-ink">{row.original.trainee.fullName}</p>
+              <p className="font-mono text-xs text-ink-3">{row.original.trainee.traineeNo}</p>
             </div>
           </div>
         ),
@@ -255,198 +182,118 @@ export default function ExamsPage() {
       {
         id: "course",
         header: "Course",
-        accessorFn: (a) => courseName(a.courseId),
+        accessorFn: (a) => a.course.name,
+        cell: ({ row }) => <span className="text-sm text-ink-2">{row.original.course.name}</span>,
+      },
+      {
+        id: "attempt",
+        header: "Attempt",
+        accessorFn: (a) => a.attemptNumber,
+        cell: ({ row }) => <span className="text-sm tabular text-ink-2">#{row.original.attemptNumber}</span>,
+      },
+      {
+        id: "score",
+        header: "Score",
+        accessorFn: (a) => a.scorePct ?? -1,
         cell: ({ row }) => (
-          <span className="text-sm text-ink-2">{courseName(row.original.courseId)}</span>
+          <span className="text-sm tabular text-ink">
+            {row.original.scorePct === null ? "—" : `${row.original.scorePct}%`}
+          </span>
         ),
       },
       {
         id: "status",
         header: "Status",
         accessorFn: (a) => a.status,
-        cell: ({ row }) => <StatusBadge status={row.original.status} size="sm" />,
-      },
-      {
-        id: "score",
-        header: "Score",
-        accessorFn: (a) => a.score ?? -1,
         cell: ({ row }) => (
-          <span className="text-sm font-medium tabular text-ink">
-            {row.original.score === null ? "—" : formatPercent(row.original.score)}
-          </span>
+          <StatusBadge status={row.original.status} label={STATUS_LABEL[row.original.status]} size="sm" />
         ),
       },
       {
-        id: "integrity",
-        header: "Integrity",
-        accessorFn: (a) => a.integrityFlags.length,
+        id: "leaves",
+        header: "Window left",
+        accessorFn: (a) => a.blurCount,
         cell: ({ row }) =>
-          row.original.integrityFlags.length === 0 ? (
-            <span className="flex items-center gap-1 text-xs text-green">
-              <CheckCircle2Icon className="size-3.5" />
-              Clean
-            </span>
+          row.original.blurCount > 0 ? (
+            <span className="text-sm font-medium text-amber tabular">{row.original.blurCount}×</span>
           ) : (
-            <Badge variant="amber" size="sm">
-              <FlagIcon className="size-3" />
-              {row.original.integrityFlags.length} flag
-              {row.original.integrityFlags.length === 1 ? "" : "s"}
-            </Badge>
+            <span className="text-sm text-ink-3">—</span>
           ),
       },
       {
-        id: "submitted",
-        header: "Submitted",
-        accessorFn: (a) => a.submittedAt ?? "",
+        id: "when",
+        header: "When",
+        accessorFn: (a) => a.submittedAt ?? a.createdAt,
         cell: ({ row }) => (
           <span className="text-sm whitespace-nowrap text-ink-2">
-            {row.original.submittedAt ? formatDateTime(row.original.submittedAt) : "—"}
+            {formatDateTime(row.original.submittedAt ?? row.original.createdAt)}
           </span>
         ),
       },
     ],
-    [courseName, traineeName, traineeNo],
+    [],
   );
-
-  const flaggedCount = attempts.filter((a) => a.integrityFlags.length > 0).length;
-  const passedCount = attempts.filter((a) => a.status === "PASSED").length;
-  const activeExams = exams.filter((e) => e.status === "ACTIVE").length;
 
   return (
     <div className="space-y-5">
-
       <PageHeader
         title="Exams"
-        subtitle="Schedule exams, send links and review submitted attempts."
+        subtitle="Each course is one exam. Manage its questions, send it to trainees and review every sitting."
         actions={
-          canSchedule ? (
-            <Button asChild size="sm" className="gap-1.5">
-              <Link href="/exams/new">
-                <PlusIcon className="size-4" />
-                Schedule exam
-              </Link>
-            </Button>
-          ) : null
+          <Button asChild size="sm" className="gap-1.5">
+            <Link href="/exams/new">
+              <SendIcon className="size-4" />
+              Send an exam
+            </Link>
+          </Button>
         }
       />
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Active exams"
-          value={formatNumber(activeExams)}
-          icon={<CalendarClockIcon className="size-4" />}
-          isLoading={examsQuery.isLoading}
-        />
-        <StatCard
-          label="Attempts in view"
-          value={formatNumber(attempts.length)}
-          icon={<UsersIcon className="size-4" />}
-          isLoading={attemptsQuery.isLoading}
-        />
-        <StatCard
-          label="Passed"
-          value={formatNumber(passedCount)}
-          hint={
-            attempts.length ? `of ${attempts.length} graded` : undefined
-          }
-          icon={<CheckCircle2Icon className="size-4" />}
-          isLoading={attemptsQuery.isLoading}
-        />
-        <StatCard
-          label="Integrity flags"
-          value={formatNumber(flaggedCount)}
-          hint="needs review"
-          invertTrend
-          icon={<AlertTriangleIcon className="size-4" />}
-          isLoading={attemptsQuery.isLoading}
-        />
-      </section>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <SearchInput
-          value={search}
-          onValueChange={setSearch}
-          placeholder="Search exams or trainees…"
-          className="sm:max-w-xs"
-        />
-        <MultiSelectFilter
-          label="Exam status"
-          width="w-56"
-          options={EXAM_STATUS.map((s) => ({ value: s, label: EXAM_STATUS_LABEL[s]! }))}
-          selected={examStatuses}
-          onChange={setExamStatuses}
-        />
-        <MultiSelectFilter
-          label="Attempt status"
-          width="w-60"
-          options={ATTEMPT_STATUSES.map((s) => ({
-            value: s,
-            label: s.charAt(0) + s.slice(1).toLowerCase(),
-          }))}
-          selected={attemptStatuses}
-          onChange={setAttemptStatuses}
-        />
-        <Button
-          variant={flaggedOnly ? "default" : "outline"}
-          size="sm"
-          className="h-9"
-          onClick={() => setFlaggedOnly((v) => !v)}
-          aria-pressed={flaggedOnly}
-        >
-          <FlagIcon className="size-3.5" />
-          Flagged only
-        </Button>
-      </div>
-
-      <Tabs defaultValue="exams">
+      <Tabs defaultValue="courses">
         <TabsList>
-          <TabsTrigger value="exams">Exams ({exams.length})</TabsTrigger>
-          <TabsTrigger value="attempts">Attempts ({attempts.length})</TabsTrigger>
+          <TabsTrigger value="courses">Exams</TabsTrigger>
+          <TabsTrigger value="attempts">All sittings</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="exams" className="mt-4">
+        <TabsContent value="courses" className="mt-4">
           <DataTable
-            columns={examColumns}
-            data={exams}
-            getRowId={(e) => e.id}
-            isLoading={examsQuery.isLoading}
-            onRowClick={(e) => router.push(`/exams/${e.id}`)}
-            pageSize={10}
-            stickyHeader={false}
-            globalFilter={search}
+            columns={courseColumns}
+            data={courses}
+            isLoading={overview.isLoading}
+            getRowId={(c) => c.id}
+            onRowClick={(c) => router.push(`/exams/${c.id}`)}
+            hideFooter
             emptyState={
-              <EmptyState
-                title="No exams yet"
-                description="Schedule an exam to invite trainees and start collecting results."
-                action={
-                  canSchedule ? (
-                    <Button asChild size="sm" className="gap-1.5">
-                      <Link href="/exams/new">
-                        <SendIcon className="size-4" />
-                        Schedule exam
-                      </Link>
-                    </Button>
-                  ) : undefined
-                }
-              />
+              <EmptyState title="No courses yet" description="Add a course, then build its question bank." />
             }
           />
         </TabsContent>
 
-        <TabsContent value="attempts" className="mt-4">
+        <TabsContent value="attempts" className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <MultiSelectFilter
+              label="Status"
+              options={ATTEMPT_STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] ?? s }))}
+              selected={statuses}
+              onChange={setStatuses}
+            />
+            <MultiSelectFilter
+              label="Course"
+              options={courses.map((c) => ({ value: c.id, label: c.name }))}
+              selected={courseIds}
+              onChange={setCourseIds}
+            />
+          </div>
           <DataTable
             columns={attemptColumns}
             data={attempts}
-            getRowId={(a) => a.id}
             isLoading={attemptsQuery.isLoading}
-            onRowClick={(a) => router.push(`/exams/attempts/${a.id}`)}
-            pageSize={20}
-            stickyHeader={false}
-            globalFilter={search}
+            getRowId={(a) => a.id}
+            onRowClick={(a) => router.push(`/exams/${a.course.id}/attempts/${a.id}`)}
             emptyState={
               <EmptyState
-                title="No attempts match"
-                description="Attempts appear once exam links are sent and trainees start the exam."
+                title="No sittings yet"
+                description="Once an exam is sent and opened, every sitting shows here."
               />
             }
           />

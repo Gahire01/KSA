@@ -78,6 +78,12 @@ export default function SendExamPage() {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [result, setResult] = React.useState<SendResult | null>(null);
 
+  /* /exams links here with ?courseId= so "Send exam" opens on the right course. */
+  React.useEffect(() => {
+    const preset = new URLSearchParams(window.location.search).get("courseId");
+    if (preset) setCourseId(preset);
+  }, []);
+
   const coursesQuery = useQuery({
     queryKey: ["courses", "send-options"],
     queryFn: async () => {

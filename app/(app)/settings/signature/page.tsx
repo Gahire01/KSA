@@ -38,6 +38,12 @@ interface SignatureRow {
 /** Canvas is 1400x400 internally and shown at 700x200: a 2x retina export. */
 const CANVAS_W = 1400;
 const CANVAS_H = 400;
+/**
+ * The 1400x400 drawing is printed about 60px tall (a 0.15 scale), so a stroke has
+ * to be ~20-26 canvas px to land at 3-4px on the certificate. The old 2-8px stroke
+ * printed as a hairline.
+ */
+const STROKE_BASE = 20;
 const MAX_UPLOAD = 2 * 1024 * 1024;
 
 type Point = { x: number; y: number; p: number };
@@ -61,7 +67,7 @@ function SignaturePad({ onChange }: { onChange: (blob: Blob | null) => void }) {
       if (stroke.length === 1) {
         const a = stroke[0];
         ctx.beginPath();
-        ctx.arc(a.x, a.y, 2 + a.p * 3, 0, Math.PI * 2);
+        ctx.arc(a.x, a.y, STROKE_BASE / 2 + a.p * 3, 0, Math.PI * 2);
         ctx.fillStyle = "#0F2340";
         ctx.fill();
         continue;
@@ -70,7 +76,7 @@ function SignaturePad({ onChange }: { onChange: (blob: Blob | null) => void }) {
         const a = stroke[i - 1];
         const b = stroke[i];
         ctx.beginPath();
-        ctx.lineWidth = 2 + ((a.p + b.p) / 2) * 6;
+        ctx.lineWidth = STROKE_BASE + ((a.p + b.p) / 2) * 6;
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
         ctx.stroke();

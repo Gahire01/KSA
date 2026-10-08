@@ -57,9 +57,9 @@ export const metadata: Metadata = {
       ? {
           images: [
             {
-              url: `${base}/logo.png`,
-              width: 512,
-              height: 512,
+              url: `${base}/og-image.png`,
+              width: 1200,
+              height: 630,
               alt: "Kigali Safety Academy",
             },
           ],
@@ -67,10 +67,10 @@ export const metadata: Metadata = {
       : {}),
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Kigali Safety Academy",
     description: ACADEMY.tagline,
-    ...(base ? { images: [`${base}/logo.png`] } : {}),
+    ...(base ? { images: [`${base}/og-image.png`] } : {}),
   },
   /* PWA. The manifest carries the icon list, so metadata only points at it —
    * keeping one source for the icons rather than two lists that drift. */

@@ -1,3 +1,38 @@
+## Morning summary — 2026-10-08 (verification + gap-closing run, from clone at ksa-work/KSA)
+
+The brief was run against a repo that earlier sessions had already worked through. This run audited every part against the current code and closed only the real gaps.
+
+Completed (verified in code, tsc + eslint clean):
+- Vercel build fix: build = "prisma generate && next build", postinstall, typecheck, engines node 20.x, packageManager pnpm@11.5.1 (09b90d7).
+- Real course text: prisma/seed.ts now carries the client's exact text for CONSTRUCT, OSH, FIRST, FIRE (idempotent upsert by code). Added categories "Construction Safety" and "Occupational Safety".
+- Placeholder removal + lib/academy/constants.ts (ACADEMY) as the single source.
+- OTP expiry UX: inline error, no redirect, immediate resend (/exam/[token], /login).
+- Email logo header on every template, including notification mail.
+- Legal pages, footer, cookie consent (ksa:cookie-consent), trainee consent checkbox.
+- Accessibility pass, security audit (see Part 7 notes above), SEO (robots, sitemap, llms.txt, 404, JSON-LD).
+- NEW this run: lib/env.ts (Zod; fails fast in production at server start via instrumentation.ts), public/og-image.png 1200x630 wired into OpenGraph/Twitter (summary_large_image), logo.png recompressed 667 KB -> 252 KB (same dimensions), scripts/gen-og.mjs.
+
+NOT DONE — could not be done from this machine (no .env.local, no Vercel/Neon/Resend access):
+- `pnpm exec prisma db seed` against the real database. Run it where DATABASE_URL + SEED_OWNER_PASSWORD are set. Re-seeding also resets every seeded course's fields (incl. price/duration) to the seed values, so edits the client made in the course editor to seeded courses will be overwritten.
+- Smoke tests 1-13 (login, signature, access link, exam email, certificate, QR, Lighthouse) and watching the Vercel deploy.
+- Nightly pg_dump to R2: not implemented; needs R2 credentials. Neon point-in-time restore is the interim safety net.
+- Git-history secret scan (Part 8B) and Neon role check (8I) need DB/remote access.
+- Bundle analysis (9R) not run.
+
+Decisions for the owner:
+- CONSTRUCT and OSH were created with priceRwf 0 and examDurationMin 60 because the client gave no fee or exam length. Set both in the course editor before enrolling anyone.
+- The seed still contains CHEM (inactive) and DRIVE, which are not among the 8 courses in the brief (CONSTRUCT, OSH, FIRST, FIRE, MAINT, SITE, ELEC, HEIGHT). That makes 10 courses total. They were left untouched rather than deleted; remove them if unwanted.
+- lib/env.ts makes a production server refuse to start if DATABASE_URL, SESSION_SECRET (>=32 chars), RESEND_API_KEY, EMAIL_FROM or APP_URL/NEXT_PUBLIC_APP_URL is missing. Confirm these are set in Vercel before the next deploy.
+- Set spend caps on Resend, Neon and Twilio.
+
+Deferred (owner input needed):
+- Real business details (address, phone, email, registration number) in lib/academy/constants.ts
+- Real legal text
+- Verify kigalisafety.dev on Resend
+- Twilio WhatsApp production sender
+
+---
+
 ## Session � 2026-10-05 17:03:07 +02:00 � Resume after PC crash
 
 ### git log --oneline -10

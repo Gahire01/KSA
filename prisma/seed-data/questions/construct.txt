@@ -1,0 +1,209 @@
+1. What is the main purpose of construction safety and health management?
+A. To make workers work faster
+B. To prevent injuries, illnesses, damage and loss of life
+C. To reduce the number of workers
+D. To increase project costs
+Answer: B
+
+2. What is a hazard?
+A. Something that has the potential to cause harm
+B. An injury that has already happened
+C. A safety meeting
+D. A safety certificate
+Answer: A
+
+3. What is risk?
+A. The number of workers on site
+B. The combination of the likelihood of harm and its potential severity
+C. The cost of a project
+D. The number of accidents reported
+Answer: B
+
+4. Which of the following is the most effective way to control a hazard?
+A. Wearing PPE
+B. Putting up a warning sign
+C. Eliminating the hazard
+D. Giving workers a toolbox talk
+Answer: C
+
+5. What does PPE mean?
+A. Personal Protection Equipment
+B. Personal Protective Equipment
+C. Project Protection Equipment
+D. Personal Prevention Equipment
+Answer: B
+
+6. What are man-hours in construction safety?
+A. The number of hours a machine operates
+B. The total hours worked by all employees
+C. The number of hours a project takes to complete
+D. The hours spent in meetings only
+Answer: B
+
+7. A construction project has 20 workers, and each works 8 hours in one day. How many man-hours are worked that day?
+A. 28 man-hours
+B. 80 man-hours
+C. 160 man-hours
+D. 200 man-hours
+Answer: C
+
+8. Why are man-hours important in safety management?
+A. They help measure safety performance and calculate incident rates
+B. They determine workers' ages
+C. They replace safety inspections
+D. They determine the amount of PPE required
+Answer: A
+
+9. What is a site safety induction?
+A. A meeting where workers receive their salaries
+B. An introduction to the site's hazards, rules, procedures and emergency arrangements
+C. A construction inspection
+D. A training course for engineers only
+Answer: B
+
+10. When should a new worker normally receive a site induction?
+A. After working for one month
+B. Before starting work on the site
+C. Only after an accident
+D. At the end of the project
+Answer: B
+
+11. Which information should normally be covered during a site induction?
+A. Site hazards and emergency procedures
+B. The manager's personal information
+C. Workers' private financial information
+D. Only the project budget
+Answer: A
+
+12. What is one of the major risks when working at height?
+A. Noise
+B. Falling from height
+C. Poor lighting only
+D. Heat from concrete
+Answer: B
+
+13. Before starting work at height, what should be done?
+A. Start immediately if the worker is experienced
+B. Assess the risks and put appropriate controls in place
+C. Remove all guardrails
+D. Work without PPE
+Answer: B
+
+14. What is the purpose of a guardrail on a working platform?
+A. To store materials
+B. To prevent people from falling
+C. To support electrical cables
+D. To make the platform look complete
+Answer: B
+
+15. When using a safety harness, the worker should:
+A. Wear it without checking it
+B. Ensure it is suitable, inspected and properly connected to an appropriate anchorage or lifeline
+C. Use any available rope as an anchor
+D. Connect it to a loose handrail
+Answer: B
+
+16. Which of the following is an unsafe practice when using a ladder?
+A. Inspecting the ladder before use
+B. Maintaining stable footing
+C. Standing on the top step where prohibited
+D. Keeping three points of contact where practicable
+Answer: C
+
+17. Why is good housekeeping important on a construction site?
+A. It only makes the site look clean
+B. It helps prevent slips, trips, falls, fires and other incidents
+C. It reduces the need for supervision
+D. It replaces PPE
+Answer: B
+
+18. What should a worker do after using materials or tools?
+A. Leave them wherever they were used
+B. Store them safely and keep access routes clear
+C. Throw them on the floor
+D. Leave them on scaffolding
+Answer: B
+
+19. Which situation is an example of poor housekeeping?
+A. Clear walkways
+B. Properly stored materials
+C. Electrical cables and waste blocking a walkway
+D. Clearly marked storage areas
+Answer: C
+
+20. What does LTI normally mean in occupational safety?
+A. Long Term Inspection
+B. Lost Time Injury
+C. Low Temperature Incident
+D. Labour Training Inspection
+Answer: B
+
+21. What is a Lost Time Injury (LTI)?
+A. An injury that results in the worker being unable to perform their normal work for a subsequent work period
+B. Any minor first-aid case
+C. Any equipment breakdown
+D. A safety meeting
+Answer: A
+
+22. Why is LTI information important to a construction company?
+A. It helps the company monitor safety performance and identify areas requiring improvement
+B. It is only used to calculate salaries
+C. It replaces risk assessments
+D. It is used only for marketing
+Answer: A
+
+23. A worker receives a minor cut and is treated at the site without losing work time. How would this generally be classified?
+A. LTI
+B. Fatality
+C. First Aid Case
+D. Lost Workday
+Answer: C
+
+24. What should happen after a serious workplace incident?
+A. Work should continue without reporting it
+B. The incident should be reported, the area controlled where necessary, and an investigation conducted
+C. Workers should discuss it privately and forget about it
+D. Evidence should be removed immediately
+Answer: B
+
+25. Who should operate a crane, excavator or other specialized construction equipment?
+A. Anyone who wants to try
+B. A competent and authorized person
+C. Any visitor
+D. A newly recruited worker without training
+Answer: B
+
+26. Why should workers never stand under a suspended load?
+A. The load may fall or move unexpectedly and cause serious injury
+B. It can damage their PPE
+C. It makes the crane work slowly
+D. It creates noise
+Answer: A
+
+27. Before entering an excavation, what should be considered?
+A. Only the depth
+B. Ground stability, access, protective systems, underground services and other hazards
+C. The colour of the soil
+D. The number of workers outside the excavation
+Answer: B
+
+28. What should a worker do when they identify a serious unsafe condition?
+A. Ignore it
+B. Report it and, where appropriate, stop or avoid the unsafe activity until it is controlled
+C. Wait for an accident to happen
+D. Take a photograph and leave without reporting
+Answer: B
+
+29. What is a near miss?
+A. An event that could have caused injury, illness or damage but did not
+B. An event where a worker takes annual leave
+C. A completed safety inspection
+D. A planned toolbox talk
+Answer: A
+
+30. Who is responsible for safety on a construction site?
+A. Only the Safety Officer
+B. Only the Project Manager
+C. Everyone has a responsibility to work safely and follow their assigned safety responsibilities
+D. Only the client
+Answer: C

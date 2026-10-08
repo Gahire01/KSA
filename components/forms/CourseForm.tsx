@@ -41,6 +41,7 @@ import {
   useCreateCourse,
   useUpdateCourse,
 } from "@/lib/api/hooks";
+import { EXAM_DURATION_MIN, MAX_ATTEMPTS, PASS_MARK_PCT } from "@/lib/exams/rules";
 import { formatRwf } from "@/lib/utils/format";
 import type { Category } from "@/lib/types";
 
@@ -100,9 +101,9 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       durationUnit: "day",
       priceRwf: 45000,
       /* The academy's rules: 50% to pass, two attempts. */
-      passMarkPct: 50,
-      maxAttempts: 2,
-      examDurationMin: 45,
+      passMarkPct: PASS_MARK_PCT,
+      maxAttempts: MAX_ATTEMPTS,
+      examDurationMin: EXAM_DURATION_MIN,
       trainerId: "",
       isActive: true,
     },

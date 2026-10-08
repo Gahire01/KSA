@@ -47,6 +47,9 @@ interface AttemptDetail {
 type LinkAction = "extend" | "reset" | "reissue";
 
 const FLAG_LABEL: Record<string, string> = {
+  tab_leave: "Left the exam window",
+  tab_leave_fail: "Second window leave (auto-submitted, failed)",
+  /* Written by earlier versions of the runner; kept so old attempts still read. */
   blur: "Focus lost",
   focus_blur: "Focus lost",
   too_many_blurs: "Too many focus losses (auto-submitted)",

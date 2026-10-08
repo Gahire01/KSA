@@ -5,20 +5,17 @@ import { apiFail } from "@/lib/api/response";
 import { loadAttemptByToken } from "@/lib/exams/attempt";
 import { finalizeAttempt } from "@/lib/exams/finalize";
 import { appendIntegrityFlag } from "@/lib/exams/flags";
+import { TAB_LEAVE_FAIL_AT } from "@/lib/exams/rules";
 import { readExamSession } from "@/lib/exams/session-cookie";
 
 const INTEGRITY_LIMIT = { max: 30, windowMs: 60 * 1000 } as const;
 
-/** More than this many focus losses ends the sitting. */
-const MAX_BLURS = 5;
-
 /**
- * Flag types the runner may report. `too_many_blurs` is deliberately absent: only
- * the server writes it, when it ends a sitting for exceeding MAX_BLURS.
+ * Flag types the runner may report. `tab_leave_fail` is deliberately absent: only
+ * the server writes it, when it ends a sitting on the second tab leave.
  */
 const CLIENT_FLAG_TYPES = [
-  "blur",
-  "focus_blur",
+  "tab_leave",
   "copy_attempt",
   "cut_attempt",
   "paste_attempt",
@@ -26,16 +23,15 @@ const CLIENT_FLAG_TYPES = [
   "shortcut",
   "print_attempt",
   "devtools_suspected",
-  "tab_switch",
 ];
 
 /**
  * POST /api/exams/attempts/:token/integrity-flag { type }
  *
  * The runner reports something worth a human's attention. Rate limited 30 a
- * minute per token. The server owns the focus-loss rule: when the blur count
- * passes MAX_BLURS the sitting is graded and closed here, so a client that is
- * patched to skip its own auto-submit gains nothing.
+ * minute per token. The server owns the tab-leave rule: the first leave is a
+ * warning, and on the second the sitting is graded as FAILED and closed here, so
+ * a client that is patched to skip its own handling gains nothing.
  */
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
@@ -66,11 +62,11 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     return apiFail("Invalid flag type.", 422);
   }
 
-  const isBlur = type === "blur" || type === "focus_blur";
-  const blurCount = await appendIntegrityFlag(attempt.id, type, { countsAsBlur: isBlur });
+  const isLeave = type === "tab_leave";
+  const leaveCount = await appendIntegrityFlag(attempt.id, type, { countsAsBlur: isLeave });
 
-  if (isBlur && blurCount !== null && blurCount > MAX_BLURS) {
-    const result = await finalizeAttempt(attempt, { token, autoFlag: "too_many_blurs" });
+  if (isLeave && leaveCount !== null && leaveCount >= TAB_LEAVE_FAIL_AT) {
+    const result = await finalizeAttempt(attempt, { token, autoFlag: "tab_leave_fail" });
     /* Only claim the auto-submit when this request actually ended the sitting. If the
      * trainee's own submit won the race, `alreadySubmitted` is set and they are shown
      * their normal result instead of a message about leaving the window. */
@@ -79,5 +75,5 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     }
   }
 
-  return NextResponse.json({ ok: true, data: { recorded: true, blurCount } });
+  return NextResponse.json({ ok: true, data: { recorded: true, blurCount: leaveCount } });
 }

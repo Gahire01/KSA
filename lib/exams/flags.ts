@@ -22,11 +22,20 @@ export async function appendIntegrityFlag(
   const flag = { type, at: new Date().toISOString(), reviewed: false };
   const increment = options.countsAsBlur ? 1 : 0;
 
+  /* A leave is logged as { type: "tab_leave", at, count }, `count` being the running
+   * total including this one. It is computed in the same statement as the increment
+   * (the right-hand side still sees the old "blurCount"), so two racing leaves cannot
+   * both claim to be the first. */
   await prisma.$executeRaw`
     UPDATE "ExamAttempt"
     SET "integrityFlags" = CASE
           WHEN jsonb_array_length(COALESCE("integrityFlags", '[]'::jsonb)) < ${MAX_FLAGS}
-            THEN COALESCE("integrityFlags", '[]'::jsonb) || ${JSON.stringify([flag])}::jsonb
+            THEN COALESCE("integrityFlags", '[]'::jsonb) ||
+                 jsonb_build_array(${JSON.stringify(flag)}::jsonb ||
+                   CASE WHEN ${increment} = 1
+                     THEN jsonb_build_object('count', "blurCount" + 1)
+                     ELSE '{}'::jsonb
+                   END)
           ELSE "integrityFlags"
         END,
         "blurCount" = "blurCount" + ${increment}

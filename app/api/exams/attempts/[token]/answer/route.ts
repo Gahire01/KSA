@@ -6,6 +6,7 @@ import { apiFail, zodMessage } from "@/lib/api/response";
 import { prisma } from "@/lib/db";
 import { loadAttemptByToken, manifestOf, secondsPastDeadline } from "@/lib/exams/attempt";
 import { SUBMIT_GRACE_SECONDS } from "@/lib/exams/finalize";
+import { TAB_LEAVE_FAIL_AT } from "@/lib/exams/rules";
 import { readExamSession } from "@/lib/exams/session-cookie";
 
 /**
@@ -42,6 +43,10 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   if (!(await readExamSession(token, attempt.id))) {
     return apiFail("Enter the code we emailed you to open this exam.", 401);
   }
+
+  /* A sitting that has used up its tab leaves takes no more answers, even in the
+   * instant before the integrity route finishes closing it. */
+  if (attempt.blurCount >= TAB_LEAVE_FAIL_AT) return apiFail("This exam has ended.", 410);
 
   /* The grace covers the final autosave that races the submit; past it nothing
    * more is accepted, so a late submit can only ever grade what was saved in time. */

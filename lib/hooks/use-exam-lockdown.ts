@@ -15,15 +15,17 @@ import { api } from "@/lib/api/client";
  * route, not here).
  *
  * Blocked, each with a short toast and a recorded flag: right-click, F12,
- * Ctrl/Cmd+Shift+I/J/C, Ctrl/Cmd+U/S/P/A, copy, cut and paste. Focus loss
- * (tab hidden or window blur) is counted once per departure. PrintScreen blurs
+ * Ctrl/Cmd+Shift+I/J/C, Ctrl/Cmd+U/S/P/A, copy, cut and paste. Leaving the exam
+ * window (tab hidden or window blur) is counted once per departure: the first is
+ * a warning shown on return, the second fails the sitting (the server decides).
+ * PrintScreen blurs
  * the paper for a second. Developer tools are guessed from window geometry and
  * only ever flagged: never an automatic failure, since a docked side panel or a
  * zoomed window triggers the same signal.
  */
 
 export type FlagType =
-  | "blur"
+  | "tab_leave"
   | "copy_attempt"
   | "cut_attempt"
   | "paste_attempt"
@@ -39,6 +41,9 @@ export interface LockdownResult {
   fullscreen: boolean;
   /** True for a second after PrintScreen: blur the paper. */
   screenHidden: boolean;
+  /** True from the moment the trainee returns from their first leave until they dismiss it. */
+  leaveWarning: boolean;
+  dismissLeaveWarning: () => void;
   requestFullscreen: () => void;
 }
 
@@ -64,6 +69,8 @@ export function useExamLockdown(options: {
   const [blurCount, setBlurCount] = React.useState(0);
   const [fullscreen, setFullscreen] = React.useState(false);
   const [screenHidden, setScreenHidden] = React.useState(false);
+  const [leaveWarning, setLeaveWarning] = React.useState(false);
+  const dismissLeaveWarning = React.useCallback(() => setLeaveWarning(false), []);
 
   const onAutoSubmittedRef = React.useRef(onAutoSubmitted);
   React.useEffect(() => {
@@ -88,7 +95,8 @@ export function useExamLockdown(options: {
           if (typeof data.blurCount === "number") setBlurCount(data.blurCount);
           if (data.autoSubmitted) {
             ended = true;
-            toast.error("Your exam was submitted because you left the exam window too many times.");
+            setLeaveWarning(false);
+            toast.error("You left the exam window a second time. Your exam was submitted and marked as failed.");
             onAutoSubmittedRef.current(data.result);
           }
         })
@@ -158,9 +166,12 @@ export function useExamLockdown(options: {
       away = true;
       lastBlur = now;
       setBlurCount((n) => n + 1);
-      report("blur");
+      report("tab_leave");
     };
     const returned = () => {
+      /* Only a real departure that has been reported earns the warning; a focus event
+       * with no preceding leave (page load, fullscreen toggle) must not. */
+      if (away) setLeaveWarning(true);
       away = false;
     };
     const onVisibility = () => {
@@ -214,5 +225,5 @@ export function useExamLockdown(options: {
     void document.documentElement.requestFullscreen?.().catch(() => undefined);
   }, []);
 
-  return { blurCount, fullscreen, screenHidden, requestFullscreen };
+  return { blurCount, fullscreen, screenHidden, leaveWarning, dismissLeaveWarning, requestFullscreen };
 }

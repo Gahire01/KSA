@@ -63,6 +63,8 @@ export interface RunnerResult {
   maxAttempts: number;
   attemptsRemaining: number;
   exhausted: boolean;
+  /** Set when the sitting was ended by leaving the exam window twice. */
+  reason?: "tab_leave" | null;
   certificate: {
     id: string;
     studentNumber: number;
@@ -98,10 +100,10 @@ export function ExamRunner({
   const saveTimer = React.useRef<number | null>(null);
   const autoSubmitted = React.useRef(false);
 
-  /* Lockdown: blocked actions, focus-loss counting, fullscreen state. The server
-   * owns the consequence: past five focus losses it closes the sitting itself and
-   * tells us so here. */
-  const { blurCount, fullscreen, screenHidden, requestFullscreen } = useExamLockdown({
+  /* Lockdown: blocked actions, tab-leave counting, fullscreen state. The server
+   * owns the consequence: the second time the trainee leaves the window it fails and
+   * closes the sitting itself and tells us so here. */
+  const { blurCount, fullscreen, screenHidden, leaveWarning, dismissLeaveWarning, requestFullscreen } = useExamLockdown({
     token,
     onAutoSubmitted: (result) => {
       autoSubmitted.current = true;
@@ -258,7 +260,7 @@ export function ExamRunner({
             <p className="truncate text-sm font-semibold text-ink">{paper.courseName}</p>
             <p className="truncate text-xs text-ink-2">
               Question {index + 1} of {questions.length} · {answered} answered
-              {blurCount > 0 ? ` · Focus lost: ${blurCount}` : ""}
+              {blurCount > 0 ? ` · Window left: ${blurCount}` : ""}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -410,8 +412,7 @@ export function ExamRunner({
             {blurCount > 0 ? (
               <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-amber-bg px-3 py-2 text-xs text-amber">
                 <EyeOffIcon className="mt-0.5 size-3.5 shrink-0" />
-                Leaving the exam window {blurCount === 1 ? "has been" : "has"} recorded{" "}
-                {blurCount === 1 ? "once" : `${blurCount} times`} and will be shown to staff.
+                You left the exam window once. Leaving it again will end your exam and mark it as failed.
               </p>
             ) : null}
           </CardContent>
@@ -437,6 +438,31 @@ export function ExamRunner({
         confirmLabel="Submit exam"
         onConfirm={() => void submit()}
       />
+
+      {leaveWarning ? (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="leave-warning-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy/90 px-4"
+        >
+          <div className="w-full max-w-md space-y-4 rounded-2xl bg-card p-6 text-center shadow-xl">
+            <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-red-bg text-red" aria-hidden>
+              <AlertTriangleIcon className="size-6" />
+            </span>
+            <h2 id="leave-warning-title" className="font-display text-xl font-semibold text-ink">
+              Warning: you left the exam
+            </h2>
+            <p className="text-sm text-ink-2">
+              This is your only warning. If you leave this window again, your exam is submitted at once and marked as
+              failed, whatever your score. Your clock kept running.
+            </p>
+            <Button className="w-full" onClick={dismissLeaveWarning}>
+              I understand, continue the exam
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -470,7 +496,11 @@ export function ExamSubmitted({
 
           <div>
             <h1 className="font-display text-2xl font-semibold text-ink">
-              {passed ? "Congratulations, you passed" : "Not passed this time"}
+              {passed
+                ? "Congratulations, you passed"
+                : result.reason === "tab_leave"
+                  ? "Exam ended: you left the exam window twice"
+                  : "Not passed this time"}
             </h1>
             <p className="mt-1 text-sm text-ink-2">
               {courseName} · submitted {formatDateTime(submittedAt)}

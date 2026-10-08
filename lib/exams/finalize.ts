@@ -9,6 +9,7 @@ import {
 } from "@/lib/exams/attempt";
 import { appendIntegrityFlag } from "@/lib/exams/flags";
 import { issueAttempt } from "@/lib/exams/issue-attempt";
+import { isPass } from "@/lib/exams/rules";
 import { clearExamSessionCookie } from "@/lib/exams/session-cookie";
 import { emit, ownerAndTrainerIds } from "@/lib/notifications/emit";
 
@@ -47,6 +48,17 @@ export async function recordedResult(attempt: LoadedAttempt): Promise<FinalizeRe
 
   const maxAttempts = attempt.course.maxAttempts;
 
+  /* A FAILED attempt is not necessarily the last one: a tab-leave fail with a try left
+   * is FAILED too. Exhaustion is judged on sittings taken, as at first grading. */
+  const sittings = await prisma.examAttempt.count({
+    where: {
+      traineeId: attempt.traineeId,
+      courseId: attempt.courseId,
+      status: { in: ["SUBMITTED", "PASSED", "FAILED"] },
+    },
+  });
+  const exhausted = attempt.status !== "PASSED" && sittings >= maxAttempts;
+
   return {
     ok: true,
     data: {
@@ -56,7 +68,7 @@ export async function recordedResult(attempt: LoadedAttempt): Promise<FinalizeRe
        * raced submit exactly as it would the original (a PASSED trainee must not be
        * shown "Not passed" because `passed` came back undefined). */
       passed: attempt.status === "PASSED",
-      exhausted: attempt.status === "FAILED",
+      exhausted,
       attemptNumber: attempt.attemptNumber,
       maxAttempts,
       attemptsRemaining: Math.max(0, maxAttempts - attempt.attemptNumber),
@@ -78,7 +90,7 @@ export async function recordedResult(attempt: LoadedAttempt): Promise<FinalizeRe
 
 export async function finalizeAttempt(
   attempt: LoadedAttempt,
-  options: { token: string; autoFlag?: "too_many_blurs" },
+  options: { token: string; autoFlag?: "tab_leave_fail" },
 ): Promise<FinalizeResult> {
   const manifest = manifestOf(attempt);
   if (!manifest) return { ok: false, status: 500, error: "This exam paper could not be read." };
@@ -117,9 +129,9 @@ export async function finalizeAttempt(
   const totalCount = questionIds.length;
   const scorePct = totalCount === 0 ? 0 : Math.round((correctCount / totalCount) * 100);
   const passMarkPct = attempt.course.passMarkPct;
-  /* Compared exactly, not on the rounded percentage: 99 of 200 is 49.5% and must not
-   * round up into a pass on a 50% mark. */
-  const passed = totalCount > 0 && correctCount * 100 >= passMarkPct * totalCount;
+  /* A tab-leave fail overrides the score: the sitting is lost whatever was answered. */
+  const forcedFail = options.autoFlag === "tab_leave_fail";
+  const passed = !forcedFail && isPass(correctCount, totalCount, passMarkPct);
 
   /* Running out of attempts closes the enrolment as FAILED rather than leaving it
    * pending forever. An owner-granted extra attempt works the same way. */
@@ -135,7 +147,7 @@ export async function finalizeAttempt(
   });
   const sittingsUsed = priorSittings + 1;
   const exhausted = !passed && sittingsUsed >= attempt.course.maxAttempts;
-  const status = passed ? "PASSED" : exhausted ? "FAILED" : "SUBMITTED";
+  const status = passed ? "PASSED" : exhausted || forcedFail ? "FAILED" : "SUBMITTED";
 
   const now = new Date();
   const ip = await requestIp();
@@ -319,6 +331,7 @@ export async function finalizeAttempt(
       exhausted,
       nextAttempt,
       certificate,
+      reason: forcedFail ? "tab_leave" : null,
     },
   };
 }

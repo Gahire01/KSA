@@ -161,7 +161,7 @@ model Course {
   passMarkPct     Int          @default(50)
   maxAttempts     Int          @default(2)
   validityMonths  Int?
-  examDurationMin Int          @default(30)
+  examDurationMin Int          @default(60)
   /// User.id of the trainer assigned to this course.
   trainerId       String?
   isActive        Boolean      @default(true)

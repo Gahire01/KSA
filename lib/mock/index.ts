@@ -125,6 +125,7 @@ const defaultMatrix: Record<NotificationType, Record<"inapp" | "email" | "whatsa
   "trainee.enrolled": { inapp: true, email: false, whatsapp: false },
   "deadline.approaching": { inapp: true, email: true, whatsapp: true },
   "certificate.issued": { inapp: true, email: true, whatsapp: false },
+  "certificate.revoked": { inapp: true, email: false, whatsapp: false },
   "exam.link.expiring": { inapp: true, email: true, whatsapp: true },
   system: { inapp: true, email: false, whatsapp: false },
 };

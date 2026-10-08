@@ -89,6 +89,7 @@ export type NotificationType =
   | "trainee.enrolled"
   | "deadline.approaching"
   | "certificate.issued"
+  | "certificate.revoked"
   | "exam.link.expiring"
   | "system";
 

@@ -5,6 +5,7 @@ import { actorOf, audit } from "@/lib/audit";
 import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { emit, ownerAndTrainerIds, ownerIds } from "@/lib/notifications/emit";
 import { REGISTER_MAX_STUDENT_NUMBER } from "../../../scripts/student-list/register-numbers";
 
 export const traineeInclude = {
@@ -167,6 +168,13 @@ export async function POST(request: Request) {
         entityType: "Trainee",
         entityId: trainee.id,
         meta: { traineeNo: trainee.traineeNo, courseId },
+      });
+
+      await emit("trainee.enrolled", {
+        recipients: (courseId ? await ownerAndTrainerIds(courseId) : await ownerIds()).map((userId) => ({ userId })),
+        title: "New trainee enrolled",
+        link: `/trainees/${trainee.id}`,
+        body: `${trainee.fullName} (${trainee.traineeNo}) was enrolled${trainee.course ? ` in ${trainee.course.name}` : ""}.`,
       });
 
       return apiOk(trainee, 201);

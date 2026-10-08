@@ -49,6 +49,7 @@ const EVENT_LABEL: Record<NotificationType, string> = {
   "trainee.enrolled": "Trainee enrolled",
   "deadline.approaching": "Deadline approaching",
   "certificate.issued": "Certificate issued",
+  "certificate.revoked": "Certificate revoked",
   "exam.link.expiring": "Exam link expiring",
   system: "System announcements",
 };

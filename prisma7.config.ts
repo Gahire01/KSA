@@ -14,9 +14,18 @@ for (const file of [".env.local", ".env"]) {
 }
 
 
-const url = process.env["DATABASE_URL"];
+/**
+ * `prisma generate` (run by postinstall and by `build`) writes the client from the
+ * schema alone and never opens a connection, so it must not need a database URL: a
+ * fresh install or a CI/Vercel build step without the variable would otherwise fail
+ * here and leave `lib/generated/prisma` missing, which is what breaks `next build`
+ * with "Can't resolve '@/lib/generated/prisma/client'". Commands that do connect
+ * still insist on a real URL.
+ */
+const needsDatabase = process.argv.some((arg) => ["migrate", "db", "studio"].includes(arg));
+const url = process.env["DATABASE_URL"] ?? "";
 
-if (!url) {
+if (!url && needsDatabase) {
   throw new Error(
     "DATABASE_URL is not set. Add it to .env.local (gitignored) before running Prisma.",
   );

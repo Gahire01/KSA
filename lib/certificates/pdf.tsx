@@ -17,15 +17,16 @@ import { join } from "node:path";
  * A course retitled or a trainee renamed next month must not change a certificate
  * somebody is already holding, so everything printed here is frozen at issue time.
  *
- * Layout:
- *   top     logo, KIGALI SAFETY ACADEMY, divider
+ * Layout (kept identical to the on-screen preview in app/(app)/certificates/[id]):
+ *   top     logo top-right; KIGALI SAFETY ACADEMY centred; orange divider
  *   centre  "This is to certify that", trainee name, the completion line, the
  *           course in capitals, the topics covered
- *   bottom  three columns: signature block | QR code to the verify page |
- *           student number, issue date, duration
+ *   bottom  signature block (left) | one line: Student#, Issued, Duration
+ *           (centre) | QR code to the verify page (bottom-right, uncaptioned)
  *
  * Sizes are the web spec's pixels converted to PDF points (x 0.75). There is no
- * expiry anywhere on it: a certificate does not lapse.
+ * expiry, "valid until" or revoked marking anywhere on it: a certificate does not
+ * lapse, and revocation is shown on the public verification page.
  *
  * Fonts are the built-in Helvetica family, so a render never depends on the
  * network or on a font file being shipped.
@@ -45,7 +46,6 @@ export interface CertificateDoc {
   /** Data URI (PNG) of the QR code for `verifyUrl`. */
   qrSrc?: string | null;
   verifyUrl: string;
-  status: string;
 }
 
 const palette = {
@@ -54,8 +54,6 @@ const palette = {
   navy: "#0F2340",
   orange: "#E8590C",
   line: "#D8D3CB",
-  green: "#166534",
-  red: "#B91C1C",
   paper: "#FFFFFF",
 };
 
@@ -66,57 +64,50 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica",
     color: palette.ink,
   },
+  /* Navy 2px outer border; the thin orange one sits inside it. */
   frame: {
-    borderWidth: 2,
-    borderColor: palette.green,
-    padding: 14,
+    borderWidth: 1.5,
+    borderColor: palette.navy,
+    padding: 10,
     flex: 1,
   },
   innerFrame: {
-    borderWidth: 0.5,
-    borderColor: palette.line,
+    borderWidth: 0.75,
+    borderColor: palette.orange,
     flex: 1,
     alignItems: "center",
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingTop: 22,
+    paddingBottom: 16,
     paddingHorizontal: 28,
   },
-  logo: { width: 60, height: 60 },
+  logo: { position: "absolute", top: 14, right: 20, width: 60, height: 60 },
   org: {
     fontFamily: "Helvetica-Bold",
     fontSize: 21,
-    letterSpacing: 1.6,
+    letterSpacing: 2.5,
     color: palette.navy,
-    marginTop: 8,
+    marginTop: 26,
   },
-  divider: { width: 90, height: 1, backgroundColor: palette.line, marginTop: 8 },
-  certifies: { fontSize: 11, color: palette.ink2, marginTop: 14 },
+  divider: { width: 90, height: 1, backgroundColor: palette.orange, marginTop: 8 },
+  certifies: { fontSize: 10.5, color: palette.ink2, marginTop: 18 },
   name: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 26,
+    fontSize: 25.5,
     color: palette.navy,
-    marginTop: 6,
+    marginTop: 8,
     textAlign: "center",
   },
-  body: { fontSize: 11, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 560 },
+  body: { fontSize: 10.5, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 560 },
   course: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 17,
+    fontSize: 19.5,
     color: palette.orange,
     textTransform: "uppercase",
     textAlign: "center",
     marginTop: 8,
     maxWidth: 640,
   },
-  topics: { fontSize: 10, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 640 },
-  revoked: {
-    marginTop: 10,
-    borderWidth: 1.5,
-    borderColor: palette.red,
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-  },
-  revokedText: { fontSize: 10, color: palette.red, letterSpacing: 1.6 },
+  topics: { fontSize: 8.25, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 540 },
   bottom: {
     marginTop: "auto",
     width: "100%",
@@ -125,19 +116,27 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 10,
   },
-  colLeft: { width: "32%", alignItems: "center" },
-  colCenter: { width: "24%", alignItems: "center" },
-  colRight: { width: "32%", alignItems: "flex-end" },
-  /* Both signature columns reserve the same 60pt band, bottom-aligned, so the
-   * signature line sits on one baseline whether or not an image is present. */
-  signatureBand: { height: 45, width: 135, justifyContent: "flex-end", alignItems: "center" },
-  signatureImage: { maxWidth: 135, maxHeight: 45, objectFit: "contain" },
-  signatureLine: { width: "100%", height: 0.5, backgroundColor: palette.ink2, marginBottom: 4 },
-  signatureName: { fontFamily: "Helvetica-Bold", fontSize: 10.5, color: palette.navy },
-  signatureTitle: { fontSize: 8.5, color: palette.ink2, marginTop: 2 },
-  qr: { width: 66, height: 66 },
-  qrLabel: { fontSize: 7, color: palette.ink2, marginTop: 3, letterSpacing: 0.8 },
-  factLine: { fontSize: 10, color: palette.ink2, marginTop: 3 },
+  /* Left and right take equal space so the centre line is truly centred. */
+  colLeft: { flex: 1, alignItems: "flex-start" },
+  colCenter: { alignItems: "center", paddingBottom: 2 },
+  colRight: { flex: 1, alignItems: "flex-end" },
+  /* The 45pt band is the 60px signature height; bottom-aligned so the line sits on
+   * one baseline whether or not an image is present. */
+  signatureBlock: { width: 180 },
+  signatureBand: { height: 45, width: 180, justifyContent: "flex-end", alignItems: "center" },
+  signatureImage: { maxWidth: 180, maxHeight: 45, objectFit: "contain" },
+  signatureLine: { width: 180, height: 1.5, backgroundColor: palette.ink },
+  signatureName: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10.5,
+    color: palette.navy,
+    marginTop: 3,
+    textAlign: "center",
+    width: 180,
+  },
+  signatureTitle: { fontSize: 8.5, color: palette.ink2, marginTop: 1, textAlign: "center", width: 180 },
+  qr: { width: 67.5, height: 67.5 },
+  factLine: { fontSize: 8.25, color: palette.ink2 },
   factStrong: { fontFamily: "Helvetica-Bold", color: palette.navy },
   footer: { position: "absolute", bottom: 8, left: 28, right: 28, alignItems: "center" },
   footerText: { fontSize: 7, color: palette.ink2 },
@@ -224,8 +223,6 @@ export function CertificateDocument({
 }: ReactPdfDocumentProps & { doc: CertificateDoc }) {
   registerFonts();
 
-  const revoked = doc.status === "REVOKED";
-  const accent = revoked ? palette.red : palette.green;
   const logo = getLogo();
   const signature: Asset =
     doc.signatureSrc === undefined
@@ -242,7 +239,7 @@ export function CertificateDocument({
       keywords={`certificate,${doc.studentNumber},ksa`}
     >
       <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={[styles.frame, { borderColor: accent }]}>
+        <View style={styles.frame}>
           <View style={styles.innerFrame}>
             {logo ? (
               // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
@@ -261,43 +258,34 @@ export function CertificateDocument({
               <Text style={styles.topics}>Topics covered : {doc.topics.join(" , ")}</Text>
             ) : null}
 
-            {revoked ? (
-              <View style={styles.revoked}>
-                <Text style={styles.revokedText}>REVOKED — NOT VALID</Text>
-              </View>
-            ) : null}
-
             <View style={styles.bottom}>
               <View style={styles.colLeft}>
-                <View style={styles.signatureBand}>
-                  {signature ? (
-                    // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
-                    <Image src={signature.src} style={styles.signatureImage} />
-                  ) : null}
+                <View style={styles.signatureBlock}>
+                  <View style={styles.signatureBand}>
+                    {signature ? (
+                      // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+                      <Image src={signature.src} style={styles.signatureImage} />
+                    ) : null}
+                  </View>
+                  <View style={styles.signatureLine} />
+                  <Text style={styles.signatureName}>{doc.directorName}</Text>
+                  <Text style={styles.signatureTitle}>{doc.directorTitle}</Text>
                 </View>
-                <View style={styles.signatureLine} />
-                <Text style={styles.signatureName}>{doc.directorName}</Text>
-                <Text style={styles.signatureTitle}>{doc.directorTitle}</Text>
               </View>
 
               <View style={styles.colCenter}>
+                <Text style={styles.factLine}>
+                  Student# <Text style={styles.factStrong}>{doc.studentNumber}</Text>
+                  {"   ·   "}Issued <Text style={styles.factStrong}>{formatDate(doc.issuedAt)}</Text>
+                  {"   ·   "}Duration <Text style={styles.factStrong}>{doc.duration}</Text>
+                </Text>
+              </View>
+
+              <View style={styles.colRight}>
                 {doc.qrSrc ? (
                   // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
                   <Image src={doc.qrSrc} style={styles.qr} />
                 ) : null}
-                <Text style={styles.qrLabel}>SCAN TO VERIFY</Text>
-              </View>
-
-              <View style={styles.colRight}>
-                <Text style={styles.factLine}>
-                  Student <Text style={styles.factStrong}>#{doc.studentNumber}</Text>
-                </Text>
-                <Text style={styles.factLine}>
-                  Issued <Text style={styles.factStrong}>{formatDate(doc.issuedAt)}</Text>
-                </Text>
-                <Text style={styles.factLine}>
-                  Duration <Text style={styles.factStrong}>{doc.duration}</Text>
-                </Text>
               </View>
             </View>
           </View>

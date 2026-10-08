@@ -38,6 +38,8 @@ const CATEGORIES = [
   "Site Security",
   "Electrical Safety",
   "Working at Height",
+  "Construction Safety",
+  "Occupational Safety",
 ] as const;
 
 type SeedCourse = {
@@ -60,20 +62,66 @@ type SeedCourse = {
  */
 const COURSES: SeedCourse[] = [
   {
-    code: "FIRE",
-    name: "Fire Safety Level 1",
-    category: "Firefighters",
+    code: "CONSTRUCT",
+    name: "Construction Safety And Health Management",
+    category: "Construction Safety",
     description:
-      "Foundational fire behaviour, classes of fire, extinguisher selection, evacuation procedure and hot-work permitting for site personnel.",
+      "The Construction Safety and Health Management course equips learners with essential skills to identify hazards, assess risks, and implement effective safety controls on construction sites. It focuses on accident prevention, safe work practices, use of PPE, and emergency preparedness, with the aim of strengthening workplace safety and promoting a strong safety culture in construction projects. In addition to classroom sessions, the course includes onsite learning through construction site visits, providing participants with practical exposure and real-life understanding of safety management in active project environments.",
     topics: [
-      "Fire Classes & Behavior",
-      "Extinguisher Types & Use",
-      "Evacuation Procedures",
-      "Fire Prevention",
-      "Emergency Response",
+      "Management Leadership",
+      "Worker Participation",
+      "Hazard Identification",
+      "Risk Assessment",
+      "Prevention and Control",
+      "PPE and Safe Work Practices",
+      "Emergency Preparedness",
+      "Onsite Practical Assessment",
     ],
     durationValue: 3,
-    durationUnit: "DAY",
+    durationUnit: "MONTH",
+    /* Fee and exam length were not supplied by the client — set in the course editor. */
+    priceRwf: 0,
+    validityMonths: null,
+    examDurationMin: 60,
+  },
+  {
+    code: "OSH",
+    name: "Occupational Safety and Health",
+    category: "Occupational Safety",
+    description:
+      "Occupational Safety and Health (OSH) is the discipline concerned with protecting the safety, health, and welfare of workers in all workplaces by identifying hazards, assessing risks, and implementing effective preventive and control measures to reduce accidents, injuries, and occupational diseases. It promotes safe working practices, proper use of personal protective equipment, compliance with legal requirements, and continuous improvement of workplace safety systems to ensure a safe and healthy working environment for all employees.",
+    topics: [
+      "Hazard Identification",
+      "Risk Assessment",
+      "Preventive and Control Measures",
+      "Personal Protective Equipment",
+      "Legal Compliance",
+      "Workplace Safety Systems",
+      "Continuous Improvement",
+    ],
+    durationValue: 3,
+    durationUnit: "MONTH",
+    /* Fee and exam length were not supplied by the client — set in the course editor. */
+    priceRwf: 0,
+    validityMonths: null,
+    examDurationMin: 60,
+  },
+  {
+    code: "FIRE",
+    name: "Fire Fighting Training",
+    category: "Firefighters",
+    description:
+      "Fire Fighting training provides essential knowledge and practical skills to prevent, control, and respond to fire emergencies in the workplace and other environments. It focuses on understanding fire hazards, safe use of fire extinguishers, evacuation procedures, and emergency response techniques to protect lives, property, and the environment by ensuring timely and effective action during fire incidents.",
+    topics: [
+      "Fire Classes & Behavior",
+      "Fire Hazards",
+      "Extinguisher Types & Safe Use",
+      "Evacuation Procedures",
+      "Emergency Response Techniques",
+      "Fire Prevention",
+    ],
+    durationValue: 3,
+    durationUnit: "MONTH",
     priceRwf: 120_000,
     validityMonths: null,
     examDurationMin: 45,
@@ -99,19 +147,20 @@ const COURSES: SeedCourse[] = [
   },
   {
     code: "FIRST",
-    name: "First Aid & CPR",
+    name: "First Aid",
     category: "First Aid",
     description:
-      "Scene safety, primary survey, recovery position, CPR on adults and children, and treatment of bleeding, burns and shock.",
+      "First Aid training provides essential knowledge and practical skills to respond to medical emergencies in workplaces and everyday situations. It focuses on giving immediate care to an injured or suddenly ill person before professional medical help arrives, with the aim of preserving life, preventing the condition from worsening, and supporting recovery through basic emergency procedures such as wound care, bleeding control, and basic life support.",
     topics: [
       "First Aid Principles",
       "CPR & AED",
       "Bleeding Control & Wound Care",
       "Fractures & Injuries",
       "Burns Management",
+      "Basic Life Support",
       "Emergency Response & Practical Assessments",
     ],
-    durationValue: 2,
+    durationValue: 1,
     durationUnit: "DAY",
     priceRwf: 85_000,
     validityMonths: null,

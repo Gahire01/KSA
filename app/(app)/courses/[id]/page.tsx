@@ -25,9 +25,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ApiError } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import { useCourse, useUpdateCourse } from "@/lib/api/hooks";
-import { mockApi } from "@/lib/mock";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import {
   categoryLabel,
@@ -49,12 +48,19 @@ export default function CourseDetailPage() {
 
   const course = courseQuery.data;
 
-  /* The question bank and attempt analytics arrive with the Phase 2 tables. */
-  const questions: unknown[] = [];
+  const questionsQuery = useQuery({
+    queryKey: ["exam-questions", id],
+    queryFn: () => api.get<{ items: Array<{ id: string; isActive: boolean }> }>("/questions", { courseId: id }),
+    enabled: Boolean(id),
+  });
+  const questions = questionsQuery.data?.items ?? [];
 
   const trainersQuery = useQuery({
     queryKey: ["trainers", "options"],
-    queryFn: () => mockApi.trainers.list(),
+    queryFn: async () =>
+      (await api.get<{ items: Array<{ id: string; name: string | null; email: string }> }>("/trainers")).items.map(
+        (t) => ({ id: t.id, name: t.name ?? t.email }),
+      ),
     staleTime: 5 * 60_000,
   });
 
@@ -222,7 +228,6 @@ export default function CourseDetailPage() {
               <TabsTrigger value="questions">
                 Question bank ({questions.length})
               </TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
@@ -230,17 +235,17 @@ export default function CourseDetailPage() {
             <TabsContent value="questions" className="mt-4">
               <EmptyState
                 compact
-                title="No questions yet"
-                description="The question bank is not in Phase 1 — it arrives with the exam tables in Phase 2. Course settings and enrolment counts above are live."
-              />
-            </TabsContent>
-
-            {/* Analytics */}
-            <TabsContent value="analytics" className="mt-4 space-y-4">
-              <EmptyState
-                compact
-                title="No attempt data yet"
-                description="Pass rates and per-question analytics need exam attempts, which land in Phase 2."
+                title={questions.length === 0 ? "No questions yet." : `${questions.length} questions in the bank`}
+                description={
+                  questions.length === 0
+                    ? `Upload via /exams/${course.id}/import.`
+                    : "Open the exam page to read the bank, import more questions or review sittings."
+                }
+                action={
+                  <Button asChild size="sm">
+                    <Link href={`/exams/${course.id}`}>{questions.length === 0 ? "Open exam page" : "Question bank"}</Link>
+                  </Button>
+                }
               />
             </TabsContent>
 

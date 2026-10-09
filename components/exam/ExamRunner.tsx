@@ -29,7 +29,7 @@ import { useContentProtection } from "@/lib/hooks/use-content-protection";
  * The exam runner.
  *
  * The layout, wording and components are the ones already approved — only the
- * data source changed, from lib/mock to the real API. Nothing here receives
+ * data source is the real API. Nothing here receives
  * `isCorrect` or any other server field: /next projects options to id + text.
  */
 

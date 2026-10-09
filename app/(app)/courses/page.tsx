@@ -25,7 +25,7 @@ import { useCategories, useCourses } from "@/lib/api/hooks";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { categoryLabel, formatDurationLabel, formatNumber, formatRwf } from "@/lib/utils/format";
 import type { Category, Course } from "@/lib/types";
-import { mockApi } from "@/lib/mock";
+import { api } from "@/lib/api/client";
 
 export default function CoursesPage() {
   const router = useRouter();
@@ -60,7 +60,10 @@ export default function CoursesPage() {
   /* Trainers are a Phase 2 model; the course rows still reference them by id. */
   const trainersQuery = useQuery({
     queryKey: ["trainers", "options"],
-    queryFn: () => mockApi.trainers.list(),
+    queryFn: async () =>
+      (await api.get<{ items: Array<{ id: string; name: string | null; email: string }> }>("/trainers")).items.map(
+        (t) => ({ id: t.id, name: t.name ?? t.email }),
+      ),
     staleTime: 5 * 60_000,
     enabled: canManage,
   });

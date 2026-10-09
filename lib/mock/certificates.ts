@@ -99,7 +99,7 @@ function buildCertificates(): Certificate[] {
       durationLabel: DURATION_LABELS[p.courseId] ?? "3 days · 21 contact hours",
       issuedAt: issuedAt.toISOString(),
       expiresAt: null,
-      revokedAt: status === "REVOKED" ? subMonths(MOCK_NOW, 2).toISOString() : null,
+      revokedAt: p.status === "REVOKED" ? subMonths(MOCK_NOW, 2).toISOString() : null,
       revokeReason: p.revokeReason ?? null,
       contentHash: generateContentHash(`${certNo}|${p.traineeId}|${p.courseId}|${issuedAt.toISOString()}`),
       pdfKey: `certs/${MOCK_NOW.getFullYear()}/${certNo.toLowerCase()}.pdf`,

@@ -299,7 +299,7 @@ export default function AttemptReviewPage() {
           <ol className="divide-y divide-line">
             {questions.map((q, i) => {
               const record = answersByQuestion.get(q.id);
-              const correctOption = q.options.find((o) => o.isCorrect);
+              const correctOption = (q.options ?? []).find((o) => o.isCorrect);
               const selectedId = record?.selectedOptionId ?? attempt.answers[q.id] ?? "";
               const isRight = record
                 ? record.isCorrect
@@ -388,7 +388,7 @@ export default function AttemptReviewPage() {
                 const isRight =
                   record?.isCorrect ??
                   (attempt.answers[q.id] ?? "") ===
-                    (q.options.find((o) => o.isCorrect)?.id ?? "");
+                    ((q.options ?? []).find((o) => o.isCorrect)?.id ?? "");
                 return (
                   <TableRow key={q.id}>
                     <TableCell className="font-mono text-xs text-ink-3">{i + 1}</TableCell>

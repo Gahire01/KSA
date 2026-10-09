@@ -77,7 +77,7 @@ export function toTrainees(list: TraineeDTO[]): Trainee[] {
 
 /** The forms work in category *names*; the API keys on ids. */
 function categoryIdByName(categories: CategoryDTO[], name: string): string {
-  const match = categories.find(
+  const match = (categories ?? []).find(
     (c) => c.name.toLowerCase() === String(name).trim().toLowerCase(),
   );
 

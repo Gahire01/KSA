@@ -1,6 +1,11 @@
 /**
- * Phase 1 seed — one OWNER, six categories, eight courses. No trainees, so the
- * first trainee can be created by hand as an end-to-end test.
+ * Seed — one OWNER, the categories, and the five real courses the client
+ * offers. No trainees, so the first trainee can be created by hand as an
+ * end-to-end test.
+ *
+ * Courses are upserted by code, then any course whose code is not one of the
+ * five real ones is deactivated. Re-seeding therefore replaces the mock
+ * catalogue instead of stacking on top of it.
  *
  * Run with: pnpm prisma db seed
  */
@@ -57,8 +62,10 @@ type SeedCourse = {
 };
 
 /**
- * Mirrors the eight courses in the original `lib/mock/courses.ts` prototype so
- * the Phase 1 pages look the same, now backed by Postgres.
+ * The five courses the client actually sells. Prices and tiers come from the
+ * client's pricing sheet; the exam rules (60-minute paper, 50% pass, 2
+ * attempts) apply to every course and are enforced by the academy-wide rules
+ * in lib/exams/rules.ts.
  */
 const COURSES: SeedCourse[] = [
   {
@@ -75,12 +82,17 @@ const COURSES: SeedCourse[] = [
       "Prevention and Control",
       "PPE and Safe Work Practices",
       "Emergency Preparedness",
+      "Manhours & Incident Rates",
+      "Site Induction",
+      "Work at Height",
+      "Housekeeping",
+      "LTI and Incident Management",
+      "General Construction Safety",
       "Onsite Practical Assessment",
     ],
     durationValue: 3,
     durationUnit: "MONTH",
-    /* Fee and exam length were not supplied by the client — set in the course editor. */
-    priceRwf: 0,
+    priceRwf: 250_000,
     validityMonths: null,
     examDurationMin: 60,
   },
@@ -101,47 +113,7 @@ const COURSES: SeedCourse[] = [
     ],
     durationValue: 3,
     durationUnit: "MONTH",
-    /* Fee and exam length were not supplied by the client — set in the course editor. */
-    priceRwf: 0,
-    validityMonths: null,
-    examDurationMin: 60,
-  },
-  {
-    code: "FIRE",
-    name: "Fire Fighting Training",
-    category: "Firefighters",
-    description:
-      "Fire Fighting training provides essential knowledge and practical skills to prevent, control, and respond to fire emergencies in the workplace and other environments. It focuses on understanding fire hazards, safe use of fire extinguishers, evacuation procedures, and emergency response techniques to protect lives, property, and the environment by ensuring timely and effective action during fire incidents.",
-    topics: [
-      "Fire Classes & Behavior",
-      "Fire Hazards",
-      "Extinguisher Types & Safe Use",
-      "Evacuation Procedures",
-      "Emergency Response Techniques",
-      "Fire Prevention",
-    ],
-    durationValue: 3,
-    durationUnit: "MONTH",
-    priceRwf: 120_000,
-    validityMonths: null,
-    examDurationMin: 45,
-  },
-  {
-    code: "MAINT",
-    name: "Mechanical Maintenance Safety",
-    category: "Maintenance",
-    description:
-      "Machine guarding, lockout/tagout, hot work, pneumatic and hydraulic hazards, and safe isolation of industrial plant.",
-    topics: [
-      "Machine Guarding",
-      "Lockout / Tagout",
-      "Hot Work Permits",
-      "Pneumatic & Hydraulic Hazards",
-      "Safe Isolation of Plant",
-    ],
-    durationValue: 5,
-    durationUnit: "DAY",
-    priceRwf: 185_000,
+    priceRwf: 200_000,
     validityMonths: null,
     examDurationMin: 60,
   },
@@ -162,106 +134,52 @@ const COURSES: SeedCourse[] = [
     ],
     durationValue: 1,
     durationUnit: "DAY",
-    priceRwf: 85_000,
-    validityMonths: null,
-    examDurationMin: 30,
-  },
-  {
-    code: "SITE",
-    name: "Site Security & Access Control",
-    category: "Site Security",
-    description:
-      "Access control procedure, visitor management, patrol discipline, incident reporting and radio discipline for site guards.",
-    topics: [
-      "Access Control Procedures",
-      "Visitor Management",
-      "Patrol Discipline",
-      "Incident Reporting",
-      "Radio Discipline",
-    ],
-    durationValue: 4,
-    durationUnit: "WEEK",
-    priceRwf: 65_000,
-    validityMonths: null,
-    examDurationMin: 40,
-  },
-  {
-    code: "ELEC",
-    name: "Electrical Safety (Low Voltage)",
-    category: "Electrical Safety",
-    description:
-      "Electrical hazards, safe isolation and proving dead, arc-flash awareness, cable management and residual-current protection.",
-    topics: [
-      "Electrical Hazards & Effects of Shock",
-      "Safe Isolation & Proving Dead",
-      "Arc-Flash Awareness",
-      "Cable Management",
-      "Residual-Current Protection",
-    ],
-    durationValue: 5,
-    durationUnit: "DAY",
-    priceRwf: 210_000,
+    priceRwf: 40_000,
     validityMonths: null,
     examDurationMin: 60,
   },
   {
-    code: "HEIGHT",
-    name: "Working at Height",
-    category: "Working at Height",
+    code: "FIRE",
+    name: "Fire Fighting Training",
+    category: "Firefighters",
     description:
-      "Fall prevention and protection, ladder and scaffold inspection, harness selection, anchor points and rescue planning.",
+      "Fire Fighting training provides essential knowledge and practical skills to prevent, control, and respond to fire emergencies in the workplace and other environments. It focuses on understanding fire hazards, safe use of fire extinguishers, evacuation procedures, and emergency response techniques to protect lives, property, and the environment by ensuring timely and effective action during fire incidents.",
     topics: [
-      "Fall Prevention & Protection",
-      "Ladder Inspection & Safe Use",
-      "Scaffold Inspection & Tagging",
-      "Harness Selection & Fit",
-      "Anchor Points & Tie-Off",
-      "Rescue Planning",
-    ],
-    durationValue: 2,
-    durationUnit: "DAY",
-    priceRwf: 95_000,
-    validityMonths: null,
-    examDurationMin: 45,
-  },
-  {
-    code: "CHEM",
-    name: "Hazardous Chemicals & COSHH",
-    category: "Maintenance",
-    description:
-      "Safety data sheets, exposure pathways, ventilation and respiratory protection, storage segregation and spill response.",
-    topics: [
-      "Safety Data Sheets (SDS)",
-      "Exposure Pathways & Control",
-      "Ventilation & Respiratory Protection",
-      "Storage & Segregation",
-      "Spill Response",
-    ],
-    durationValue: 1,
-    durationUnit: "WEEK",
-    priceRwf: 78_000,
-    validityMonths: null,
-    examDurationMin: 40,
-    isActive: false,
-  },
-  {
-    code: "DRIVE",
-    name: "Safe Driving & Fleet Safety",
-    category: "Site Security",
-    description:
-      "Defensive driving, load security, pre-trip inspection, fatigue management and incident response for fleet drivers.",
-    topics: [
-      "Defensive Driving Techniques",
-      "Load Security",
-      "Pre-Trip Vehicle Inspection",
-      "Fatigue Management",
-      "Incident Response",
+      "Fire Classes & Behavior",
+      "Fire Hazards",
+      "Extinguisher Types & Safe Use",
+      "Evacuation Procedures",
+      "Emergency Response Techniques",
+      "Fire Prevention",
+      "First Aid Response During Fire Emergencies",
     ],
     durationValue: 3,
-    durationUnit: "DAY",
-    priceRwf: 110_000,
+    durationUnit: "MONTH",
+    priceRwf: 30_000,
     validityMonths: null,
-    examDurationMin: 40,
+    examDurationMin: 60,
+  },
+  {
+    code: "RIGGER",
+    name: "Rigger Safety Training",
+    category: "Construction Safety",
+    description:
+      "Rigger Safety Training equips workers with the essential knowledge and practical skills required to plan and perform lifting operations safely. The course covers load assessment, selection and inspection of lifting equipment, sling angles and capacity, safe rigging techniques, use of tag lines, communication with crane operators, exclusion zones, and hazard control during lifting operations. It emphasizes planning, inspection, competent personnel, and keeping people clear of suspended loads to prevent serious injury or death.",
+    topics: [
+      "Lifting Plan and Load Assessment",
+      "Sling Types and Inspection",
+      "Sling Angles and Rated Capacity",
+      "Rigging Techniques and Load Control",
+      "Tag Lines and Communication",
+      "Exclusion Zones and Line of Fire",
+      "Crane Hand Signals",
+      "Critical Lift Planning",
+    ],
+    durationValue: 3,
+    durationUnit: "MONTH",
+    priceRwf: 40_000,
+    validityMonths: null,
+    examDurationMin: 60,
   },
 ];
 
@@ -368,6 +286,17 @@ async function main() {
     });
   }
   console.log(`  courses:   ${COURSES.length}`);
+
+  /* Any course whose code is not one of the five real ones is retired, so a
+   * reseed can never leave a mock or deleted course silently on sale. */
+  const activeCodes = new Set(COURSES.map((course) => course.code));
+  const retired = await prisma.course.updateMany({
+    where: { code: { notIn: [...activeCodes] } },
+    data: { isActive: false },
+  });
+  if (retired.count > 0) {
+    console.log(`  retired:   ${retired.count} course(s) no longer offered`);
+  }
 
   /* Signature fallback: if no signature has ever been saved and the bundled
    * image exists, seed it as the active one so certificates keep printing it

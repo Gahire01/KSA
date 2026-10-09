@@ -88,9 +88,16 @@ export default function NewTraineePage() {
   });
 
   const courseId = form.watch("courseId");
+  const selectedCourse = courses.find((c) => c.id === courseId);
+  const price = selectedCourse?.priceRwf ?? 0;
   const amount = form.watch("amountPaidRwf");
-  const price = courses.find((c) => c.id === courseId)?.priceRwf ?? 0;
   const balance = Math.max(0, price - Number(amount || 0));
+
+  /* Picking a course defaults the amount to the standard fee; the field stays
+     editable so a partial payment or a package price can be entered instead. */
+  React.useEffect(() => {
+    if (selectedCourse) form.setValue("amountPaidRwf", selectedCourse.priceRwf);
+  }, [courseId, selectedCourse, form]);
 
   const createMutation = useCreateTrainee();
 

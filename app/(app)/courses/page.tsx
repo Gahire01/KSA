@@ -35,7 +35,9 @@ export default function CoursesPage() {
   const [search, setSearch] = React.useState("");
   const debounced = useDebounce(search, 200);
   const [categories, setCategories] = React.useState<string[]>([]);
-  const [activeOnly, setActiveOnly] = React.useState(false);
+  /* Default to active courses so the catalogue reads as "what we sell"; archived
+   * courses stay one tap away for anyone chasing past certificates. */
+  const [activeOnly, setActiveOnly] = React.useState(true);
 
   const categoriesQuery = useCategories();
 

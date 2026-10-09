@@ -191,6 +191,25 @@ export default function CourseDetailPage() {
         />
       </div>
 
+      {course.priceTiers && course.priceTiers.length > 1 ? (
+        <Card>
+          <CardContent className="p-5">
+            <dl className="grid gap-3 sm:grid-cols-3">
+              {course.priceTiers.map((tier) => (
+                <div key={tier.label} className="rounded-lg border border-line p-3">
+                  <dt className="text-[11px] font-semibold tracking-wider text-ink-2 uppercase">
+                    {tier.label}
+                  </dt>
+                  <dd className="mt-1 font-display text-lg font-semibold text-ink tabular">
+                    {formatRwf(tier.amountRwf)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardContent className="space-y-4 p-5">
           <p className="text-sm leading-relaxed text-ink-2">{course.description}</p>

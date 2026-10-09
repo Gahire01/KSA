@@ -1,3 +1,19 @@
+## Pricing (client-supplied)
+
+The five real courses with their standard fee and priced packages, as seeded in `prisma/seed.ts` (upsert by code). The standard fee is `priceRwf`; each package lives in `Course.priceTiers` (`[{ label, amountRwf }]`) and is shown on the course page and used as the default when billing a trainee. FIRE has no packages (flat fee). All five courses: 60-minute paper, 50% pass mark, 2 attempts.
+
+| Course | Fee (RWF) | Basic | Standard | Comprehensive |
+| --- | --: | --: | --: | --: |
+| CONSTRUCT — Construction Safety And Health Management | 250,000 | 100,000 | 250,000 | 300,000 |
+| OSH — Occupational Safety and Health | 200,000 | 100,000 | 200,000 | 250,000 |
+| FIRST — First Aid | 40,000 | 30,000 | 40,000 | 50,000 |
+| FIRE — Fire Fighting Training | 30,000 | — | 30,000 | — |
+| RIGGER — Rigger Safety Training | 40,000 | 30,000 | 40,000 | 50,000 |
+
+API: `POST/PATCH /api/courses` accept and the course editor edits `priceTiers`; the course detail page renders a package grid when more than one exists; `/trainees/new` defaults the amount to the standard fee (editable).
+
+---
+
 ## Morning summary — 2026-10-08 (verification + gap-closing run, from clone at ksa-work/KSA)
 
 The brief was run against a repo that earlier sessions had already worked through. This run audited every part against the current code and closed only the real gaps.
@@ -870,7 +886,7 @@ pnpm build: GREEN (Next 15.5.26, all routes compiled; /dashboard 140 kB first-lo
 - Notification type "certificate.expiring" removed from the union and all maps (types, settings, notifications page, /api/notifications KNOWN_TYPES, SSE stream key mapping). "exam.link.expiring" kept (exam links genuinely expire). No background jobs/cron exist to remove.
 - Course.validityMonths: now null in seed.ts (all 8 courses) and all mock courses. CourseForm no longer collects a validity field (removed schema field, default, hydration and FormField); course API create/update no longer write it; course detail no longer shows a validity row/pill.
 - mocks: dashboard no longer surfaces expiring/expired certificate alerts; mock certificates are VALID unless revoked (brief's revoked sample retained). Dashboard "Upcoming deadlines" description no longer says "expiring certificates".
-- Verify: pnpm build GREEN, tsc clean, eslint clean (0 warnings).## Student Numbering � Source of Truth
+- Verify: pnpm build GREEN, tsc clean, eslint clean (0 warnings).## Student Numbering � Source of Truth
 
 - Source: public/student/KIGALI SAFETY ACADEMY STUDENTS LIST.docx (Word table, 2 columns: number | name)
 - Register rows parsed: 443; unique students: 382; aliases: 57; number collisions: 3 (#74, #214, #231); skipped: 2 (#5 \"## the certificate was skipped\", #344 \"ane\")
@@ -880,7 +896,7 @@ pnpm build: GREEN (Next 15.5.26, all routes compiled; /dashboard 140 kB first-lo
 - Manifest: scripts/student-list/student-numbers.json (382 students); summary: scripts/student-list/register-numbers.ts (REGISTER_MAX_STUDENT_NUMBER=456, REGISTER_NEXT_STUDENT_NUMBER=457)
 - Seeding: scripts/seed-from-student-list.ts imports the register idempotently, creates only numeric trainee numbers (plain register numbers), does NOT enroll (courseId null), and uses placeholder contacts (student-<n>@register.example, +250000000000, Rwanda, category Firefighters). Rows edited by the owner keep their real contacts and are never overwritten; re-runs clean stale placeholder rows for removed fragments.
 - Certificate allocation: new certificates start at max(certificate.studentNumber, REGISTER_NEXT_STUDENT_NUMBER) and increment, preserving uniqueness via the index and retry on clashes (see lib/certificates/issue.ts).
-## Session � 2026-10-07T09:00:00Z � Morning resume
+## Session � 2026-10-07T09:00:00Z � Morning resume
 
 - git log --oneline -10: clean recent commits (latest c736c09)
 - git status: clean (working tree)

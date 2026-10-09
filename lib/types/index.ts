@@ -155,6 +155,8 @@ export interface Course {
   durationValue: number;
   durationUnit: DurationUnit;
   priceRwf: number;
+  /** Optional priced packages, e.g. [{ label: "Comprehensive", amountRwf: 300000 }]. */
+  priceTiers?: { label: string; amountRwf: number }[];
   passMarkPct: number;
   maxAttempts: number;
   validityMonths: number | null;

@@ -1,7 +1,8 @@
 /**
  * Seed — one OWNER, the categories, and the five real courses the client
- * offers. No trainees, so the first trainee can be created by hand as an
- * end-to-end test.
+ * offers, each with the client's standard fee and optional priced packages.
+ * No trainees, so the first trainee can be created by hand as an end-to-end
+ * test.
  *
  * Courses are upserted by code, then any course whose code is not one of the
  * five real ones is deactivated. Re-seeding therefore replaces the mock
@@ -17,6 +18,7 @@ import { join } from "node:path";
 import { hashPassword } from "../lib/auth/password";
 import { cleanPng } from "../lib/signature/png";
 import type { DurationUnit } from "../lib/generated/prisma/client";
+import { Prisma } from "../lib/generated/prisma/client";
 import { EXAM_DURATION_MIN, MAX_ATTEMPTS, PASS_MARK_PCT } from "../lib/exams/rules";
 
 for (const file of [".env.local", ".env"]) {
@@ -48,6 +50,11 @@ const CATEGORIES = [
   "Occupational Safety",
 ] as const;
 
+type PriceTier = {
+  label: string;
+  amountRwf: number;
+};
+
 type SeedCourse = {
   code: string;
   name: string;
@@ -58,6 +65,7 @@ type SeedCourse = {
   durationUnit: DurationUnit;
   priceRwf: number;
   validityMonths: number | null;
+  priceTiers?: PriceTier[];
   isActive?: boolean;
 };
 
@@ -94,6 +102,11 @@ const COURSES: SeedCourse[] = [
     durationUnit: "MONTH",
     priceRwf: 250_000,
     validityMonths: null,
+    priceTiers: [
+      { label: "Basic", amountRwf: 100_000 },
+      { label: "Standard", amountRwf: 250_000 },
+      { label: "Comprehensive", amountRwf: 300_000 },
+    ],
   },
   {
     code: "OSH",
@@ -114,6 +127,11 @@ const COURSES: SeedCourse[] = [
     durationUnit: "MONTH",
     priceRwf: 200_000,
     validityMonths: null,
+    priceTiers: [
+      { label: "Basic", amountRwf: 100_000 },
+      { label: "Standard", amountRwf: 200_000 },
+      { label: "Comprehensive", amountRwf: 250_000 },
+    ],
   },
   {
     code: "FIRST",
@@ -134,6 +152,11 @@ const COURSES: SeedCourse[] = [
     durationUnit: "DAY",
     priceRwf: 40_000,
     validityMonths: null,
+    priceTiers: [
+      { label: "Basic", amountRwf: 30_000 },
+      { label: "Standard", amountRwf: 40_000 },
+      { label: "Comprehensive", amountRwf: 50_000 },
+    ],
   },
   {
     code: "FIRE",
@@ -154,6 +177,7 @@ const COURSES: SeedCourse[] = [
     durationUnit: "MONTH",
     priceRwf: 30_000,
     validityMonths: null,
+    priceTiers: [{ label: "Standard", amountRwf: 30_000 }],
   },
   {
     code: "RIGGER",
@@ -175,6 +199,11 @@ const COURSES: SeedCourse[] = [
     durationUnit: "MONTH",
     priceRwf: 40_000,
     validityMonths: null,
+    priceTiers: [
+      { label: "Basic", amountRwf: 30_000 },
+      { label: "Standard", amountRwf: 40_000 },
+      { label: "Comprehensive", amountRwf: 50_000 },
+    ],
   },
 ];
 
@@ -257,6 +286,9 @@ async function main() {
         durationValue: course.durationValue,
         durationUnit: course.durationUnit,
         priceRwf: course.priceRwf,
+        priceTiers: course.priceTiers
+          ? (course.priceTiers as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         passMarkPct: PASS_MARK_PCT,
         maxAttempts: MAX_ATTEMPTS,
         validityMonths: course.validityMonths,
@@ -272,6 +304,9 @@ async function main() {
         durationValue: course.durationValue,
         durationUnit: course.durationUnit,
         priceRwf: course.priceRwf,
+        priceTiers: course.priceTiers
+          ? (course.priceTiers as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         passMarkPct: PASS_MARK_PCT,
         maxAttempts: MAX_ATTEMPTS,
         validityMonths: course.validityMonths,

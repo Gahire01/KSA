@@ -77,6 +77,18 @@ export const courseCreateSchema = z
     durationValue: z.coerce.number().int().min(1, "Enter a duration.").max(999),
     durationUnit: z.enum(["DAY", "WEEK", "MONTH"]),
     priceRwf: z.coerce.number().int().min(0, "Price cannot be negative.").max(100_000_000),
+    priceTiers: z
+      .array(
+        z
+          .object({
+            label: z.string().trim().min(1, "Give the tier a label.").max(60),
+            amountRwf: z.coerce.number().int().min(0, "Amount cannot be negative.").max(100_000_000),
+          })
+          .strict(),
+      )
+      .max(20)
+      .optional()
+      .nullable(),
     passMarkPct: z.coerce.number().int().min(1).max(100).default(50),
     maxAttempts: z.coerce.number().int().min(1).max(10).default(2),
     examDurationMin: z.coerce.number().int().min(1).max(600).default(30),

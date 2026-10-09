@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftIcon, SaveIcon } from "lucide-react";
+import { ArrowLeftIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -57,6 +57,12 @@ const schema = z.object({
   durationValue: z.coerce.number().int().min(1, "At least 1.").max(365, "Use 365 or fewer."),
   durationUnit: z.enum(["day", "week", "month"]),
   priceRwf: z.coerce.number().int().min(0, "Fee cannot be negative."),
+  priceTiers: z.array(
+    z.object({
+      label: z.string().min(1, "Name the tier.").max(60, "Keep the label short."),
+      amountRwf: z.coerce.number().int().min(0, "Amount cannot be negative."),
+    }),
+  ),
   passMarkPct: z.coerce.number().int().min(1).max(100, "Between 1 and 100."),
   maxAttempts: z.coerce.number().int().min(1).max(10, "Between 1 and 10."),
   examDurationMin: z.coerce.number().int().min(5).max(300),
@@ -65,6 +71,7 @@ const schema = z.object({
   isActive: z.boolean(),
 });
 
+type PriceTier = { label: string; amountRwf: number };
 type Values = z.infer<typeof schema>;
 
 export function CourseForm({ courseId }: { courseId?: string }) {
@@ -100,6 +107,7 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       durationValue: 1,
       durationUnit: "day",
       priceRwf: 45000,
+      priceTiers: [],
       /* The academy's rules: 50% to pass, two attempts. */
       passMarkPct: PASS_MARK_PCT,
       maxAttempts: MAX_ATTEMPTS,
@@ -123,6 +131,7 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       durationValue: course.durationValue,
       durationUnit: course.durationUnit,
       priceRwf: course.priceRwf,
+      priceTiers: course.priceTiers ?? [],
       passMarkPct: course.passMarkPct,
       maxAttempts: course.maxAttempts,
       examDurationMin: course.examDurationMin,
@@ -164,6 +173,18 @@ export function CourseForm({ courseId }: { courseId?: string }) {
 
   const price = form.watch("priceRwf");
   const passMark = form.watch("passMarkPct");
+  const tiers = form.watch("priceTiers");
+
+  const addTier = () => form.setValue("priceTiers", [...tiers, { label: "", amountRwf: price }]);
+  const removeTier = (index: number) =>
+    form.setValue("priceTiers", tiers.filter((_, i) => i !== index));
+  const updateTier = (index: number, key: keyof PriceTier, value: string | number) =>
+    form.setValue(
+      "priceTiers",
+      tiers.map((t, i) => (i === index ? { ...t, [key]: value } : t)),
+    );
+  const tierError = (index: number) =>
+    form.formState.errors.priceTiers?.[index]?.label?.message;
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -356,6 +377,77 @@ export function CourseForm({ courseId }: { courseId?: string }) {
                   </FormItem>
                 )}
               />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="gap-1">
+              <CardTitle className="text-base">Pricing packages</CardTitle>
+              <CardDescription>
+                Optional tiers such as Basic, Standard or Comprehensive. The standard fee
+                above is the default when no package is chosen.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {tiers.length === 0 ? (
+                <p className="text-sm text-ink-2">
+                  No pricing packages yet. Add one to let staff bill a package instead of
+                  the standard fee.
+                </p>
+              ) : null}
+              {tiers.map((tier, index) => (
+                <div key={index} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                  <div>
+                    <Input
+                      aria-label={`Package ${index + 1} label`}
+                      placeholder="Label (e.g. Comprehensive)"
+                      value={tier.label}
+                      onChange={(e) => updateTier(index, "label", e.target.value)}
+                      className={tierError(index) ? "border-red-500" : undefined}
+                    />
+                    {tierError(index) ? (
+                      <p className="mt-1 text-xs text-red-600">{tierError(index)}</p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <Input
+                      aria-label={`Package ${index + 1} amount`}
+                      type="number"
+                      min={0}
+                      step={500}
+                      placeholder="Amount (RWF)"
+                      value={Number.isNaN(tier.amountRwf) ? "" : tier.amountRwf}
+                      onChange={(e) => updateTier(index, "amountRwf", Number(e.target.value))}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove package ${index + 1}`}
+                    onClick={() => removeTier(index)}
+                  >
+                    <Trash2Icon className="size-4" />
+                  </Button>
+                </div>
+              ))}
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-ink-2">
+                  {tiers.length > 0
+                    ? `Total of ${tiers.length} package${tiers.length === 1 ? "" : "s"}, saved with the course.`
+                    : null}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={addTier}
+                >
+                  <PlusIcon className="size-4" />
+                  Add package
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

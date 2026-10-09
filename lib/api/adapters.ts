@@ -8,6 +8,7 @@
 import type {
   CategoryDTO,
   CourseDTO,
+  PriceTierDTO,
   TraineeDTO,
   DurationUnit as ApiDurationUnit,
   CourseInput,
@@ -27,6 +28,7 @@ export function toCourse(dto: CourseDTO): Course {
     durationValue: dto.durationValue,
     durationUnit: dto.durationUnit.toLowerCase() as DurationUnit,
     priceRwf: dto.priceRwf,
+    priceTiers: dto.priceTiers ?? undefined,
     passMarkPct: dto.passMarkPct,
     maxAttempts: dto.maxAttempts,
     validityMonths: dto.validityMonths,
@@ -123,6 +125,7 @@ export interface CourseFormValues {
   durationValue: number;
   durationUnit: string;
   priceRwf: number;
+  priceTiers: PriceTierDTO[];
   passMarkPct: number;
   maxAttempts: number;
   examDurationMin: number;
@@ -142,6 +145,7 @@ export function toCourseInput(
     durationValue: values.durationValue,
     durationUnit: values.durationUnit.toUpperCase() as ApiDurationUnit,
     priceRwf: values.priceRwf,
+    priceTiers: values.priceTiers.length ? values.priceTiers : null,
     passMarkPct: values.passMarkPct,
     maxAttempts: values.maxAttempts,
     examDurationMin: values.examDurationMin,

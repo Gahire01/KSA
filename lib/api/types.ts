@@ -3,6 +3,11 @@ export type EnrollmentStatus = "PENDING" | "ACTIVE" | "COMPLETED" | "FAILED" | "
 export type PaymentStatus = "PAID" | "PARTIAL" | "UNPAID";
 export type DurationUnit = "DAY" | "WEEK" | "MONTH";
 
+export interface PriceTierDTO {
+  label: string;
+  amountRwf: number;
+}
+
 export interface CategoryDTO {
   id: string;
   name: string;
@@ -23,6 +28,7 @@ export interface CourseDTO {
   durationValue: number;
   durationUnit: DurationUnit;
   priceRwf: number;
+  priceTiers?: PriceTierDTO[] | null;
   passMarkPct: number;
   maxAttempts: number;
   validityMonths: number | null;
@@ -136,6 +142,7 @@ export interface CourseInput {
   durationValue: number;
   durationUnit: DurationUnit;
   priceRwf: number;
+  priceTiers?: PriceTierDTO[] | null;
   passMarkPct?: number;
   maxAttempts?: number;
   validityMonths?: number | null;

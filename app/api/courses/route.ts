@@ -4,7 +4,7 @@ import { courseCreateSchema, courseListQuerySchema } from "@/lib/api/schemas";
 import { actorOf, audit } from "@/lib/audit";
 import { courseWhere, isActiveTrainer } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
-import type { Prisma } from "@/lib/generated/prisma/client";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { invalidateCourses } from "@/lib/data-cache";
 
 /** GET /api/courses — search, filter by category/active, paginated. */
@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       durationValue: data.durationValue,
       durationUnit: data.durationUnit,
       priceRwf: data.priceRwf,
+      priceTiers: data.priceTiers ?? Prisma.JsonNull,
       passMarkPct: data.passMarkPct,
       maxAttempts: data.maxAttempts,
       examDurationMin: data.examDurationMin,

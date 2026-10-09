@@ -158,6 +158,9 @@ model Course {
   durationValue   Int
   durationUnit    DurationUnit
   priceRwf        Int
+  /// Optional pricing packages, e.g. `[{ "label": "Basic", "amountRwf": 100000 }]`.
+  /// When present, the first row is the default ("Standard") option.
+  priceTiers      Json?
   passMarkPct     Int          @default(50)
   maxAttempts     Int          @default(2)
   validityMonths  Int?

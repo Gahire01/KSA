@@ -4,6 +4,7 @@ import { courseUpdateSchema } from "@/lib/api/schemas";
 import { actorOf, audit } from "@/lib/audit";
 import { isActiveTrainer, ownsCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { invalidateCourses } from "@/lib/data-cache";
 
 type Params = { params: Promise<{ id: string }> };
@@ -71,6 +72,9 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(data.durationValue !== undefined ? { durationValue: data.durationValue } : {}),
       ...(data.durationUnit !== undefined ? { durationUnit: data.durationUnit } : {}),
       ...(data.priceRwf !== undefined ? { priceRwf: data.priceRwf } : {}),
+      ...(data.priceTiers !== undefined
+        ? { priceTiers: data.priceTiers ?? Prisma.JsonNull }
+        : {}),
       ...(data.passMarkPct !== undefined ? { passMarkPct: data.passMarkPct } : {}),
       ...(data.maxAttempts !== undefined ? { maxAttempts: data.maxAttempts } : {}),
       ...(data.examDurationMin !== undefined

@@ -17,6 +17,7 @@ import { join } from "node:path";
 import { hashPassword } from "../lib/auth/password";
 import { cleanPng } from "../lib/signature/png";
 import type { DurationUnit } from "../lib/generated/prisma/client";
+import { EXAM_DURATION_MIN, MAX_ATTEMPTS, PASS_MARK_PCT } from "../lib/exams/rules";
 
 for (const file of [".env.local", ".env"]) {
   try {
@@ -57,7 +58,6 @@ type SeedCourse = {
   durationUnit: DurationUnit;
   priceRwf: number;
   validityMonths: number | null;
-  examDurationMin: number;
   isActive?: boolean;
 };
 
@@ -94,7 +94,6 @@ const COURSES: SeedCourse[] = [
     durationUnit: "MONTH",
     priceRwf: 250_000,
     validityMonths: null,
-    examDurationMin: 60,
   },
   {
     code: "OSH",
@@ -115,7 +114,6 @@ const COURSES: SeedCourse[] = [
     durationUnit: "MONTH",
     priceRwf: 200_000,
     validityMonths: null,
-    examDurationMin: 60,
   },
   {
     code: "FIRST",
@@ -136,7 +134,6 @@ const COURSES: SeedCourse[] = [
     durationUnit: "DAY",
     priceRwf: 40_000,
     validityMonths: null,
-    examDurationMin: 60,
   },
   {
     code: "FIRE",
@@ -157,7 +154,6 @@ const COURSES: SeedCourse[] = [
     durationUnit: "MONTH",
     priceRwf: 30_000,
     validityMonths: null,
-    examDurationMin: 60,
   },
   {
     code: "RIGGER",
@@ -179,7 +175,6 @@ const COURSES: SeedCourse[] = [
     durationUnit: "MONTH",
     priceRwf: 40_000,
     validityMonths: null,
-    examDurationMin: 60,
   },
 ];
 
@@ -262,10 +257,10 @@ async function main() {
         durationValue: course.durationValue,
         durationUnit: course.durationUnit,
         priceRwf: course.priceRwf,
-        passMarkPct: 50,
-        maxAttempts: 2,
+        passMarkPct: PASS_MARK_PCT,
+        maxAttempts: MAX_ATTEMPTS,
         validityMonths: course.validityMonths,
-        examDurationMin: course.examDurationMin,
+        examDurationMin: EXAM_DURATION_MIN,
         isActive: course.isActive ?? true,
       },
       create: {
@@ -277,10 +272,10 @@ async function main() {
         durationValue: course.durationValue,
         durationUnit: course.durationUnit,
         priceRwf: course.priceRwf,
-        passMarkPct: 50,
-        maxAttempts: 2,
+        passMarkPct: PASS_MARK_PCT,
+        maxAttempts: MAX_ATTEMPTS,
         validityMonths: course.validityMonths,
-        examDurationMin: course.examDurationMin,
+        examDurationMin: EXAM_DURATION_MIN,
         isActive: course.isActive ?? true,
       },
     });

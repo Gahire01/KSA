@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { EXAM_DURATION_MIN, MAX_ATTEMPTS, PASS_MARK_PCT } from "@/lib/exams/rules";
+
 /**
  * Every body and query schema is `.strict()`.
  *
@@ -77,9 +79,9 @@ export const courseCreateSchema = z
     durationValue: z.coerce.number().int().min(1, "Enter a duration.").max(999),
     durationUnit: z.enum(["DAY", "WEEK", "MONTH"]),
     priceRwf: z.coerce.number().int().min(0, "Price cannot be negative.").max(100_000_000),
-    passMarkPct: z.coerce.number().int().min(1).max(100).default(50),
-    maxAttempts: z.coerce.number().int().min(1).max(10).default(2),
-    examDurationMin: z.coerce.number().int().min(1).max(600).default(30),
+    passMarkPct: z.coerce.number().int().min(1).max(100).default(PASS_MARK_PCT),
+    maxAttempts: z.coerce.number().int().min(1).max(10).default(MAX_ATTEMPTS),
+    examDurationMin: z.coerce.number().int().min(1).max(600).default(EXAM_DURATION_MIN),
     trainerId: z.string().trim().min(1).max(60).optional().nullable(),
     isActive: z.boolean().default(true),
   })

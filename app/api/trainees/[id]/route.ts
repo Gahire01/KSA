@@ -4,6 +4,7 @@ import { traineeUpdateSchema } from "@/lib/api/schemas";
 import { actorOf, audit } from "@/lib/audit";
 import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
+import { recordPayment, settlementAmount, syncTraineeTotals } from "@/lib/payments/ledger";
 import { traineeInclude } from "@/app/api/trainees/route";
 
 type Params = { params: Promise<{ id: string }> };
@@ -54,7 +55,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!course) return apiFail("That course does not exist.", 422);
   }
 
-  const trainee = await prisma.trainee.update({
+  await prisma.trainee.update({
     where: { id },
     data: {
       ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
@@ -65,12 +66,36 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(data.courseId !== undefined ? { courseId: data.courseId ?? null } : {}),
       ...(data.deadlineAt !== undefined ? { deadlineAt: data.deadlineAt ?? null } : {}),
       ...(data.status !== undefined ? { status: data.status } : {}),
-      ...(data.paymentStatus !== undefined ? { paymentStatus: data.paymentStatus } : {}),
-      ...(data.amountPaidRwf !== undefined ? { amountPaidRwf: data.amountPaidRwf } : {}),
       ...(data.notes !== undefined ? { notes: data.notes ?? null } : {}),
     },
-    include: traineeInclude,
   });
+
+  /* Money goes through the ledger. `paymentStatus` from the client is ignored (it is derived),
+   * and a changed amount becomes an adjustment row so the trainee's total always equals the sum
+   * of their payments. A new course changes what "paid in full" means, so totals are re-judged. */
+  const recorder = { id: gate.session.user.id, name: gate.session.user.name ?? gate.session.user.email };
+  const paidChanged = data.amountPaidRwf !== undefined && data.amountPaidRwf !== existing.amountPaidRwf;
+  const courseChanged = data.courseId !== undefined && (data.courseId ?? null) !== existing.courseId;
+  if (paidChanged || courseChanged) {
+    await prisma.$transaction(async (tx) => {
+      if (paidChanged) {
+        await recordPayment(tx, {
+          traineeId: id,
+          amountRwf: (data.amountPaidRwf as number) - existing.amountPaidRwf,
+          method: "CASH",
+          notes: "Adjusted on the trainee record",
+          recorder,
+        });
+      } else {
+        const course = data.courseId
+          ? await tx.course.findUnique({ where: { id: data.courseId }, select: { priceRwf: true } })
+          : null;
+        await syncTraineeTotals(tx, id, settlementAmount(course));
+      }
+    });
+  }
+
+  const trainee = await prisma.trainee.findUniqueOrThrow({ where: { id }, include: traineeInclude });
 
   /* Field names only: the values are personal data and the log is not the place for them. */
   await audit({

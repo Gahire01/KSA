@@ -38,6 +38,9 @@ export type AuthzAction =
   | "trainer.manage"
   | "device.manage"
   | "audit.read"
+  | "payment.read"
+  | "payment.write"
+  | "payment.refund"
   | "report.read";
 
 export type AuthzResource = {
@@ -118,6 +121,11 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
   "trainer.manage": new Set<Role>(["OWNER"]),
   "device.manage": new Set<Role>(["OWNER"]),
   "audit.read": new Set<Role>(["OWNER"]),
+  /* Money is for the front office: trainers never see fees or receipts. Refunding reverses
+   * revenue, so it is the owner's call. */
+  "payment.read": STAFF_ROLES,
+  "payment.write": STAFF_ROLES,
+  "payment.refund": new Set<Role>(["OWNER"]),
   "report.read": STAFF_ROLES,
 };
 

@@ -34,6 +34,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/client";
 import { toTraineeInput } from "@/lib/api/adapters";
+import { AmountInput } from "@/components/ui/amount-input";
 import {
   useCategories,
   useCourses,
@@ -56,10 +57,8 @@ const schema = z.object({
   category: z.string().min(1, "Select a category."),
   courseId: z.string().min(1, "Select a course."),
   status: z.enum(["PENDING", "ACTIVE", "COMPLETED", "FAILED", "WITHDRAWN"]),
-  paymentStatus: z.enum(["PAID", "PARTIAL", "UNPAID"]),
-  amountPaidRwf: z.coerce
-    .number({ invalid_type_error: "Enter an amount." })
-    .min(0, "Amount cannot be negative."),
+  /* Text, so the field is digits only and empty means 0. */
+  amountPaidRwf: z.string().regex(/^\d{0,9}$/, "Use digits only."),
   notes: z.string().max(500, "Keep notes under 500 characters.").optional(),
 });
 
@@ -94,15 +93,14 @@ export default function EditTraineePage() {
       courseId: trainee.courseId || courses[0]?.id || "",
       /* SUSPENDED exists in the UI type but not in the Phase 1 database. */
       status: trainee.status as Values["status"],
-      paymentStatus: trainee.paymentStatus,
-      amountPaidRwf: trainee.amountPaidRwf,
+      amountPaidRwf: trainee.amountPaidRwf > 0 ? String(trainee.amountPaidRwf) : "",
       notes: trainee.notes,
     });
   }, [trainee, form, courses]);
 
   const submit = (values: Values) => {
     updateMutation.mutate(
-      { id, input: toTraineeInput(values, categories) },
+      { id, input: toTraineeInput({ ...values, amountPaidRwf: Number(values.amountPaidRwf || 0) }, categories) },
       {
         onSuccess: () => {
           toast.success("Trainee updated", { description: values.name });
@@ -317,48 +315,16 @@ export default function EditTraineePage() {
               />
               <FormField
                 control={form.control}
-                name="paymentStatus"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment status</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {(["PAID", "PARTIAL", "UNPAID"] as const).map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s.charAt(0) + s.slice(1).toLowerCase()}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage>{form.formState.errors.paymentStatus?.message}</FormMessage>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
                 name="amountPaidRwf"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Amount paid (RWF)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={500}
-                        inputMode="numeric"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(e.target.value === "" ? 0 : Number(e.target.value))
-                        }
-                      />
+                      <AmountInput {...field} />
                     </FormControl>
                     <FormDescription>
-                      Payment records themselves arrive in Phase 2.
+                      Changing this adds an adjustment to the payments register. To take a new payment,
+                      use Record payment. The payment status follows the amount automatically.
                     </FormDescription>
                     <FormMessage>
                       {form.formState.errors.amountPaidRwf?.message}

@@ -6,33 +6,13 @@ import { viaCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { emit, ownerAndTrainerIds, ownerIds } from "@/lib/notifications/emit";
-import { REGISTER_MAX_STUDENT_NUMBER } from "../../../scripts/student-list/register-numbers";
+import { recordPayment } from "@/lib/payments/ledger";
+import { nextTraineeNo } from "@/lib/trainees/number";
 
 export const traineeInclude = {
   course: { select: { id: true, code: true, name: true, priceRwf: true } },
   category: { select: { id: true, name: true } },
 } as const;
-
-/**
- * Next student number: plain digits, continuing from the highest number held
- * (never below the academy's register, whose last slot is 456, so the first new
- * trainee is 457). No prefix: this is also the number printed on the certificate.
- *
- * The maximum is taken numerically in SQL over the all-digit numbers only. A
- * string sort would rank "99" above "456", and a legacy "KSA-0001" above both.
- * Two simultaneous creates could pick the same number; the unique index then
- * rejects the loser, which the caller retries.
- */
-async function nextTraineeNo(): Promise<string> {
-  const rows = await prisma.$queryRaw<Array<{ highest: number | null }>>`
-    SELECT MAX("traineeNo"::bigint)::int AS highest
-    FROM "Trainee"
-    WHERE "traineeNo" ~ '^[0-9]{1,9}$'
-  `;
-
-  const highest = Math.max(rows[0]?.highest ?? 0, REGISTER_MAX_STUDENT_NUMBER);
-  return String(highest + 1);
-}
 
 /** GET /api/trainees — search, filter, paginated. */
 export async function GET(request: Request) {
@@ -155,12 +135,30 @@ export async function POST(request: Request) {
           courseId,
           deadlineAt: data.deadlineAt ?? null,
           status: data.status,
-          paymentStatus: data.paymentStatus,
-          amountPaidRwf: data.amountPaidRwf,
           notes: data.notes ?? null,
         },
         include: traineeInclude,
       });
+
+      /* An amount entered at enrolment is a real payment: it goes through the ledger so the
+       * trainee's total, status and the payments register all agree. `paymentStatus` from the
+       * client is ignored; it is derived from the money. */
+      if (data.amountPaidRwf > 0) {
+        await prisma.$transaction((tx) =>
+          recordPayment(tx, {
+            traineeId: trainee.id,
+            amountRwf: data.amountPaidRwf,
+            method: "CASH",
+            notes: "Paid at enrolment",
+            recorder: { id: gate.session.user.id, name: gate.session.user.name ?? gate.session.user.email },
+          }),
+        );
+        const paid = await prisma.trainee.findUniqueOrThrow({
+          where: { id: trainee.id },
+          select: { amountPaidRwf: true, paymentStatus: true },
+        });
+        Object.assign(trainee, paid);
+      }
 
       await audit({
         ...actorOf(gate.session),

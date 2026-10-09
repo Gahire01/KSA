@@ -14,6 +14,39 @@ API: `POST/PATCH /api/courses` accept and the course editor edits `priceTiers`; 
 
 ---
 
+## Session — Chunk A complete — 2026-10-09
+
+Chunk A (catalogue -> exams -> pricing) is done and pushed to `origin/main`.
+
+### git log --oneline -8
+```
+cddbd80 chore(lint): ignore ad-hoc tmp-* helper scripts
+9464642 chore(seed): real course pricing with tiered options      <- Part 3B
+0097b08 fix(deploy): prisma generate before next build            <- Part 1
+e065670 chore(seed): five real courses with 60-min timer          <- Part 3
+cfa10d7 chore(seed): replace mock courses with 5 real courses     <- Part 0B
+8c146cf fix(exams): guard .find() against undefined data          <- Part 0
+5ab408c feat(exams): MVP rules — 50% pass, 60-min timer, shuffle, tab-leave auto-fail
+e29946f fix(deploy): prisma generate before next build            <- pre-Chunk-A deploy fix (message duplicated on 0097b08)
+```
+
+Part-by-part status:
+- Part 0 — exam guard fix: ✅ committed `8c146cf`. `/exams` renders with live data, no runtime errors.
+- Part 0B — real courses: ✅ committed `cfa10d7`. Seed now upserts exactly five real courses (CONSTRUCT, OSH, FIRST, FIRE, RIGGER) with the client's text and a deactivation sweep; 7 mock courses retired (`isActive: false`), 12 rows remain in DB.
+- Part 1 — deploy fix: ✅ committed `0097b08`. `engines` pinned `24.x` -> `20.x`; build = `prisma generate && next build` (already correct), verified `pnpm build` green locally.
+- Part 3 — exam timer: ✅ committed `e065670`. Seed enforces the shared rules (`lib/exams/rules`): 60-minute paper, 50% pass mark, 2 attempts for all five courses.
+- Part 3B — pricing: ✅ committed `9464642`. `Course.priceTiers Json?` (migration `20261009122917_course_price_tiers`), seeded tier packages for all five courses, course editor "Pricing packages" card, course detail tier grid, `/trainees/new` defaults the amount to the standard fee (editable). Verified with live data: five tiers tables present in DB, `/courses` lists exactly 5, CONSTRUCT detail renders Basic/Standard/Comprehensive.
+
+### Verification
+- `pnpm exec tsc --noEmit` clean, `pnpm lint` clean (temp `tmp-*.ts` helpers ignored via eslint config), `pnpm build` green (66 routes).
+- Headless Edge + CDP smoke: `/exams`, `/courses` (5 active, fees 30k/40k/40k/200k/250k RWF), `/courses/[id]` tier grid, `/trainees/new` (course -> amount) all render with no runtime errors.
+- Seed idempotence proven across multiple re-runs (`courses: 5`, `retired: 7`).
+- NOT verified from this machine: Vercel deploy log (no CLI/dashboard token here — push #4 to main is the deploy trigger; watch the dashboard from the account holding the Vercel token).
+
+### Next: Chunk B (certificate redesign)
+
+---
+
 ## Morning summary — 2026-10-08 (verification + gap-closing run, from clone at ksa-work/KSA)
 
 The brief was run against a repo that earlier sessions had already worked through. This run audited every part against the current code and closed only the real gaps.

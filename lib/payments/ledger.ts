@@ -99,16 +99,42 @@ export async function recordPayment(tx: Tx, input: RecordPaymentInput): Promise<
   return payment;
 }
 
-/** Recomputes a trainee's total and status from their ledger rows. */
+/**
+ * A ledger rule was broken (for example an entry that would take the total below zero).
+ * Routes turn it into a 409 with this message; nothing has been written when it is thrown,
+ * because the transaction rolls back.
+ */
+export class LedgerError extends Error {}
+
+/**
+ * Recomputes a trainee's total and status from their ledger rows. The total is the plain
+ * sum, never clamped: a sum below zero would mean the register and the trainee disagree,
+ * so it is refused instead of hidden.
+ */
 export async function syncTraineeTotals(tx: Tx, traineeId: string, settlesAtRwf: number): Promise<void> {
   const total = await tx.payment.aggregate({
     where: { traineeId },
     _sum: { amountRwf: true },
   });
-  const paid = Math.max(0, total._sum.amountRwf ?? 0);
+  const paid = total._sum.amountRwf ?? 0;
+  if (paid < 0) {
+    throw new LedgerError("That would take this trainee's total below zero. Check the receipts first.");
+  }
 
   await tx.trainee.update({
     where: { id: traineeId },
     data: { amountPaidRwf: paid, paymentStatus: paymentStatusFor(paid, settlesAtRwf) },
   });
+}
+
+/**
+ * Re-judges every trainee on a course against its (possibly new) prices. Called when a
+ * course's price or packages change, so `paymentStatus` never goes stale: someone who
+ * counted as paid in full against the old cheapest package is re-checked against the new one.
+ */
+export async function resettleCourse(tx: Tx, courseId: string, course: { priceRwf: number; priceTiers?: unknown }) {
+  const settles = settlementPrice(course);
+  await tx.trainee.updateMany({ where: { courseId, amountPaidRwf: { lte: 0 } }, data: { paymentStatus: "UNPAID" } });
+  await tx.trainee.updateMany({ where: { courseId, amountPaidRwf: { gt: 0, gte: settles } }, data: { paymentStatus: "PAID" } });
+  await tx.trainee.updateMany({ where: { courseId, amountPaidRwf: { gt: 0, lt: settles } }, data: { paymentStatus: "PARTIAL" } });
 }

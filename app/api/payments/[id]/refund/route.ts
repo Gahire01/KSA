@@ -3,7 +3,7 @@ import { apiFail, apiNotFound, apiOk, zodMessage } from "@/lib/api/response";
 import { refundSchema } from "@/lib/api/payment-schemas";
 import { actorOf, audit } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-import { recordPayment } from "@/lib/payments/ledger";
+import { LedgerError, recordPayment } from "@/lib/payments/ledger";
 import { paymentRow, paymentSelect } from "@/lib/payments/rows";
 
 /**
@@ -45,6 +45,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       }),
     );
   } catch (error) {
+    if (error instanceof LedgerError) return apiFail(error.message, 409);
     /* The unique refundOfId index: a concurrent refund of the same payment won the race. */
     if ((error as { code?: string } | null)?.code === "P2002") {
       return apiFail("This payment has already been refunded.", 409);

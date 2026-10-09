@@ -1,7 +1,8 @@
 /**
  * Step 5 — bring the academy's real student numbers into the database.
  *
- * Source of truth: public/student/KIGALI SAFETY ACADEMY STUDENTS LIST.docx
+ * Source of truth: data/student-register/KIGALI SAFETY ACADEMY STUDENTS LIST.docx
+ * (kept out of public/ on purpose: it names real people and must not be web-reachable)
  * (the Word table the academy sent). Each body row is:
  *
  *     <number> | <full name>
@@ -55,7 +56,7 @@ if (!connectionString) {
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
-const REGISTER_PATH = join("public", "student", "KIGALI SAFETY ACADEMY STUDENTS LIST.docx");
+const REGISTER_PATH = join("data", "student-register", "KIGALI SAFETY ACADEMY STUDENTS LIST.docx");
 const MANIFEST_PATH = join("scripts", "student-list", "student-numbers.json");
 const PLACEHOLDER_CATEGORY = "Firefighters";
 
@@ -272,7 +273,7 @@ async function main() {
   writeFileSync(join("scripts", "student-list", "register-numbers.ts"), summary, "utf8");
 
   const manifest = {
-    source: "public/student/KIGALI SAFETY ACADEMY STUDENTS LIST.docx",
+    source: "data/student-register/KIGALI SAFETY ACADEMY STUDENTS LIST.docx",
     updatedAt: new Date().toISOString(),
     maxStudentNumber: maxNumber,
     nextStudentNumber: nextNumber,

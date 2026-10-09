@@ -5,7 +5,8 @@ import { actorOf, audit } from "@/lib/audit";
 import { viaCourse } from "@/lib/auth/scope";
 import { invalidateCourses } from "@/lib/data-cache";
 import { prisma } from "@/lib/db";
-import { recordPayment, settlementAmount, syncTraineeTotals } from "@/lib/payments/ledger";
+import { LedgerError, recordPayment, settlementAmount, syncTraineeTotals } from "@/lib/payments/ledger";
+import { withoutMoney } from "@/lib/trainees/privacy";
 import { traineeInclude } from "@/app/api/trainees/route";
 
 type Params = { params: Promise<{ id: string }> };
@@ -24,7 +25,7 @@ export async function GET(_request: Request, { params }: Params) {
   });
   if (!trainee) return apiNotFound("Trainee");
 
-  return apiOk(trainee);
+  return apiOk(gate.trainerScope ? withoutMoney(trainee) : trainee);
 }
 
 /** PATCH /api/trainees/:id */
@@ -56,44 +57,53 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!course) return apiFail("That course does not exist.", 422);
   }
 
-  await prisma.trainee.update({
-    where: { id },
-    data: {
-      ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
-      ...(data.email !== undefined ? { email: data.email.toLowerCase() } : {}),
-      ...(data.phone !== undefined ? { phone: data.phone } : {}),
-      ...(data.countryCode !== undefined ? { countryCode: data.countryCode } : {}),
-      ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
-      ...(data.courseId !== undefined ? { courseId: data.courseId ?? null } : {}),
-      ...(data.deadlineAt !== undefined ? { deadlineAt: data.deadlineAt ?? null } : {}),
-      ...(data.status !== undefined ? { status: data.status } : {}),
-      ...(data.notes !== undefined ? { notes: data.notes ?? null } : {}),
-    },
-  });
-
-  /* Money goes through the ledger. `paymentStatus` from the client is ignored (it is derived),
-   * and a changed amount becomes an adjustment row so the trainee's total always equals the sum
-   * of their payments. A new course changes what "paid in full" means, so totals are re-judged. */
+  /* The profile fields and any money change are ONE transaction. Money goes through the ledger:
+   * `paymentStatus` from the client is ignored (it is derived), and a changed amount becomes an
+   * adjustment row so the trainee's total always equals the sum of their payments. The adjustment
+   * is worked out from the CURRENT total read under the ledger lock, not from the copy read above,
+   * so a payment recorded in between cannot make the delta wrong. A new course changes what "paid
+   * in full" means, so the totals are re-judged. */
   const recorder = { id: gate.session.user.id, name: gate.session.user.name ?? gate.session.user.email };
-  const paidChanged = data.amountPaidRwf !== undefined && data.amountPaidRwf !== existing.amountPaidRwf;
   const courseChanged = data.courseId !== undefined && (data.courseId ?? null) !== existing.courseId;
-  if (paidChanged || courseChanged) {
+  try {
     await prisma.$transaction(async (tx) => {
-      if (paidChanged) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('ksa-payment-receipt'))`;
+
+      await tx.trainee.update({
+        where: { id },
+        data: {
+          ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
+          ...(data.email !== undefined ? { email: data.email.toLowerCase() } : {}),
+          ...(data.phone !== undefined ? { phone: data.phone } : {}),
+          ...(data.countryCode !== undefined ? { countryCode: data.countryCode } : {}),
+          ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
+          ...(data.courseId !== undefined ? { courseId: data.courseId ?? null } : {}),
+          ...(data.deadlineAt !== undefined ? { deadlineAt: data.deadlineAt ?? null } : {}),
+          ...(data.status !== undefined ? { status: data.status } : {}),
+          ...(data.notes !== undefined ? { notes: data.notes ?? null } : {}),
+        },
+      });
+
+      const current = await tx.trainee.findUniqueOrThrow({ where: { id }, select: { amountPaidRwf: true } });
+      const delta = data.amountPaidRwf === undefined ? 0 : data.amountPaidRwf - current.amountPaidRwf;
+      if (delta !== 0) {
         await recordPayment(tx, {
           traineeId: id,
-          amountRwf: (data.amountPaidRwf as number) - existing.amountPaidRwf,
+          amountRwf: delta,
           method: "CASH",
           notes: "Adjusted on the trainee record",
           recorder,
         });
-      } else {
+      } else if (courseChanged) {
         const course = data.courseId
           ? await tx.course.findUnique({ where: { id: data.courseId }, select: { priceRwf: true, priceTiers: true } })
           : null;
         await syncTraineeTotals(tx, id, settlementAmount(course));
       }
     });
+  } catch (error) {
+    if (error instanceof LedgerError) return apiFail(error.message, 409);
+    throw error;
   }
 
   if (courseChanged) await invalidateCourses();
@@ -121,9 +131,17 @@ export async function DELETE(_request: Request, { params }: Params) {
 
   const existing = await prisma.trainee.findUnique({
     where: { id },
-    select: { id: true, fullName: true, traineeNo: true, _count: { select: { certificates: true } } },
+    select: { id: true, fullName: true, traineeNo: true, _count: { select: { certificates: true, payments: true } } },
   });
   if (!existing) return apiNotFound("Trainee");
+
+  /* The payments register is never erased. A trainee with receipts is withdrawn, not deleted. */
+  if (existing._count.payments > 0) {
+    return apiFail(
+      "This trainee has payment records. Set their status to Withdrawn instead; deleting would erase the receipts.",
+      409,
+    );
+  }
 
   /* The database would cascade this delete to every certificate the trainee holds,
    * silently invalidating documents already in people's hands and breaking their

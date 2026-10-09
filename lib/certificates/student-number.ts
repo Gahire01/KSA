@@ -4,7 +4,7 @@ import register from "../../scripts/student-list/student-numbers.json";
 /**
  * Student numbers.
  *
- * The academy's register (public/student, parsed into
+ * The academy's register (data/student-register, parsed into
  * scripts/student-list/student-numbers.json) is the source of truth for the
  * numbers already handed out. A certificate prints the number the student already
  * has; only someone with no number gets the next free one.

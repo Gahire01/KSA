@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 
+import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/signer";
 import { formatDate } from "@/lib/utils/format";
 
 /**
@@ -49,10 +50,15 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.06]"
-        style={{ backgroundImage: "url('/cert-bg.svg')", backgroundSize: "cover" }}
+      {/* A faint copy of the logo behind everything, exactly as the PDF prints it. */}
+      <Image
+        src="/logo.png"
+        alt=""
+        width={260}
+        height={260}
+        draggable={false}
         aria-hidden
+        className="pointer-events-none absolute top-1/2 left-1/2 size-[260px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.06]"
       />
       <div className="relative flex min-h-[32rem] flex-col items-center border border-orange px-5 pt-6 pb-4 text-center sm:px-12">
         <Image
@@ -108,9 +114,9 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
             </div>
             <div className="h-0.5 w-full bg-ink" aria-hidden />
             <p className="mt-1 font-display text-sm font-semibold text-[#0F2340]">
-              {cert.signerName ?? "Fredson Niyoniringiye"}
+              {cert.signerName ?? DIRECTOR_NAME}
             </p>
-            <p className="text-xs text-ink-2">{cert.signerTitle ?? "Director"}</p>
+            <p className="text-xs text-ink-2">{cert.signerTitle ?? DIRECTOR_TITLE}</p>
           </div>
 
           <div className="flex flex-col items-end gap-3">
@@ -130,6 +136,10 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
           Certificate ID: {cert.studentNumber}-{cert.contentHash.slice(0, 12).toUpperCase()}
         </p>
       </div>
+      {/* Outside the frame, like the PDF's footer: it ties a copy to its holder. */}
+      <p className="relative mt-1.5 text-center font-mono text-[7px] text-ink-3">
+        Issued to {cert.traineeName} · Student #{cert.studentNumber}
+      </p>
     </div>
   );
 }

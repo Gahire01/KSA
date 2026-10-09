@@ -1,3 +1,97 @@
+## Morning summary — 2026-10-09
+Completed:
+  ✅ Vercel build fixed (prisma generate no longer needs DATABASE_URL; the build was green on Vercel for the first push)
+  ✅ Certificate redesigned to the reference sample (preview + PDF, checked side by side by rendering the PDF)
+  ✅ 5 real courses (CONSTRUCT, OSH, FIRST, FIRE, RIGGER)
+  ✅ 60-min exam timer on every course
+  ✅ 30 Construction Safety questions
+  ✅ 30 OSH questions
+  ✅ 30 Fire Fighting + First Aid questions
+  ✅ 30 Rigger Safety questions
+  ✅ MVP exam rules: 50% pass, shuffle Q&A, auto-fail on 2nd tab leave
+  ✅ Attendance removed
+  ✅ Real-time notifications (delete per row + Clear all)
+  ✅ Content protection (watermark, lockdown, honest scope)
+  ✅ Question bank page fixed
+  ✅ Amount fields start empty
+  ✅ Trainee email delivery fixed + spam warnings
+  ✅ Reports: Excel + PDF
+  ✅ Email templates carry the logo
+  ✅ Security checklist verified (progress.md)
+  ✅ Performance pass (see "Not verified")
+  ✅ Dead code removed
+  ✅ Real course pricing with tiers (3B)
+  ⏳ Deployed to: not deployed from this environment (see "Deploying")
+
+Beyond the brief, because the brief assumed it: the dashboard, payments, audit log, exams list, trainers, settings,
+trainee import and command palette were running on in-memory demo data (`lib/mock`). They now read the database,
+a real payments ledger (`Payment` model + `lib/payments/ledger.ts`) was added, and `lib/mock` is deleted.
+
+Open questions (QUESTIONS.md): First Aid has no question bank; academy address/phone/email still unfilled; Reply-To
+address; Resend domain; tab-leave vs. remaining attempts; PDF for revoked certificates; re-draw the signature;
+Rigger category name; "paid in full" rule.
+Blockers: none.
+
+### Smoke test results (run against a throwaway Postgres + the real dev server + a local mail-capture stand-in for Resend)
+ 1. /api/health -> ok ............................................ PASS
+ 2. Login -> dashboard (real emailed code, session, /dashboard) ..... PASS
+ 3. Sidebar shows all sections ..................................... NOT RUN (needs a browser; code reviewed)
+ 4. Draw signature -> lock -> on certificate preview ............... NOT RUN (needs a browser)
+ 5. Certificate preview matches the layout ......................... PASS for the PDF (rendered and inspected); preview built from the same numbers, not screenshotted
+ 6. Send exam link -> email with logo + OTP + link ................. PASS (send returns { sent, failed }; 201 is the correct status)
+ 7. Expired OTP -> inline error + resend ........................... PASS (410 + resend issues a new code; UI copy not clicked)
+ 8. External email test (delivered vs spam) ........................ NOT RUN (needs the real Resend account and a verified domain)
+ 9. Take exam -> submit -> certificate (numeric number) ............ PASS (certificate 461, emailed)
+10. QR -> /verify/[token] -> valid ................................. PASS (public, noindex, shows the SHA-256)
+11. Reports export as Excel and PDF ................................ PASS (all 5 reports x 2 formats are real files; logo embedded)
+12. Question bank opens for ALL FIVE courses ....................... PASS (API + /exams/[id] + import page respond; FIRST shows the empty state)
+13. Notifications panel starts empty ................................ PASS for a fresh user (items are real events only; delete + Clear all tested)
+14. Amount field starts empty ...................................... CODE ONLY (AmountInput default is "" with a muted 0 placeholder)
+15. 404 renders .................................................... PASS
+16. Exam: right-click blocked, Ctrl+C blocked, watermark visible .... NOT RUN (needs a browser; hook + watermark reviewed)
+17. Exam: second tab blocked ....................................... NOT RUN (needs a browser; BroadcastChannel code unchanged)
+18. Exam: first tab leave -> warning overlay ....................... server side PASS; overlay NOT clicked (needs a browser)
+19. Exam: second tab leave -> auto-submitted + FAILED .............. PASS (score 50% ignored, answers refused afterwards, log { type, at, count } x2)
+20. Certificate preview: right-click blocked, no save image ........ CODE ONLY
+21. Certificate PDF has the "Issued to" footer ..................... PASS (also: Subject = content hash, numeric number, no banned words)
+22. HANDOFF has the honest Content protection section .............. PASS (below)
+23. Shuffle: 3 attempts -> 3 different question orders ............. PASS
+24. Shuffle: same 3 attempts -> 3 different option orders for Q1 ... PASS
+25. Pass mark: 49% fails, 50% passes ............................... PASS (15/30 passes, 14/30 fails, 99/200 fails)
+26. Timer: every course has examDurationMin = 60 ................... PASS
+
+Other tests run: payments ledger (30 checks), reports + audit + import (23), pricing tiers (10), tab-leave (8),
+review-fix regression (see below). `tsc` and `eslint` are clean; the production build is verified at the end.
+
+### Not verified (and why)
+- No deploy: there are no Vercel / Neon / Resend credentials here. Re-check the Vercel build after the PR merges.
+- Lighthouse >= 85 on /login and /dashboard was not measured (no browser run). Caching, lazy loading and the 150ms
+  fade are in; the score itself is unknown.
+- Items 3, 4, 8, 14, 16, 17, 20 above need a person in a browser.
+- Mail was captured by a local stand-in, so real inbox / spam placement is untested.
+
+### Deploying
+1. Merge the PR, set the env vars in Vercel (DATABASE_URL, SESSION_SECRET (32+ chars), RESEND_API_KEY, EMAIL_FROM,
+   APP_URL / NEXT_PUBLIC_APP_URL, CRON_SECRET; optional EMAIL_REPLY_TO).
+2. Apply migrations: `pnpm prisma migrate deploy` (adds Payment, the 60-minute default, price tiers, and a one-off
+   backfill that gives every trainee with an existing balance an opening-balance receipt).
+3. Seed: `pnpm prisma db seed` (needs SEED_OWNER_PASSWORD). It resets the five courses' prices, rules and topics to the
+   values in `prisma/seed-data/courses.ts` and hides every other course.
+4. Verify the sending domain in Resend (the brief names kigalisafety.dev) before real trainees are emailed.
+5. Node is 24.x on Vercel (set upstream); this machine ran 22.
+
+### Independent review
+A fresh reviewer read the whole diff against the brief and found 15 issues; every one was checked before acting.
+Fixed: trainers could read money fields through the trainees API; deleting a trainee erased their receipts (now refused,
+also at the database); existing balances had no ledger rows (backfill migration); the ledger could hide a negative
+total; trainee create/edit/import were not atomic with the ledger; a price change did not re-judge payment status; the
+outstanding figure ignored the cheapest-package rule; a normal submit after two recorded leaves could pass on score;
+other flags could crowd out tab-leave logs; 49.5% displayed as 50%; the certificate preview differed from the PDF;
+real trainees' certificates and the student register were web-reachable under public/ (moved to data/); `unreadOnly`
+parsed wrongly; dead attendance types. Not changed: the in-memory rate limiter (documented in progress.md).
+
+---
+
 ## Content protection — what works, what doesn't
 Blocked: copy, cut, right-click, save image, select-all,
   devtools shortcuts (F12, Ctrl+Shift+I/J), view-source, print,

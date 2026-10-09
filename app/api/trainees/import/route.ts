@@ -131,30 +131,32 @@ export async function POST(request: Request) {
     /* A concurrent create can claim the same number; the unique index rejects the loser, so retry. */
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        const trainee = await prisma.trainee.create({
-          data: {
-            traineeNo: await nextTraineeNo(),
-            fullName: data.fullName,
-            email: data.email,
-            phone: data.phone,
-            countryCode: data.countryCode,
-            categoryId: data.categoryId,
-            courseId: data.courseId,
-            status: "ACTIVE",
-          },
-          select: { id: true },
-        });
-        if (data.amount > 0) {
-          await prisma.$transaction((tx) =>
-            recordPayment(tx, {
+        const traineeNo = await nextTraineeNo();
+        /* One transaction per row: the trainee and their opening payment exist together or not at all. */
+        await prisma.$transaction(async (tx) => {
+          const trainee = await tx.trainee.create({
+            data: {
+              traineeNo,
+              fullName: data.fullName,
+              email: data.email,
+              phone: data.phone,
+              countryCode: data.countryCode,
+              categoryId: data.categoryId,
+              courseId: data.courseId,
+              status: "ACTIVE",
+            },
+            select: { id: true },
+          });
+          if (data.amount > 0) {
+            await recordPayment(tx, {
               traineeId: trainee.id,
               amountRwf: data.amount,
               method: "CASH",
               notes: "Paid at enrolment (import)",
               recorder,
-            }),
-          );
-        }
+            });
+          }
+        });
         imported += 1;
         break;
       } catch (error) {

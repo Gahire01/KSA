@@ -197,7 +197,8 @@ model Payment {
   /// Printed on the receipt, e.g. R-2026-0001.
   receiptNo      String        @unique
   traineeId      String
-  trainee        Trainee       @relation(fields: [traineeId], references: [id], onDelete: Cascade)
+  /// Restrict, not Cascade: a trainee with receipts cannot be deleted, so the ledger is never erased.
+  trainee        Trainee       @relation(fields: [traineeId], references: [id], onDelete: Restrict)
   courseId       String?
   course         Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
   amountRwf      Int

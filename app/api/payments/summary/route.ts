@@ -1,5 +1,6 @@
 import { guard } from "@/lib/api/guard";
 import { apiOk } from "@/lib/api/response";
+import { settlementPrice } from "@/lib/courses/pricing";
 import { prisma } from "@/lib/db";
 
 /**
@@ -25,13 +26,14 @@ export async function GET() {
     }),
     prisma.trainee.findMany({
       where: { status: { in: ["PENDING", "ACTIVE"] }, courseId: { not: null }, paymentStatus: { not: "PAID" } },
-      select: { amountPaidRwf: true, course: { select: { priceRwf: true } } },
+      select: { amountPaidRwf: true, course: { select: { priceRwf: true, priceTiers: true } } },
     }),
     prisma.trainee.groupBy({ by: ["paymentStatus"], _count: { _all: true } }),
   ]);
 
   const outstandingRwf = debtors.reduce(
-    (sum, t) => sum + Math.max(0, (t.course?.priceRwf ?? 0) - t.amountPaidRwf),
+    /* What it takes to count as paid in full (the cheapest package), the same rule the ledger uses. */
+    (sum, t) => sum + Math.max(0, settlementPrice(t.course) - t.amountPaidRwf),
     0,
   );
   const count = (s: string) => byStatus.find((r) => r.paymentStatus === s)?._count._all ?? 0;

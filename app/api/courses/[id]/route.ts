@@ -5,6 +5,7 @@ import { actorOf, audit } from "@/lib/audit";
 import { isActiveTrainer, ownsCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import { standardPrice } from "@/lib/courses/pricing";
+import { resettleCourse } from "@/lib/payments/ledger";
 import { invalidateCourses } from "@/lib/data-cache";
 
 type Params = { params: Promise<{ id: string }> };
@@ -61,7 +62,12 @@ export async function PATCH(request: Request, { params }: Params) {
     return apiFail("That trainer does not exist or is not active.", 422);
   }
 
-  const course = await prisma.course.update({
+  const priceChanged = data.priceTiers !== undefined || data.priceRwf !== undefined;
+
+  /* The course update and the re-judging of its trainees' payment status are one transaction,
+   * so a price change can never leave anyone marked paid against the old prices. */
+  const course = await prisma.$transaction(async (tx) => {
+    const updated = await tx.course.update({
     where: { id },
     data: {
       ...(data.code !== undefined ? { code: data.code } : {}),
@@ -86,6 +92,9 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
     },
     include: { category: { select: { id: true, name: true } } },
+    });
+    if (priceChanged) await resettleCourse(tx, id, updated);
+    return updated;
   });
   await invalidateCourses();
 

@@ -87,9 +87,10 @@ const GRANTS: Readonly<Record<AuthzAction, ReadonlySet<Role>>> = {
   "category.read": ALL_ROLES,
   "category.create": STAFF_ROLES,
 
-  /* The question bank returns the answer key (`isCorrect`) so staff can set the
-   * paper, so trainers are excluded from the grant itself rather than relying on
-   * the missing-resource trap. */
+  /* The question bank returns the answer key (`isCorrect`) so whoever sets the paper can mark the
+   * right answer. Trainers are allowed because they author the banks of THEIR OWN courses: every
+   * route behind these grants is `trainerScoped` and filters by the course's trainer. No route a
+   * trainee can reach returns the key. */
   "question.read": ALL_ROLES,
   "question.write": ALL_ROLES,
 

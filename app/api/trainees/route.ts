@@ -9,6 +9,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { emit, ownerAndTrainerIds, ownerIds } from "@/lib/notifications/emit";
 import { recordPayment } from "@/lib/payments/ledger";
 import { nextTraineeNo } from "@/lib/trainees/number";
+import { withoutMoney } from "@/lib/trainees/privacy";
 
 export const traineeInclude = {
   course: { select: { id: true, code: true, name: true, priceRwf: true } },
@@ -33,7 +34,8 @@ export async function GET(request: Request) {
   /* Each filter accepts either a single value or a CSV list, and both spellings
    * of the plural alias are accepted so the UI can use its own names. */
   const statuses = d.status ?? d.statuses;
-  const payment = d.paymentStatus ?? d.paymentStatuses;
+  /* A trainer cannot filter by what people owe: that would leak it through the result set. */
+  const payment = gate.trainerScope ? undefined : (d.paymentStatus ?? d.paymentStatuses);
   const courseIds = d.courseId ?? d.courseIds;
   const categoryIds = d.categoryId ?? d.categoryIds;
   const countries = d.country ?? d.countries;
@@ -78,7 +80,7 @@ export async function GET(request: Request) {
   ]);
 
   return apiOk({
-    items,
+    items: gate.trainerScope ? items.map(withoutMoney) : items,
     page,
     pageSize,
     total,
@@ -125,41 +127,40 @@ export async function POST(request: Request) {
   /* Retry a couple of times if a concurrent create claimed the same number. */
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const trainee = await prisma.trainee.create({
-        data: {
-          traineeNo: await nextTraineeNo(),
-          fullName: data.fullName,
-          email: data.email.toLowerCase(),
-          phone: data.phone,
-          countryCode: data.countryCode,
-          categoryId: data.categoryId,
-          courseId,
-          deadlineAt: data.deadlineAt ?? null,
-          status: data.status,
-          notes: data.notes ?? null,
-        },
-        include: traineeInclude,
-      });
+      const traineeNo = await nextTraineeNo();
 
-      /* An amount entered at enrolment is a real payment: it goes through the ledger so the
-       * trainee's total, status and the payments register all agree. `paymentStatus` from the
-       * client is ignored; it is derived from the money. */
-      if (data.amountPaidRwf > 0) {
-        await prisma.$transaction((tx) =>
-          recordPayment(tx, {
-            traineeId: trainee.id,
+      /* The trainee and any opening payment are written in ONE transaction: either both exist or
+       * neither does, so a failed payment can never leave a trainee behind (whose retry would then
+       * be refused as a duplicate email). The amount goes through the ledger so the trainee's
+       * total, status and the payments register all agree; `paymentStatus` from the client is
+       * ignored, it is derived from the money. */
+      const trainee = await prisma.$transaction(async (tx) => {
+        const created = await tx.trainee.create({
+          data: {
+            traineeNo,
+            fullName: data.fullName,
+            email: data.email.toLowerCase(),
+            phone: data.phone,
+            countryCode: data.countryCode,
+            categoryId: data.categoryId,
+            courseId,
+            deadlineAt: data.deadlineAt ?? null,
+            status: data.status,
+            notes: data.notes ?? null,
+          },
+          select: { id: true },
+        });
+        if (data.amountPaidRwf > 0) {
+          await recordPayment(tx, {
+            traineeId: created.id,
             amountRwf: data.amountPaidRwf,
             method: "CASH",
             notes: "Paid at enrolment",
             recorder: { id: gate.session.user.id, name: gate.session.user.name ?? gate.session.user.email },
-          }),
-        );
-        const paid = await prisma.trainee.findUniqueOrThrow({
-          where: { id: trainee.id },
-          select: { amountPaidRwf: true, paymentStatus: true },
-        });
-        Object.assign(trainee, paid);
-      }
+          });
+        }
+        return tx.trainee.findUniqueOrThrow({ where: { id: created.id }, include: traineeInclude });
+      });
 
       await audit({
         ...actorOf(gate.session),

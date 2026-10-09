@@ -33,7 +33,11 @@ const KNOWN_TYPES = new Set<string>([
 
 const listQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(60),
-  unreadOnly: z.coerce.boolean().default(false),
+  /* z.coerce.boolean() would read the string "false" as true; compare the text instead. */
+  unreadOnly: z
+    .enum(["true", "false", "1", "0"])
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
 });
 
 const readBody = z

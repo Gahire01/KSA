@@ -36,7 +36,7 @@ export default function PrivacyPolicyPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>
             <strong className="text-ink">Enrolment records</strong> — name, email address,
-            phone number and country of the trainee, plus course, fee and attendance notes.
+            phone number and country of the trainee, plus course, fee and payment records.
           </li>
           <li>
             <strong className="text-ink">Exam results</strong> — answers submitted, scores

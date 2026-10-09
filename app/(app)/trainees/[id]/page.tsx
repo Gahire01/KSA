@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   AwardIcon,
   BookOpenIcon,
@@ -12,7 +12,6 @@ import {
   MailIcon,
   PencilIcon,
   PhoneIcon,
-  SendIcon,
   Trash2Icon,
   UserRoundIcon,
 } from "lucide-react";
@@ -24,7 +23,6 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { DeadlineBadge } from "@/components/shared/DeadlineBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { CopyButton } from "@/components/shared/CopyButton";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ApiError } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import { useCourses, useDeleteTrainee, useTrainee } from "@/lib/api/hooks";
 import {
   categoryLabel,
@@ -52,7 +50,36 @@ import {
   formatTime,
 } from "@/lib/utils/format";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import type { Certificate, Enrollment, ExamAttempt, Payment } from "@/lib/types";
+
+/** What the trainee has done, from GET /api/trainees/:id/activity. */
+interface TraineeActivity {
+  attempts: Array<{
+    id: string;
+    courseId: string;
+    courseName: string;
+    status: string;
+    attemptNumber: number;
+    scorePct: number | null;
+    startedAt: string | null;
+    createdAt: string;
+  }>;
+  certificates: Array<{
+    id: string;
+    courseId: string;
+    courseName: string;
+    studentNumber: number;
+    status: "VALID" | "REVOKED";
+  }>;
+  /** Null for a trainer: money is not theirs to see. */
+  payments: Array<{
+    id: string;
+    receiptNo: string;
+    amountRwf: number;
+    method: string;
+    paidAt: string;
+    isRefund: boolean;
+  }> | null;
+}
 
 /* Courses for the select dropdown; bounded by the API's MAX_PAGE_SIZE. */
 const COURSE_OPTION_LIMIT = 100;
@@ -61,7 +88,17 @@ const ENROLLMENT_LABEL: Record<string, string> = {
   ACTIVE: "Active",
   PENDING: "Pending",
   COMPLETED: "Completed",
-  SUSPENDED: "Suspended",
+  FAILED: "Failed",
+  WITHDRAWN: "Withdrawn",
+};
+
+const ATTEMPT_LABEL: Record<string, string> = {
+  PENDING: "Sent, not opened",
+  STARTED: "In progress",
+  SUBMITTED: "Not passed",
+  PASSED: "Passed",
+  FAILED: "Failed",
+  VOID: "Void",
 };
 
 export default function TraineeDetailPage() {
@@ -96,14 +133,11 @@ export default function TraineeDetailPage() {
     [coursesQuery.data],
   );
 
-  const remindMutation = useMutation({
-    mutationFn: async () => {
-      await new Promise((r) => setTimeout(r, 700));
-    },
-    onSuccess: () =>
-      toast.success("Reminder queued", {
-        description: "The trainee will receive an email and SMS nudge.",
-      }),
+  const activityQuery = useQuery({
+    queryKey: ["trainee-activity", id],
+    queryFn: () => api.get<TraineeActivity>(`/trainees/${encodeURIComponent(id)}/activity`),
+    enabled: Boolean(id),
+    staleTime: 15_000,
   });
 
   if (isLoading) {
@@ -130,11 +164,9 @@ export default function TraineeDetailPage() {
     );
   }
 
-  /* These tabs belong to the Phase 2 exam / payment / certificate tables. */
-  const payments: Payment[] = [];
-  const attempts: ExamAttempt[] = [];
-  const certificates: Certificate[] = [];
-  const enrollments: Enrollment[] = [];
+  const payments = activityQuery.data?.payments ?? [];
+  const attempts = activityQuery.data?.attempts ?? [];
+  const certificates = activityQuery.data?.certificates ?? [];
 
   const balance = Math.max(0, trainee.totalDueRwf - trainee.amountPaidRwf);
   const paidPct = trainee.totalDueRwf
@@ -166,16 +198,6 @@ export default function TraineeDetailPage() {
         }
         actions={
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => remindMutation.mutate()}
-              disabled={remindMutation.isPending}
-            >
-              <SendIcon className="size-4" />
-              Send reminder
-            </Button>
             {!isTrainer ? (
               <Button asChild variant="outline" size="sm" className="gap-1.5">
                 <Link href={`/trainees/${trainee.id}/edit`}>
@@ -186,7 +208,7 @@ export default function TraineeDetailPage() {
             ) : null}
             {!isTrainer ? (
               <Button asChild size="sm" className="gap-1.5">
-                <Link href="/payments/new">
+                <Link href={`/payments/new?traineeId=${trainee.id}`}>
                   <CreditCardIcon className="size-4" />
                   Record payment
                 </Link>
@@ -272,10 +294,14 @@ export default function TraineeDetailPage() {
             ) : null}
 
             <div className="grid grid-cols-3 gap-2">
-              <Metric label="Attendance" value={`${formatNumber(trainee.attendancePct)}%`} />
+              <Metric label="Certificates" value={formatNumber(certificates.length)} />
               <Metric
                 label="Best score"
-                value={trainee.examScore === null ? "—" : `${formatNumber(trainee.examScore)}%`}
+                value={
+                  attempts.some((a) => a.scorePct !== null)
+                    ? `${formatNumber(Math.max(...attempts.map((a) => a.scorePct ?? 0)))}%`
+                    : "—"
+                }
               />
               <Metric
                 label="Exams taken"
@@ -306,7 +332,6 @@ export default function TraineeDetailPage() {
               <TabsTrigger value="attempts">Exam attempts</TabsTrigger>
               <TabsTrigger value="payments">Payments</TabsTrigger>
               <TabsTrigger value="certificates">Certificates</TabsTrigger>
-              <TabsTrigger value="enrollments">Enrollments</TabsTrigger>
             </TabsList>
 
             <TabsContent value="attempts" className="mt-4">
@@ -317,6 +342,7 @@ export default function TraineeDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Exam</TableHead>
+                      <TableHead>Attempt</TableHead>
                       <TableHead>Started</TableHead>
                       <TableHead>Score</TableHead>
                       <TableHead>Result</TableHead>
@@ -326,21 +352,20 @@ export default function TraineeDetailPage() {
                   <TableBody>
                     {attempts.map((a) => (
                       <TableRow key={a.id}>
-                        <TableCell className="font-medium text-ink">
-                          {courseName(a.courseId)}
-                        </TableCell>
+                        <TableCell className="font-medium text-ink">{a.courseName}</TableCell>
+                        <TableCell className="tabular text-ink-2">#{a.attemptNumber}</TableCell>
                         <TableCell className="whitespace-nowrap text-ink-2">
-                          {formatDateTime(a.startedAt)}
+                          {formatDateTime(a.startedAt ?? a.createdAt)}
                         </TableCell>
                         <TableCell className="tabular">
-                          {a.score === null ? "—" : `${formatNumber(a.score)}%`}
+                          {a.scorePct === null ? "—" : `${formatNumber(a.scorePct)}%`}
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={a.status} />
+                          <StatusBadge status={a.status} label={ATTEMPT_LABEL[a.status]} />
                         </TableCell>
                         <TableCell className="text-right">
                           <Button asChild variant="ghost" size="sm">
-                            <Link href={`/exams/attempts/${a.id}`}>Open</Link>
+                            <Link href={`/exams/${a.courseId}/attempts/${a.id}`}>Open</Link>
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -380,11 +405,15 @@ export default function TraineeDetailPage() {
                         <TableCell>
                           <Badge variant="outline">{p.method}</Badge>
                         </TableCell>
-                        <TableCell className="text-right font-medium tabular">
+                        <TableCell
+                          className={`text-right font-medium tabular ${p.amountRwf < 0 ? "text-red" : ""}`}
+                        >
                           {formatRwf(p.amountRwf)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <CopyButton value={p.receiptNo} label="receipt number" variant="button" />
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={`/payments/${p.id}`}>Open</Link>
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -416,10 +445,10 @@ export default function TraineeDetailPage() {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium text-ink">
-                            {courseName(c.courseId)}
+                            {c.courseName}
                           </span>
                           <span className="block font-mono text-xs text-ink-3">
-                            {c.certNo}
+                            Student #{c.studentNumber}
                           </span>
                         </span>
                         <StatusBadge status={c.status} size="sm" />
@@ -430,35 +459,6 @@ export default function TraineeDetailPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="enrollments" className="mt-4">
-              {enrollments.length === 0 ? (
-                <EmptyState compact title="No enrollments" />
-              ) : (
-                <ul className="space-y-2">
-                  {enrollments.map((e) => (
-                    <li
-                      key={e.id}
-                      className="flex flex-wrap items-center gap-3 rounded-lg border border-line px-4 py-3"
-                    >
-                      <BookOpenIcon className="size-4 shrink-0 text-ink-3" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-ink">
-                          {courseName(e.courseId)}
-                        </span>
-                        <span className="block text-xs text-ink-2">
-                          Enrolled {formatDate(e.enrolledAt)} · due {formatDate(e.deadline)}
-                        </span>
-                      </span>
-                      <StatusBadge
-                        status={e.status}
-                        label={ENROLLMENT_LABEL[e.status] ?? e.status}
-                        size="sm"
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
@@ -473,9 +473,9 @@ export default function TraineeDetailPage() {
             </p>
             <div className="flex flex-wrap gap-2">
               <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link href={`/exams/new?traineeId=${trainee.id}`}>
+                <Link href={`/exams/new?courseId=${trainee.courseId}`}>
                   <ClipboardCheckIcon className="size-4" />
-                  Schedule exam
+                  Send exam
                 </Link>
               </Button>
               <Button

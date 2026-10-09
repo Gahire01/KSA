@@ -3,7 +3,6 @@ import QRCode from "qrcode";
 import React from "react";
 
 import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/issue";
-import { certificateStatus } from "@/lib/certificates/status";
 import { CertificateDocument, type CertificateDoc } from "@/lib/certificates/pdf";
 import { appUrl } from "@/lib/email/send";
 import { prisma } from "@/lib/db";
@@ -13,8 +12,9 @@ import { prisma } from "@/lib/db";
  *
  * Reads only the snapshot columns plus the two relation names, so a renamed course
  * or trainee never rewrites an already-issued certificate. A revoked certificate
- * still renders — with a REVOKED banner — because suppressing it would leave an
- * employer holding a file that silently no longer exists anywhere.
+ * still renders (the sheet itself carries no revoked marking; the public
+ * verification page is where revocation shows) because suppressing it would leave
+ * an employer holding a file that silently no longer exists anywhere.
  */
 
 const pdfSelect = {
@@ -25,8 +25,7 @@ const pdfSelect = {
   signerNameSnapshot: true,
   signerTitleSnapshot: true,
   issuedAt: true,
-  revokedAt: true,
-  revokedReason: true,
+  contentHash: true,
   verificationToken: true,
   trainee: { select: { fullName: true } },
   course: { select: { name: true } },
@@ -69,7 +68,6 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
 
   if (!cert) return null;
 
-  const status = certificateStatus(cert);
   const verifyUrl = appUrl(`/verify/${cert.verificationToken}`);
 
   const doc: CertificateDoc = {
@@ -85,10 +83,10 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
     directorTitle: cert.signerTitleSnapshot ?? DIRECTOR_TITLE,
     signatureSrc: await resolveSignatureSrc(cert.signatureUrlSnapshot, cert.signerNameSnapshot),
     verifyUrl,
+    contentHash: cert.contentHash,
     /* The QR encodes exactly the printed URL: {APP_URL}/verify/{verificationToken},
      * unique per certificate. */
     qrSrc: await QRCode.toDataURL(verifyUrl, { margin: 1, width: 300, errorCorrectionLevel: "M" }),
-    status,
   };
 
   /* react-pdf wants a React element, not the component function itself. */

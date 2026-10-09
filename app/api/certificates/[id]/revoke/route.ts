@@ -4,6 +4,7 @@ import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { certificateListSelect, certificateStatus } from "@/lib/certificates/status";
 import { prisma } from "@/lib/db";
 import { requestIp, requestUserAgent } from "@/lib/exams/attempt";
+import { emit, ownerAndTrainerIds } from "@/lib/notifications/emit";
 
 /**
  * POST /api/certificates/:id/revoke
@@ -64,6 +65,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       ip,
       userAgent,
     },
+  });
+
+  /* Tell the owner and the course's trainer; the revoker sees their own action too, which
+   * doubles as a receipt. emit() never throws, so this cannot undo the revocation. */
+  await emit("certificate.revoked", {
+    recipients: (await ownerAndTrainerIds(revoked.courseId)).map((userId) => ({ userId })),
+    title: "Certificate revoked",
+    link: `/certificates/${revoked.id}`,
+    body: `Certificate #${revoked.studentNumber} was revoked: ${parsed.data.reason}`,
   });
 
   return apiOk({ ...revoked, status: certificateStatus(revoked), alreadyRevoked: false });

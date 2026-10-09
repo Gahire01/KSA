@@ -21,7 +21,7 @@ function findByTokenHash(tokenHash: string) {
   return prisma.examAttempt.findUnique({
     where: { tokenHash },
     include: {
-      trainee: { select: { id: true, fullName: true, email: true } },
+      trainee: { select: { id: true, fullName: true, email: true, traineeNo: true } },
       course: {
         select: {
           id: true,

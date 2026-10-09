@@ -1,0 +1,209 @@
+1. Before starting a lifting operation, what should the rigger do first?
+A. Attach the sling immediately
+B. Check the load, lifting plan, equipment, surroundings, and hazards
+C. Ask the crane operator to start lifting
+D. Move workers away without checking the load
+Answer: B
+
+2. A load is heavier than the capacity of the available sling. What should the rigger do?
+A. Use the sling carefully
+B. Use two workers to support the load
+C. Select suitable lifting equipment with adequate capacity
+D. Lift the load slowly
+Answer: C
+
+3. Why must the weight of a load be confirmed before lifting?
+A. To know how many workers can watch the lift
+B. To ensure the crane and rigging equipment have adequate capacity
+C. To determine the color of the sling
+D. To reduce the lifting time
+Answer: B
+
+4. During inspection, a wire rope sling has broken wires and severe deformation. What should you do?
+A. Use it for a light load
+B. Use it once and then replace it
+C. Remove it from service and report it
+D. Cover the damaged area with tape
+Answer: C
+
+5. What is the safest position for workers when a load is suspended?
+A. Directly underneath the load
+B. Close to the load so they can catch it
+C. Outside the potential fall and swing zone
+D. Between the load and a structure
+Answer: C
+
+6. Why is standing under a suspended load prohibited?
+A. It distracts the crane operator
+B. The load could fall or move unexpectedly and cause serious injury or death
+C. It damages the crane
+D. It increases the load weight
+Answer: B
+
+7. A load begins to rotate during lifting. What is the safest response?
+A. Grab the load by hand
+B. Stand underneath it and push it
+C. Stop or control the lift from a safe position using appropriate means such as a tag line
+D. Run toward the load
+Answer: C
+
+8. What is the main purpose of a tag line?
+A. To increase lifting capacity
+B. To control load movement and rotation from a safe position
+C. To replace the sling
+D. To hold the load permanently
+Answer: B
+
+9. A synthetic sling is being used around a sharp-edged steel plate. What should be done?
+A. Use the sling without protection
+B. Put the sling directly over the sharp edge
+C. Use suitable edge protection
+D. Wet the sling first
+Answer: C
+
+10. Why is the center of gravity important when rigging a load?
+A. It helps determine how the load will balance and behave during lifting
+B. It determines the crane color
+C. It determines the lifting speed only
+D. It reduces the load weight
+Answer: A
+
+11. A load starts tilting immediately after being lifted a short distance. What should the rigger do?
+A. Continue because the load has already left the ground
+B. Ask workers to hold the load
+C. Stop, lower the load safely, and correct the rigging arrangement
+D. Increase the lifting speed
+Answer: C
+
+12. What should happen before making a critical or complex lift?
+A. Workers should begin immediately
+B. The lift should be properly planned and hazards assessed
+C. The crane should be tested by lifting the maximum load
+D. The rigger should decide while the load is already suspended
+Answer: B
+
+13. What should a rigger do if the crane operator cannot clearly see the load or signal person?
+A. Continue giving unclear signals
+B. Use mobile phone communication while standing under the load
+C. Establish an effective communication method before continuing
+D. Ask several workers to give different signals
+Answer: C
+
+14. If the signal person gives a STOP signal during lifting, what should the crane operator do?
+A. Ignore it if the load is light
+B. Stop the operation
+C. Increase the lifting speed
+D. Ask why after completing the lift
+Answer: B
+
+15. Why should only one designated signal person normally direct the crane operator?
+A. To avoid conflicting instructions and maintain clear communication
+B. To reduce the number of workers
+C. To make the lift faster
+D. To give the operator less responsibility
+Answer: A
+
+16. A shackle has no visible identification or capacity marking. What is the safest action?
+A. Estimate its capacity
+B. Use it for a small load
+C. Do not use it until its suitability and rated capacity are verified
+D. Use two shackles instead
+Answer: C
+
+17. What can happen if a sling is loaded beyond its rated capacity?
+A. Nothing if the lift is short
+B. The sling may fail and the load may fall
+C. The sling becomes stronger
+D. The crane automatically compensates
+Answer: B
+
+18. Why should knots not be used to shorten or repair lifting slings?
+A. They make the sling look untidy
+B. They can significantly affect the sling's strength and safe performance
+C. They increase the load capacity
+D. They make the sling heavier
+Answer: B
+
+19. Before lifting, workers are found inside the exclusion zone. What should the rigger do?
+A. Start the lift carefully
+B. Warn them after lifting begins
+C. Stop the operation and ensure the area is clear
+D. Ask them to stay still
+Answer: C
+
+20. What is the purpose of an exclusion zone during lifting?
+A. To keep unauthorized or exposed personnel away from lifting hazards
+B. To provide a parking area
+C. To store rigging equipment
+D. To improve crane appearance
+Answer: A
+
+21. Strong wind starts affecting a large suspended load. What should the lifting team do?
+A. Continue because the load is already suspended
+B. Assess the conditions and stop the lift if it is no longer safe
+C. Ask workers to hold the load
+D. Increase crane speed
+Answer: B
+
+22. Why should a load not be dragged sideways using a crane unless specifically planned and permitted by the equipment manufacturer and lifting procedure?
+A. It can create dangerous side loading and instability
+B. It saves too much time
+C. It makes the load lighter
+D. It improves crane capacity
+Answer: A
+
+23. What is the safest way to position yourself while guiding a suspended load?
+A. Between the load and a fixed structure
+B. Where you could be trapped if the load moves
+C. In a safe position with an escape route and outside the line of fire
+D. Directly underneath the load
+Answer: C
+
+24. Why should a rigger keep an escape route available during lifting?
+A. To leave work early
+B. To move quickly to a safe position if the load shifts or an unexpected event occurs
+C. To allow workers to walk under the load
+D. To make communication easier
+Answer: B
+
+25. A lifting hook is damaged or has a visible crack. What should happen?
+A. Use it for lighter loads
+B. Paint the crack
+C. Remove it from service and have it properly assessed
+D. Continue if the safety latch works
+Answer: C
+
+26. What should be checked when selecting lifting accessories?
+A. Capacity, condition, compatibility, and suitability for the load
+B. Color only
+C. Manufacturer's logo only
+D. Length only
+Answer: A
+
+27. Why should a trial lift be performed before raising a load fully?
+A. To check balance, rigging security, stability, and equipment response
+B. To entertain workers
+C. To increase crane capacity
+D. To avoid using a lifting plan
+Answer: A
+
+28. During a lift, the rigger notices that the load is snagged against a structure. What should be done?
+A. Increase the crane's lifting force
+B. Ask workers to pull the load by hand
+C. Stop the lift and safely remove the obstruction or reassess the lift
+D. Continue until the load breaks free
+Answer: C
+
+29. What should a rigger do if conditions change and the planned lifting operation is no longer safe?
+A. Continue because the lifting plan has already been approved
+B. Stop the operation and reassess the hazards and controls
+C. Allow the crane operator to decide alone
+D. Complete the lift as quickly as possible
+Answer: B
+
+30. Which statement best represents good rigging safety?
+A. Lift quickly and avoid delays
+B. Trust experienced workers without inspection
+C. Plan the lift, inspect equipment, use competent personnel, control the load, and keep people out of danger zones
+D. Use additional workers whenever the equipment capacity is insufficient
+Answer: C

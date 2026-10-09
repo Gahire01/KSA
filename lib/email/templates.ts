@@ -9,6 +9,7 @@
 
 import { appUrl, sendEmail } from "@/lib/email/send";
 import { ACADEMY, isPlaceholder } from "@/lib/academy/constants";
+import { COMMON_FOOTER } from "@/lib/email/footer";
 
 const NAVY = "#0F2340";
 const ORANGE = "#E8590C";
@@ -32,7 +33,6 @@ interface ShellOptions {
 }
 
 const DEFAULT_FOOTER = `${ACADEMY.name} &middot; This message was sent because an exam was requested for your enrolment. If you were not expecting it, you can ignore it.`;
-
 /** Brand line for mails that are not exam-related. */
 export const BRAND_FOOTER = isPlaceholder(ACADEMY.website)
   ? ACADEMY.name
@@ -55,9 +55,18 @@ ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};padding:24px 12px;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;border:1px solid ${LINE};overflow:hidden;">
-<tr><td style="background:${NAVY};padding:22px 28px;text-align:center;">
-<img src="${escapeHtml(appUrl("/logo.png"))}" alt="Kigali Safety Academy" width="120" height="120" style="display:block;width:120px;height:120px;object-fit:contain;margin:0 auto;border:0;" />
-<p style="margin:12px 0 0;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#F2A65A;">Kigali Safety Academy</p>
+<tr><td style="border-bottom:1px solid ${LINE};">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center" style="padding: 24px 0 8px;">
+<img src="${escapeHtml(appUrl("/logo.png"))}" alt="Kigali Safety Academy"
+width="120" style="display:block;width:120px;height:auto;">
+</td></tr>
+<tr><td align="center" style="padding-bottom:16px;
+font-family:'Space Grotesk',system-ui,sans-serif;
+font-size:18px;font-weight:700;color:#0F2340;">
+KIGALI SAFETY ACADEMY
+</td></tr>
+</table>
 </td></tr>
 <tr><td style="padding:28px;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;color:${INK};">
 ${inner}
@@ -65,6 +74,9 @@ ${inner}
 <tr><td style="background:${PAPER};padding:16px 28px;border-top:1px solid ${LINE};">
 <p style="margin:0;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:11px;color:${INK_2};">
 ${options.footer ?? DEFAULT_FOOTER}
+</p>
+<p style="margin:8px 0 0;font-family:'Helvetica Neue',Arial,Helvetica,sans-serif;font-size:11px;color:${INK_2};">
+${COMMON_FOOTER}
 </p>
 </td></tr>
 </table>

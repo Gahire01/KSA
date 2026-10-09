@@ -35,6 +35,13 @@ enum PaymentStatus {
   UNPAID
 }
 
+enum PaymentMethod {
+  CASH
+  MOMO
+  BANK
+  CARD
+}
+
 enum ExamStatus {
   /// Created and emailed; the OTP has not been entered yet.
   PENDING
@@ -157,9 +164,9 @@ model Course {
   topics          String[]
   durationValue   Int
   durationUnit    DurationUnit
+  /// The STANDARD price: the middle tier where there are three, the only one where there is one.
   priceRwf        Int
-  /// Optional pricing packages, e.g. `[{ "label": "Basic", "amountRwf": 100000 }]`.
-  /// When present, the first row is the default ("Standard") option.
+  /// Every package on offer, e.g. [{ "label": "Basic", "amountRwf": 100000 }, ...]. Null = priceRwf only.
   priceTiers      Json?
   passMarkPct     Int          @default(50)
   maxAttempts     Int          @default(2)
@@ -174,10 +181,43 @@ model Course {
   questions       Question[]
   attempts        ExamAttempt[]
   certificates    Certificate[]
+  payments        Payment[]
 
   @@index([categoryId])
   @@index([trainerId])
   @@index([isActive])
+}
+
+/// One money movement against a trainee: a payment (positive) or a refund (negative,
+/// pointing at the payment it reverses). `Trainee.amountPaidRwf` and `paymentStatus`
+/// are the running total of these rows, kept in step by lib/payments/ledger.ts.
+/// Rows are never edited or deleted: a mistake is corrected with a refund entry.
+model Payment {
+  id             String        @id @default(cuid())
+  /// Printed on the receipt, e.g. R-2026-0001.
+  receiptNo      String        @unique
+  traineeId      String
+  /// Restrict, not Cascade: a trainee with receipts cannot be deleted, so the ledger is never erased.
+  trainee        Trainee       @relation(fields: [traineeId], references: [id], onDelete: Restrict)
+  courseId       String?
+  course         Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  amountRwf      Int
+  method         PaymentMethod
+  reference      String?
+  notes          String?
+  /// Set on a refund: the payment it reverses. At most one refund per payment.
+  refundOfId     String?       @unique
+  refundOf       Payment?      @relation("PaymentRefund", fields: [refundOfId], references: [id], onDelete: Restrict)
+  refund         Payment?      @relation("PaymentRefund")
+  paidAt         DateTime      @default(now())
+  recordedById   String?
+  /// The recorder's name at the time, so a later rename cannot rewrite a receipt.
+  recordedByName String?
+  createdAt      DateTime      @default(now())
+
+  @@index([traineeId])
+  @@index([courseId])
+  @@index([paidAt])
 }
 
 model Trainee {
@@ -202,6 +242,7 @@ model Trainee {
   updatedAt     DateTime         @updatedAt
   attempts      ExamAttempt[]
   certificates  Certificate[]
+  payments      Payment[]
 
   @@index([email])
   @@index([courseId])

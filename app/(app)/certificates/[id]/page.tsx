@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { QRCodeSVG } from "qrcode.react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,11 +11,11 @@ import {
   DownloadIcon,
   FileTextIcon,
   HashIcon,
-  PrinterIcon,
   ShieldCheckIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { CertificateSheet } from "@/components/certificate/CertificateSheet";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
@@ -182,15 +180,6 @@ export default function CertificateDetailPage() {
         }
         actions={
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 print:hidden"
-              onClick={() => window.print()}
-            >
-              <PrinterIcon className="size-4" />
-              Print
-            </Button>
             <Button asChild variant="outline" size="sm" className="gap-1.5 print:hidden">
               <a href={`/api/certificates/${cert.id}/pdf`} download>
                 <DownloadIcon className="size-4" />
@@ -216,103 +205,21 @@ export default function CertificateDetailPage() {
         {/* ── Printable certificate ───────────────────────────── */}
         <Card className="print:border-0 print:shadow-none">
           <CardContent className="p-0">
-            <div className="relative overflow-hidden rounded-xl border border-line bg-card p-6 print:rounded-none print:border-0 sm:p-10">
-              <div
-                className="pointer-events-none absolute inset-0 opacity-[0.06]"
-                style={{ backgroundImage: "url('/cert-bg.svg')", backgroundSize: "cover" }}
-                aria-hidden
-              />
-              <div className="relative flex flex-col items-center gap-6 text-center">
-                <div className="flex flex-col items-center gap-3">
-                  <Image
-                    src="/logo.png"
-                    alt="Kigali Safety Academy"
-                    width={80}
-                    height={80}
-                    className="h-20 w-20 rounded-xl"
-                    priority={false}
-                  />
-                  <p className="font-display text-[28px] leading-tight font-semibold tracking-wide text-[#0F2340] uppercase">
-                    Kigali Safety Academy
-                  </p>
-                  <div className="h-px w-24 bg-line" aria-hidden />
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-sm text-ink-2">This is to certify that</p>
-                  <p className="font-display text-[34px] leading-tight font-semibold text-[#0F2340]">
-                    {cert.trainee.fullName}
-                  </p>
-                  <p className="mx-auto max-w-xl text-sm leading-relaxed text-ink-2">
-                    Has successfully completed KSAcademy occupational Health and Safety Course in
-                  </p>
-                  <p className="font-display text-2xl font-semibold tracking-wide text-orange uppercase">
-                    {cert.course.name}
-                  </p>
-                  {cert.topicsSnapshot.length > 0 ? (
-                    <p className="mx-auto max-w-2xl text-sm text-ink-2">
-                      Topics covered : {cert.topicsSnapshot.join(" , ")}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="grid w-full items-end gap-6 pt-4 sm:grid-cols-3">
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="flex h-[60px] w-[180px] items-end justify-center">
-                      {cert.signerNameSnapshot === null ? (
-                        /* Issued before the signature system: original static image. */
-                        <Image
-                          src="/certificate/signature.png"
-                          alt="Signature of the Director"
-                          width={160}
-                          height={120}
-                          className="max-h-[60px] w-auto max-w-[180px] object-contain"
-                          priority={false}
-                        />
-                      ) : cert.signatureUrlSnapshot ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- served from our own API, no optimiser needed
-                        <img
-                          src={cert.signatureUrlSnapshot}
-                          alt={`Signature of ${cert.signerNameSnapshot ?? "the signer"}`}
-                          className="max-h-[60px] max-w-[180px] object-contain"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="h-px w-40 bg-line" aria-hidden />
-                    <p className="font-display text-sm text-ink">
-                      {cert.signerNameSnapshot ?? "Fredson Niyoniringiye"}
-                    </p>
-                    <p className="text-[10px] tracking-wider text-ink-2 uppercase">
-                      {cert.signerTitleSnapshot ?? "Director"}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-center gap-1">
-                    <QRCodeSVG value={verifyUrl || " "} size={96} level="M" marginSize={1} />
-                    <p className="text-[10px] tracking-wider text-ink-2 uppercase">Scan to verify</p>
-                  </div>
-
-                  <div className="space-y-1 text-sm text-ink-2 sm:text-right">
-                    <p>Student #{cert.studentNumber}</p>
-                    <p>Issued {formatDate(cert.issuedAt, "dd.MM.yyyy")}</p>
-                    <p>Duration {cert.durationSnapshot}</p>
-                  </div>
-                </div>
-
-                <p className="font-mono text-[10px] text-ink-3">Verify at {verifyUrl || "…"}</p>
-              </div>
-
-              {isVoided ? (
-                <div
-                  className="absolute inset-0 flex rotate-[-12deg] items-center justify-center"
-                  aria-hidden
-                >
-                  <span className="rounded-xl border-4 border-red/70 px-8 py-3 font-display text-4xl font-semibold tracking-widest text-red/70 uppercase">
-                    Revoked
-                  </span>
-                </div>
-              ) : null}
-            </div>
+            <CertificateSheet
+              verifyUrl={verifyUrl}
+              cert={{
+                studentNumber: cert.studentNumber,
+                traineeName: cert.trainee.fullName,
+                courseName: cert.course.name,
+                topics: cert.topicsSnapshot,
+                duration: cert.durationSnapshot,
+                issuedAt: cert.issuedAt,
+                contentHash: cert.contentHash,
+                signerName: cert.signerNameSnapshot,
+                signerTitle: cert.signerTitleSnapshot,
+                signatureUrl: cert.signatureUrlSnapshot,
+              }}
+            />
           </CardContent>
         </Card>
 

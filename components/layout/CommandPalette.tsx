@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { NAV_SECTIONS, sectionItems } from "@/components/layout/Sidebar";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { mockApi } from "@/lib/mock";
+import { api } from "@/lib/api/client";
 
 interface Cmd {
   id: string;
@@ -57,11 +57,14 @@ export function CommandPalette() {
   React.useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    void mockApi.trainees
-      .list({ page: 1, pageSize: 50, search: query })
+    void api
+      .get<{ items: Array<{ id: string; fullName: string; traineeNo: string }> }>("/trainees", {
+        search: query || undefined,
+        pageSize: 20,
+      })
       .then((res) => {
         if (cancelled) return;
-        setTrainees(res.rows.map((t) => ({ id: t.id, name: t.name, traineeNo: t.traineeNo })));
+        setTrainees(res.items.map((t) => ({ id: t.id, name: t.fullName, traineeNo: t.traineeNo })));
       })
       .catch(() => undefined);
     return () => {

@@ -12,13 +12,15 @@ import type { CertificateStatus } from "@/lib/types";
  * The payload is deliberately small. An employer needs to know who the certificate
  * is for, what it certifies, whether it still stands and the number they can
  * cross-check against the printed sheet. Nothing else is exposed — no email, no
- * phone, no internal id, and no `contentHash`, which is a fingerprint of the whole
- * row and would help an attacker confirm a guess.
+ * phone, no internal id. The `contentHash` is shown on purpose: it is a SHA-256 over
+ * the frozen snapshot plus the random verification token, so it identifies a file
+ * (the PDF carries it in its Subject) without helping anyone guess a certificate.
  */
 
 export interface PublicCertificate {
   status: CertificateStatus;
   studentNumber: number;
+  contentHash: string;
   traineeName: string;
   courseName: string;
   courseCode: string;
@@ -35,6 +37,7 @@ export interface PublicCertificate {
 
 const verifySelect = {
   studentNumber: true,
+  contentHash: true,
   issuedAt: true,
   revokedAt: true,
   revokedReason: true,

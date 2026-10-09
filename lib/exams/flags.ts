@@ -21,6 +21,9 @@ export async function appendIntegrityFlag(
 ): Promise<number | null> {
   const flag = { type, at: new Date().toISOString(), reviewed: false };
   const increment = options.countsAsBlur ? 1 : 0;
+  /* The 500-flag cap is for noise (copy attempts and the like). A tab leave is the evidence behind a
+   * failed exam, so it is always recorded: a client cannot spam other flags to crowd it out. */
+  const exempt = options.countsAsBlur ? 1 : 0;
 
   /* A leave is logged as { type: "tab_leave", at, count }, `count` being the running
    * total including this one. It is computed in the same statement as the increment
@@ -29,7 +32,7 @@ export async function appendIntegrityFlag(
   await prisma.$executeRaw`
     UPDATE "ExamAttempt"
     SET "integrityFlags" = CASE
-          WHEN jsonb_array_length(COALESCE("integrityFlags", '[]'::jsonb)) < ${MAX_FLAGS}
+          WHEN ${exempt} = 1 OR jsonb_array_length(COALESCE("integrityFlags", '[]'::jsonb)) < ${MAX_FLAGS}
             THEN COALESCE("integrityFlags", '[]'::jsonb) ||
                  jsonb_build_array(${JSON.stringify(flag)}::jsonb ||
                    CASE WHEN ${increment} = 1

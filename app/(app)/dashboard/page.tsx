@@ -6,8 +6,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangleIcon,
-  CalendarClockIcon,
-  DownloadIcon,
+  AwardIcon,
   InfoIcon,
   ShieldAlertIcon,
   TrendingUpIcon,
@@ -26,14 +25,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { mockApi } from "@/lib/mock";
+import { api } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import {
-  CATEGORY_LABEL,
-  formatDate,
-  formatNumber,
-  formatTime,
-} from "@/lib/utils/format";
+import { formatDate, formatNumber, formatTime } from "@/lib/utils/format";
+
+/** GET /api/dashboard: all of it comes from the database. */
+interface DashboardData {
+  metrics: {
+    totalTrainees: { value: number; newThisMonth: number };
+    activeCourses: { value: number };
+    completed: { value: number };
+    examsInProgress: { value: number };
+    certificatesThisMonth: { value: number; changePct?: number };
+  };
+  categories: Array<{ category: string; count: number }>;
+  alerts: Array<{ id: string; severity: "info" | "warning" | "critical"; text: string; at: string; link: string }>;
+  deadlines: Array<{ traineeId: string; traineeName: string; courseName: string; deadline: string; daysLeft: number }>;
+  activity: Array<{ id: string; actorName: string; action: string; at: string }>;
+  /** Null for a trainer: money is not theirs to see. */
+  revenue: Array<{ month: string; collectedRwf: number; invoiceRwf: number }> | null;
+  passRates: Array<{ courseId: string; courseName: string; passRate: number; attempts: number; averageScore: number }>;
+  trainerScoped: boolean;
+}
 
 /* Recharts is large and needs the browser, so the charts load on demand instead of
  * weighing down the first paint of every dashboard visit. */
@@ -50,10 +63,6 @@ const RevenueAreaChart = dynamic(
   () => import("@/components/shared/charts").then((m) => m.RevenueAreaChart),
   { ssr: false, loading: chartLoading },
 );
-const Sparkline = dynamic(() => import("@/components/shared/charts").then((m) => m.Sparkline), {
-  ssr: false,
-  loading: () => <Skeleton className="h-8 w-24" />,
-});
 
 const SEVERITY_STYLE = {
   info: { icon: InfoIcon, cls: "text-navy bg-secondary" },
@@ -68,7 +77,7 @@ export default function DashboardPage() {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["dashboard", trainerId ?? "all"],
-    queryFn: () => mockApi.dashboard.get(trainerId),
+    queryFn: () => api.get<DashboardData>("/dashboard"),
     staleTime: 30_000,
   });
 
@@ -85,17 +94,11 @@ export default function DashboardPage() {
         }
         subtitle={<TodaySubtitle prefix="Here's what's happening · " />}
         actions={
-          <>
-            <Button variant="outline" size="sm" className="gap-1.5 no-print">
-              <DownloadIcon className="size-4" />
-              Export summary
+          isOwnerOrAdmin ? (
+            <Button asChild size="sm" className="no-print">
+              <Link href="/trainees/new">Add trainee</Link>
             </Button>
-            {isOwnerOrAdmin ? (
-              <Button asChild size="sm" className="no-print">
-                <Link href="/trainees/new">Add trainee</Link>
-              </Button>
-            ) : null}
-          </>
+          ) : null
         }
       />
 
@@ -115,17 +118,15 @@ export default function DashboardPage() {
         <StatCard
           label="Total trainees"
           value={formatNumber(data?.metrics.totalTrainees.value ?? 0)}
-          changePct={data?.metrics.totalTrainees.changePct}
-          hint="vs last month"
+          hint={`${formatNumber(data?.metrics.totalTrainees.newThisMonth ?? 0)} new this month`}
           icon={<UsersIcon className="size-4" />}
           href="/trainees"
           isLoading={isLoading}
         />
         <StatCard
           label="Active courses"
-          value={formatNumber(data?.metrics.active.value ?? 0)}
-          changePct={data?.metrics.active.changePct}
-          hint="running now"
+          value={formatNumber(data?.metrics.activeCourses.value ?? 0)}
+          hint="on offer now"
           icon={<TrendingUpIcon className="size-4" />}
           href="/courses"
           isLoading={isLoading}
@@ -133,39 +134,28 @@ export default function DashboardPage() {
         <StatCard
           label="Completed"
           value={formatNumber(data?.metrics.completed.value ?? 0)}
-          changePct={data?.metrics.completed.changePct}
-          hint="this quarter"
+          hint="certificates this quarter"
           icon={<UserCheckIcon className="size-4" />}
-          href="/trainees?statuses=COMPLETED"
+          href="/certificates"
           isLoading={isLoading}
         />
         <StatCard
-          label="Pending review"
-          value={formatNumber(data?.metrics.pending.value ?? 0)}
-          changePct={data?.metrics.pending.changePct}
-          hint="awaiting action"
+          label="Exams in progress"
+          value={formatNumber(data?.metrics.examsInProgress.value ?? 0)}
+          hint="sent or being sat"
           icon={<UserXIcon className="size-4" />}
-          href="/exams?statuses=PENDING_REVIEW"
+          href="/exams"
           isLoading={isLoading}
         />
         <StatCard
-          label="Attendance today"
-          value={formatNumber(data?.metrics.todayAttendance.value ?? 0)}
-          changePct={data?.metrics.todayAttendance.changePct}
-          icon={<CalendarClockIcon className="size-4" />}
+          label="Certificates issued"
+          value={formatNumber(data?.metrics.certificatesThisMonth.value ?? 0)}
+          changePct={data?.metrics.certificatesThisMonth.changePct}
+          hint="this month"
+          icon={<AwardIcon className="size-4" />}
+          href="/certificates"
           isLoading={isLoading}
-        >
-          <div className="mt-1">
-            {isLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : (
-              <Sparkline
-                data={data?.metrics.todayAttendance.spark ?? []}
-                label="Attendance over the last seven days"
-              />
-            )}
-          </div>
-        </StatCard>
+        />
       </section>
 
       {/* ── Alerts ──────────────────────────────────────────────── */}
@@ -223,6 +213,8 @@ export default function DashboardPage() {
             {isOwnerOrAdmin ? (
               isLoading ? (
                 <Skeleton className="h-64 w-full" />
+              ) : !data?.revenue || data.revenue.every((p) => p.collectedRwf === 0 && p.invoiceRwf === 0) ? (
+                <EmptyState compact title="No payments yet" description="Revenue appears here once payments are recorded." />
               ) : (
                 <RevenueAreaChart
                   data={(data?.revenue ?? []).map((p) => ({
@@ -250,13 +242,14 @@ export default function DashboardPage() {
             {isLoading ? (
               <Skeleton className="h-64 w-full" />
             ) : (
-              <CategoryPieChart
-                data={(data?.categories ?? []).map((c) => ({
-                  label: CATEGORY_LABEL[c.category] ?? c.category,
-                  value: c.count,
-                }))}
-                valueLabel="Trainees"
-              />
+              (data?.categories.length ?? 0) === 0 ? (
+                <EmptyState compact title="No trainees yet" description="Enrol a trainee to see the split by category." />
+              ) : (
+                <CategoryPieChart
+                  data={(data?.categories ?? []).map((c) => ({ label: c.category, value: c.count }))}
+                  valueLabel="Trainees"
+                />
+              )
             )}
           </CardContent>
         </Card>
@@ -274,13 +267,17 @@ export default function DashboardPage() {
             {isLoading ? (
               <Skeleton className="h-64 w-full" />
             ) : (
-              <PassRateBarChart
-                data={(data?.passRates ?? []).map((p) => ({
-                  label: p.courseName.length > 24 ? `${p.courseName.slice(0, 23)}…` : p.courseName,
-                  passRate: p.passRate,
-                  averageScore: p.averageScore,
-                }))}
-              />
+              (data?.passRates ?? []).every((p) => p.attempts === 0) ? (
+                <EmptyState compact title="No exam results yet" description="Pass rates appear once trainees have sat an exam." />
+              ) : (
+                <PassRateBarChart
+                  data={(data?.passRates ?? []).map((p) => ({
+                    label: p.courseName.length > 24 ? `${p.courseName.slice(0, 23)}…` : p.courseName,
+                    passRate: p.passRate,
+                    averageScore: p.averageScore,
+                  }))}
+                />
+              )
             )}
           </CardContent>
         </Card>
@@ -288,7 +285,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="gap-1">
             <CardTitle className="text-base">Upcoming deadlines</CardTitle>
-            <CardDescription>Next exams and certificates.</CardDescription>
+            <CardDescription>Trainees whose deadline is near or has passed.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (
@@ -357,9 +354,7 @@ export default function DashboardPage() {
                     >
                       <AvatarInitials name={row.actorName} size="xs" />
                       <span className="text-sm text-ink">
-                        <span className="font-medium">{row.actorName}</span>{" "}
-                        {row.action.toLowerCase().replaceAll("_", " ")}{" "}
-                        <span className="text-ink-2">{row.target}</span>
+                        <span className="font-medium">{row.actorName}</span> {row.action}
                       </span>
                       <span className="ml-auto shrink-0 text-xs text-ink-3 tabular">
                         {formatTime(row.at)}

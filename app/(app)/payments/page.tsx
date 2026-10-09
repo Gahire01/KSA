@@ -1,186 +1,117 @@
 "use client";
 
-import { csvCell } from "@/lib/utils/csv";
-
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   BanknoteIcon,
   CreditCardIcon,
-  DownloadIcon,
   EyeIcon,
   PlusIcon,
   PrinterIcon,
-  RotateCcwIcon,
   SmartphoneIcon,
   TrendingUpIcon,
   WalletIcon,
 } from "lucide-react";
-import { toast } from "sonner";
 
+import { ExportMenu } from "@/components/shared/ExportMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
-import { FilterChips, type Chip } from "@/components/shared/FilterChips";
 import { MultiSelectFilter } from "@/components/shared/MultiSelectFilter";
-import { DateRangePicker, type DateRange } from "@/components/shared/DateRangePicker";
 import { DataTable } from "@/components/shared/DataTable";
 import { StatCard } from "@/components/shared/StatCard";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { api } from "@/lib/api/client";
 import { useDebounce } from "@/lib/hooks/use-debounce";
-import { mockApi } from "@/lib/mock";
 import { formatDate, formatNumber, formatRwf } from "@/lib/utils/format";
-import type { Payment, PaymentMethod, PaymentStatus } from "@/lib/types";
 
-const FETCH_SIZE = 500;
+type Method = "CASH" | "MOMO" | "BANK" | "CARD";
+type Status = "PAID" | "PARTIAL" | "UNPAID";
 
-const STATUSES: PaymentStatus[] = ["PAID", "PARTIAL", "UNPAID"];
-const METHODS: PaymentMethod[] = ["MOMO", "BANK", "CASH", "CARD"];
+interface PaymentRow {
+  id: string;
+  receiptNo: string;
+  amountRwf: number;
+  method: Method;
+  reference: string | null;
+  paidAt: string;
+  recordedByName: string | null;
+  isRefund: boolean;
+  refundedBy: { id: string; receiptNo: string } | null;
+  trainee: { id: string; fullName: string; traineeNo: string; paymentStatus: Status };
+  course: { id: string; name: string } | null;
+}
 
-const STATUS_LABEL: Record<PaymentStatus, string> = {
-  PAID: "Paid in full",
-  PARTIAL: "Part paid",
-  UNPAID: "Unpaid",
-};
+interface Summary {
+  collectedThisMonthRwf: number;
+  collectedLastMonthRwf: number;
+  collectedTotalRwf: number;
+  outstandingRwf: number;
+  traineesUnpaid: number;
+  traineesPartial: number;
+}
 
-const METHOD_LABEL: Record<PaymentMethod, string> = {
-  MOMO: "Mobile money",
-  BANK: "Bank transfer",
-  CASH: "Cash",
-  CARD: "Card",
-};
-
-const METHOD_ICON: Record<PaymentMethod, React.ComponentType<{ className?: string }>> = {
+const STATUS_LABEL: Record<Status, string> = { PAID: "Paid in full", PARTIAL: "Part paid", UNPAID: "Unpaid" };
+const METHOD_LABEL: Record<Method, string> = { MOMO: "Mobile money", BANK: "Bank transfer", CASH: "Cash", CARD: "Card" };
+const METHOD_ICON: Record<Method, React.ComponentType<{ className?: string }>> = {
   MOMO: SmartphoneIcon,
   BANK: BanknoteIcon,
   CASH: WalletIcon,
   CARD: CreditCardIcon,
 };
 
-interface Filters {
-  search: string;
-  statuses: PaymentStatus[];
-  methods: PaymentMethod[];
-  courseIds: string[];
-  range: DateRange;
-}
-
-const EMPTY: Filters = { search: "", statuses: [], methods: [], courseIds: [], range: {} };
-
 export default function PaymentsPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
-  const [filters, setFilters] = React.useState<Filters>(EMPTY);
   const [searchDraft, setSearchDraft] = React.useState("");
-  const debouncedSearch = useDebounce(searchDraft, 300);
-  const [hydrated, setHydrated] = React.useState(false);
+  const search = useDebounce(searchDraft, 300);
+  const [statuses, setStatuses] = React.useState<string[]>([]);
+  const [methods, setMethods] = React.useState<string[]>([]);
+  const [courseIds, setCourseIds] = React.useState<string[]>([]);
 
+  /* Dashboard deep links: /payments?status=UNPAID,PARTIAL */
   React.useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("status");
-    if (status) {
-      setFilters((f) => ({
-        ...f,
-        statuses: status
-          .split(",")
-          .map((s) => s.trim().toUpperCase())
-          .filter((s): s is PaymentStatus => (STATUSES as string[]).includes(s)),
-      }));
-    }
-    const method = params.get("method");
-    if (method) {
-      setFilters((f) => ({
-        ...f,
-        methods: method
-          .split(",")
-          .map((s) => s.trim().toUpperCase())
-          .filter((s): s is PaymentMethod => (METHODS as string[]).includes(s)),
-      }));
-    }
-    setHydrated(true);
+    const status = new URLSearchParams(window.location.search).get("status");
+    if (status) setStatuses(status.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean));
   }, []);
-
-  React.useEffect(() => {
-    if (!hydrated) return;
-    setFilters((f) => (f.search === debouncedSearch ? f : { ...f, search: debouncedSearch }));
-  }, [debouncedSearch, hydrated]);
 
   const coursesQuery = useQuery({
     queryKey: ["courses", "options"],
-    queryFn: () => mockApi.courses.list(),
+    queryFn: async () => (await api.get<{ items: Array<{ id: string; name: string }> }>("/courses", { pageSize: 100 })).items,
     staleTime: 5 * 60_000,
   });
-  const courses = React.useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
-  const courseName = React.useCallback(
-    (id: string) => courses.find((c) => c.id === id)?.name ?? "—",
-    [courses],
-  );
 
-  const listFilters = React.useMemo(
-    () => ({
-      search: filters.search || undefined,
-      statuses: filters.statuses.length ? filters.statuses : undefined,
-      methods: filters.methods.length ? filters.methods : undefined,
-      courseIds: filters.courseIds.length ? filters.courseIds : undefined,
-      from: filters.range.from,
-      to: filters.range.to,
-      sort: { id: "paidAt", desc: true },
-      page: 1,
-      pageSize: FETCH_SIZE,
-    }),
-    [filters],
-  );
-
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["payments", listFilters],
-    queryFn: () => mockApi.payments.list(listFilters),
+  const listQuery = useQuery({
+    queryKey: ["payments", { search, statuses, methods, courseIds }],
+    queryFn: () =>
+      api.get<{ items: PaymentRow[]; total: number }>("/payments", {
+        search: search || undefined,
+        statuses,
+        methods,
+        courseIds,
+        pageSize: 100,
+      }),
     staleTime: 15_000,
   });
   const summaryQuery = useQuery({
     queryKey: ["payments", "summary"],
-    queryFn: () => mockApi.payments.summary(),
+    queryFn: () => api.get<Summary>("/payments/summary"),
     staleTime: 30_000,
   });
 
-  const traineeQuery = useQuery({
-    queryKey: ["trainees", "roster-map"],
-    queryFn: () => mockApi.trainees.all(),
-    staleTime: 60_000,
-  });
-  const traineeById = React.useMemo(() => {
-    const map = new Map<string, { name: string; traineeNo: string }>();
-    for (const t of traineeQuery.data ?? []) map.set(t.id, { name: t.name, traineeNo: t.traineeNo });
-    return map;
-  }, [traineeQuery.data]);
-
-  const recorderName = React.useCallback(
-    (id: string) => mockApi.payments.recorderNames[id] ?? "—",
-    [],
-  );
-
-  const rows = React.useMemo(() => data?.rows ?? [], [data?.rows]);
+  const rows = listQuery.data?.items ?? [];
   const summary = summaryQuery.data;
+  const changePct =
+    summary && summary.collectedLastMonthRwf > 0
+      ? Math.round(((summary.collectedThisMonthRwf - summary.collectedLastMonthRwf) / summary.collectedLastMonthRwf) * 100)
+      : undefined;
 
-  const refundMutation = useMutation({
-    mutationFn: (id: string) => mockApi.payments.refund(id),
-    onSuccess: () => {
-      toast.success("Refund recorded", {
-        description: "A negative ledger entry was added against the receipt.",
-      });
-      void queryClient.invalidateQueries({ queryKey: ["payments"] });
-      void queryClient.invalidateQueries({ queryKey: ["trainees"] });
-    },
-    onError: () => toast.error("Could not record the refund."),
-  });
-
-  const columns = React.useMemo<ColumnDef<Payment, unknown>[]>(
+  const columns = React.useMemo<ColumnDef<PaymentRow, unknown>[]>(
     () => [
       {
         id: "receipt",
@@ -188,17 +119,10 @@ export default function PaymentsPage() {
         accessorFn: (p) => p.receiptNo,
         cell: ({ row }) => (
           <div className="flex items-center gap-2.5">
-            <AvatarInitials
-              name={traineeById.get(row.original.traineeId)?.name ?? "?"}
-              size="sm"
-            />
+            <AvatarInitials name={row.original.trainee.fullName} size="sm" />
             <div className="min-w-0">
-              <p className="truncate font-mono text-sm font-medium text-ink">
-                {row.original.receiptNo}
-              </p>
-              <p className="truncate text-xs text-ink-3">
-                {traineeById.get(row.original.traineeId)?.traineeNo ?? row.original.traineeId}
-              </p>
+              <p className="truncate font-mono text-sm font-medium text-ink">{row.original.receiptNo}</p>
+              <p className="truncate text-xs text-ink-3">{row.original.trainee.traineeNo}</p>
             </div>
           </div>
         ),
@@ -206,20 +130,14 @@ export default function PaymentsPage() {
       {
         id: "trainee",
         header: "Trainee",
-        accessorFn: (p) => traineeById.get(p.traineeId)?.name ?? p.traineeId,
-        cell: ({ row }) => (
-          <span className="truncate text-sm text-ink">
-            {traineeById.get(row.original.traineeId)?.name ?? row.original.traineeId}
-          </span>
-        ),
+        accessorFn: (p) => p.trainee.fullName,
+        cell: ({ row }) => <span className="truncate text-sm text-ink">{row.original.trainee.fullName}</span>,
       },
       {
         id: "course",
         header: "Course",
-        accessorFn: (p) => courseName(p.courseId),
-        cell: ({ row }) => (
-          <span className="text-sm text-ink-2">{courseName(row.original.courseId)}</span>
-        ),
+        accessorFn: (p) => p.course?.name ?? "",
+        cell: ({ row }) => <span className="text-sm text-ink-2">{row.original.course?.name ?? "—"}</span>,
       },
       {
         id: "amount",
@@ -254,44 +172,39 @@ export default function PaymentsPage() {
       {
         id: "reference",
         header: "Reference",
-        accessorFn: (p) => p.reference,
+        accessorFn: (p) => p.reference ?? "",
         cell: ({ row }) => (
-          <span className="font-mono text-xs whitespace-nowrap text-ink-3">
-            {row.original.reference}
-          </span>
+          <span className="font-mono text-xs whitespace-nowrap text-ink-3">{row.original.reference ?? "—"}</span>
         ),
       },
       {
         id: "paidAt",
         header: "Date",
         accessorFn: (p) => p.paidAt,
-        cell: ({ row }) => (
-          <span className="text-sm whitespace-nowrap text-ink-2">
-            {formatDate(row.original.paidAt)}
-          </span>
-        ),
+        cell: ({ row }) => <span className="text-sm whitespace-nowrap text-ink-2">{formatDate(row.original.paidAt)}</span>,
       },
       {
         id: "recorder",
         header: "Recorded by",
-        accessorFn: (p) => recorderName(p.recordedById),
+        accessorFn: (p) => p.recordedByName ?? "",
         cell: ({ row }) => (
-          <span className="text-sm whitespace-nowrap text-ink-2">
-            {recorderName(row.original.recordedById)}
-          </span>
+          <span className="text-sm whitespace-nowrap text-ink-2">{row.original.recordedByName ?? "—"}</span>
         ),
       },
       {
         id: "status",
-        header: "Status",
-        accessorFn: (p) => p.status,
-        cell: ({ row }) => (
-          <StatusBadge
-            status={row.original.status}
-            label={STATUS_LABEL[row.original.status]}
-            size="sm"
-          />
-        ),
+        header: "Trainee",
+        accessorFn: (p) => p.trainee.paymentStatus,
+        cell: ({ row }) =>
+          row.original.refundedBy ? (
+            <StatusBadge status="void" label="Refunded" size="sm" />
+          ) : (
+            <StatusBadge
+              status={row.original.trainee.paymentStatus}
+              label={STATUS_LABEL[row.original.trainee.paymentStatus]}
+              size="sm"
+            />
+          ),
       },
       {
         id: "actions",
@@ -300,22 +213,12 @@ export default function PaymentsPage() {
         enableHiding: false,
         cell: ({ row }) => (
           <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button
-              asChild
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Print receipt ${row.original.receiptNo}`}
-            >
+            <Button asChild variant="ghost" size="icon-sm" aria-label={`Print receipt ${row.original.receiptNo}`}>
               <Link href={`/payments/${row.original.id}?print=1`}>
                 <PrinterIcon className="size-4" />
               </Link>
             </Button>
-            <Button
-              asChild
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Open receipt ${row.original.receiptNo}`}
-            >
+            <Button asChild variant="ghost" size="icon-sm" aria-label={`Open receipt ${row.original.receiptNo}`}>
               <Link href={`/payments/${row.original.id}`}>
                 <EyeIcon className="size-4" />
               </Link>
@@ -324,255 +227,108 @@ export default function PaymentsPage() {
         ),
       },
     ],
-    [courseName, recorderName, traineeById],
+    [],
   );
-
-  const chips: Chip[] = React.useMemo(() => {
-    const out: Chip[] = [];
-    if (filters.statuses.length) {
-      out.push({
-        id: "status",
-        label: "Status",
-        value: filters.statuses.map((s) => STATUS_LABEL[s]).join(", "),
-        onRemove: () => setFilters((f) => ({ ...f, statuses: [] })),
-      });
-    }
-    if (filters.methods.length) {
-      out.push({
-        id: "method",
-        label: "Method",
-        value: filters.methods.map((m) => METHOD_LABEL[m]).join(", "),
-        onRemove: () => setFilters((f) => ({ ...f, methods: [] })),
-      });
-    }
-    if (filters.courseIds.length) {
-      out.push({
-        id: "course",
-        label: "Course",
-        value:
-          filters.courseIds.length === 1
-            ? courseName(filters.courseIds[0]!)
-            : `${filters.courseIds.length} courses`,
-        onRemove: () => setFilters((f) => ({ ...f, courseIds: [] })),
-      });
-    }
-    if (filters.range.from || filters.range.to) {
-      out.push({
-        id: "date",
-        label: "Paid between",
-        value: `${filters.range.from ?? "…"} → ${filters.range.to ?? "…"}`,
-        onRemove: () => setFilters((f) => ({ ...f, range: {} })),
-      });
-    }
-    return out;
-  }, [filters, courseName]);
-
-  const clearAll = () => {
-    setSearchDraft("");
-    setFilters(EMPTY);
-  };
-
-  const collected = summary?.collectedThisMonth ?? 0;
-  const lastMonth = summary?.lastMonth ?? 0;
-  const changePct = lastMonth > 0 ? Math.round(((collected - lastMonth) / lastMonth) * 100) : 0;
 
   return (
     <div className="space-y-5">
-
       <PageHeader
         title="Payments"
         subtitle={
-          isLoading
-            ? "Loading ledger…"
-            : `${formatNumber(data?.total ?? 0)} receipt${(data?.total ?? 0) === 1 ? "" : "s"} in the ledger`
+          listQuery.isLoading
+            ? "Loading the register…"
+            : `${formatNumber(listQuery.data?.total ?? 0)} receipt${(listQuery.data?.total ?? 0) === 1 ? "" : "s"} in the register`
         }
         actions={
-          <Button asChild size="sm" className="gap-1.5">
-            <Link href="/payments/new">
-              <PlusIcon className="size-4" />
-              Record payment
-            </Link>
-          </Button>
+          <>
+            <ExportMenu type="payments" params={{ courseIds, methods }} />
+            <Button asChild size="sm" className="gap-1.5">
+              <Link href="/payments/new">
+                <PlusIcon className="size-4" />
+                Record payment
+              </Link>
+            </Button>
+          </>
         }
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Collected this month"
-          value={formatRwf(collected)}
+          value={formatRwf(summary?.collectedThisMonthRwf ?? 0)}
           icon={<TrendingUpIcon className="size-4" />}
           changePct={changePct}
+          hint="net of refunds"
+          isLoading={summaryQuery.isLoading}
+        />
+        <StatCard
+          label="Collected in total"
+          value={formatRwf(summary?.collectedTotalRwf ?? 0)}
+          icon={<BanknoteIcon className="size-4" />}
           isLoading={summaryQuery.isLoading}
         />
         <StatCard
           label="Outstanding"
-          value={formatRwf(summary?.outstanding ?? 0)}
+          value={formatRwf(summary?.outstandingRwf ?? 0)}
           icon={<WalletIcon className="size-4" />}
-          hint="Across all enrolled trainees"
+          hint="owed by enrolled trainees"
           isLoading={summaryQuery.isLoading}
         />
         <StatCard
-          label="Refunds issued"
-          value={formatRwf(summary?.refunds ?? 0)}
-          icon={<RotateCcwIcon className="size-4" />}
-          hint="Lifetime"
-          isLoading={summaryQuery.isLoading}
-        />
-        <StatCard
-          label="Receipts this month"
-          value={formatNumber(summary?.invoiceCount ?? 0)}
+          label="Not paid in full"
+          value={formatNumber((summary?.traineesUnpaid ?? 0) + (summary?.traineesPartial ?? 0))}
           icon={<CreditCardIcon className="size-4" />}
+          hint={`${formatNumber(summary?.traineesUnpaid ?? 0)} unpaid · ${formatNumber(summary?.traineesPartial ?? 0)} part paid`}
+          href="/payments?status=UNPAID,PARTIAL"
           isLoading={summaryQuery.isLoading}
         />
       </div>
 
-      <Card>
-        <CardContent className="space-y-3 p-4">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-            <SearchInput
-              value={searchDraft}
-              onValueChange={setSearchDraft}
-              placeholder="Search receipt number, reference or trainee…"
-              className="lg:max-w-xs"
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <MultiSelectFilter
-                label="Status"
-                width="w-52"
-                options={STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
-                selected={filters.statuses}
-                onChange={(statuses) =>
-                  setFilters((f) => ({ ...f, statuses: statuses as typeof f.statuses }))
-                }
-              />
-              <MultiSelectFilter
-                label="Method"
-                width="w-52"
-                options={METHODS.map((m) => ({ value: m, label: METHOD_LABEL[m] }))}
-                selected={filters.methods}
-                onChange={(methods) =>
-                  setFilters((f) => ({ ...f, methods: methods as typeof f.methods }))
-                }
-              />
-              <MultiSelectFilter
-                label="Course"
-                searchable
-                width="w-72"
-                options={courses.map((c) => ({ value: c.id, label: c.name, hint: c.code }))}
-                selected={filters.courseIds}
-                onChange={(courseIds) =>
-                  setFilters((f) => ({ ...f, courseIds: courseIds as typeof f.courseIds }))
-                }
-              />
-              <DateRangePicker
-                value={filters.range}
-                onChange={(range) => setFilters((f) => ({ ...f, range }))}
-                label="Paid between"
-              />
-            </div>
-          </div>
-          <FilterChips chips={chips} onClearAll={clearAll} clearLabel="Reset all filters" />
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-2">
+        <SearchInput
+          value={searchDraft}
+          onValueChange={setSearchDraft}
+          placeholder="Search receipt, trainee or reference…"
+          className="w-full sm:w-72"
+        />
+        <MultiSelectFilter
+          label="Status"
+          options={(Object.keys(STATUS_LABEL) as Status[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
+          selected={statuses}
+          onChange={setStatuses}
+        />
+        <MultiSelectFilter
+          label="Method"
+          options={(Object.keys(METHOD_LABEL) as Method[]).map((m) => ({ value: m, label: METHOD_LABEL[m] }))}
+          selected={methods}
+          onChange={setMethods}
+        />
+        <MultiSelectFilter
+          label="Course"
+          options={(coursesQuery.data ?? []).map((c) => ({ value: c.id, label: c.name }))}
+          selected={courseIds}
+          onChange={setCourseIds}
+        />
+      </div>
 
-      {isError ? (
-        <EmptyState
-          title="Could not load payments"
-          description="The ledger did not respond. Try again."
-          action={
-            <Button size="sm" variant="outline" onClick={() => void refetch()}>
-              Retry
-            </Button>
-          }
-        />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={rows}
-          getRowId={(p) => p.id}
-          isLoading={isLoading}
-          onRowClick={(p) => router.push(`/payments/${p.id}`)}
-          globalFilter={filters.search}
-          pageSize={20}
-          emptyState={
-            <EmptyState
-              title="No receipts match your filters"
-              description="Clear the filters or record a new payment."
-              action={
-                <Button size="sm" variant="outline" onClick={clearAll}>
-                  Clear filters
-                </Button>
-              }
-            />
-          }
-          bulkActions={(ids) => (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => {
-                  const chosen = rows.filter((p) => ids.includes(p.id));
-                  const header = [
-                    "receipt_no",
-                    "trainee",
-                    "trainee_no",
-                    "course",
-                    "amount_rwf",
-                    "method",
-                    "reference",
-                    "paid_at",
-                    "recorded_by",
-                    "status",
-                    "notes",
-                  ];
-                  const lines = chosen.map((p) =>
-                    [
-                      p.receiptNo,
-                      traineeById.get(p.traineeId)?.name ?? "",
-                      traineeById.get(p.traineeId)?.traineeNo ?? "",
-                      courseName(p.courseId),
-                      String(p.amountRwf),
-                      p.method,
-                      p.reference,
-                      p.paidAt.slice(0, 10),
-                      recorderName(p.recordedById),
-                      p.status,
-                      p.notes,
-                    ]
-                      .map(csvCell)
-                      .join(","),
-                  );
-                  const blob = new Blob([[header.join(","), ...lines].join("\n")], {
-                    type: "text/csv;charset=utf-8",
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `payment-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                <DownloadIcon className="size-3.5" />
-                Export ledger
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={listQuery.isLoading}
+        getRowId={(p) => p.id}
+        onRowClick={(p) => router.push(`/payments/${p.id}`)}
+        emptyState={
+          <EmptyState
+            title="No payments yet"
+            description="Record a payment and it will appear here."
+            action={
+              <Button asChild size="sm">
+                <Link href="/payments/new">Record payment</Link>
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 text-red"
-                onClick={() => {
-                  for (const id of ids) refundMutation.mutate(id);
-                }}
-                disabled={refundMutation.isPending}
-              >
-                <RotateCcwIcon className="size-3.5" />
-                Refund selected
-              </Button>
-            </>
-          )}
-        />
-      )}
+            }
+          />
+        }
+      />
     </div>
   );
 }

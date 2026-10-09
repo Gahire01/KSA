@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeftIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -22,6 +22,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { AmountInput } from "@/components/ui/amount-input";
+import { MAX_PRICE_TIERS, standardPrice } from "@/lib/courses/pricing";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -56,13 +58,19 @@ const schema = z.object({
   description: z.string().min(20, "Describe the course in at least 20 characters."),
   durationValue: z.coerce.number().int().min(1, "At least 1.").max(365, "Use 365 or fewer."),
   durationUnit: z.enum(["day", "week", "month"]),
-  priceRwf: z.coerce.number().int().min(0, "Fee cannot be negative."),
-  priceTiers: z.array(
-    z.object({
-      label: z.string().min(1, "Name the tier.").max(60, "Keep the label short."),
-      amountRwf: z.coerce.number().int().min(0, "Amount cannot be negative."),
+  /* Packages. Amounts stay as text so a new row starts empty; they are converted on save. */
+  priceTiers: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1, "Name the package.").max(40, "Keep it short."),
+        amountRwf: z.string().regex(/^\d{1,9}$/, "Enter an amount."),
+      }),
+    )
+    .min(1, "Add at least one price.")
+    .max(MAX_PRICE_TIERS, `At most ${MAX_PRICE_TIERS} packages.`)
+    .refine((tiers) => new Set(tiers.map((t) => t.label.trim().toLowerCase())).size === tiers.length, {
+      message: "Each package needs a different name.",
     }),
-  ),
   passMarkPct: z.coerce.number().int().min(1).max(100, "Between 1 and 100."),
   maxAttempts: z.coerce.number().int().min(1).max(10, "Between 1 and 10."),
   examDurationMin: z.coerce.number().int().min(5).max(300),
@@ -71,7 +79,6 @@ const schema = z.object({
   isActive: z.boolean(),
 });
 
-type PriceTier = { label: string; amountRwf: number };
 type Values = z.infer<typeof schema>;
 
 export function CourseForm({ courseId }: { courseId?: string }) {
@@ -106,8 +113,7 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       description: "",
       durationValue: 1,
       durationUnit: "day",
-      priceRwf: 45000,
-      priceTiers: [],
+      priceTiers: [{ label: "Standard", amountRwf: "" }],
       /* The academy's rules: 50% to pass, two attempts. */
       passMarkPct: PASS_MARK_PCT,
       maxAttempts: MAX_ATTEMPTS,
@@ -130,8 +136,10 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       description: course.description,
       durationValue: course.durationValue,
       durationUnit: course.durationUnit,
-      priceRwf: course.priceRwf,
-      priceTiers: course.priceTiers ?? [],
+      priceTiers: (course.priceTiers.length > 0
+        ? course.priceTiers
+        : [{ label: "Standard", amountRwf: course.priceRwf }]
+      ).map((t) => ({ label: t.label, amountRwf: t.amountRwf > 0 ? String(t.amountRwf) : "" })),
       passMarkPct: course.passMarkPct,
       maxAttempts: course.maxAttempts,
       examDurationMin: course.examDurationMin,
@@ -143,7 +151,13 @@ export function CourseForm({ courseId }: { courseId?: string }) {
   const saving = createMutation.isPending || updateMutation.isPending;
 
   const onSubmit = (values: Values) => {
-    const input = toCourseInput(values, categories);
+    const input = toCourseInput(
+      {
+        ...values,
+        priceTiers: values.priceTiers.map((t) => ({ label: t.label.trim(), amountRwf: Number(t.amountRwf || 0) })),
+      },
+      categories,
+    );
     const onSuccess = (course: { id: string; name: string }) => {
       toast.success(isEdit ? "Course updated" : "Course created", {
         description: course.name,
@@ -162,6 +176,14 @@ export function CourseForm({ courseId }: { courseId?: string }) {
     }
   };
 
+  /* Hooks first, early return after: the order of hooks must not depend on the loading state. */
+  const tiers = useFieldArray({ control: form.control, name: "priceTiers" });
+  const watchedTiers = form.watch("priceTiers");
+  const standard = standardPrice(
+    watchedTiers.map((t) => ({ label: t.label, amountRwf: Number(t.amountRwf || 0) })),
+  );
+  const passMark = form.watch("passMarkPct");
+
   if (isEdit && courseQuery.isLoading) {
     return (
       <div className="mx-auto max-w-3xl space-y-4">
@@ -170,21 +192,6 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       </div>
     );
   }
-
-  const price = form.watch("priceRwf");
-  const passMark = form.watch("passMarkPct");
-  const tiers = form.watch("priceTiers");
-
-  const addTier = () => form.setValue("priceTiers", [...tiers, { label: "", amountRwf: price }]);
-  const removeTier = (index: number) =>
-    form.setValue("priceTiers", tiers.filter((_, i) => i !== index));
-  const updateTier = (index: number, key: keyof PriceTier, value: string | number) =>
-    form.setValue(
-      "priceTiers",
-      tiers.map((t, i) => (i === index ? { ...t, [key]: value } : t)),
-    );
-  const tierError = (index: number) =>
-    form.formState.errors.priceTiers?.[index]?.label?.message;
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -325,24 +332,64 @@ export function CourseForm({ courseId }: { courseId?: string }) {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="priceRwf"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fee (RWF)</FormLabel>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={500}
-                      {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                    />
-                    <FormDescription>{formatRwf(Number(price) || 0)} per enrolment.</FormDescription>
-                    <FormMessage>{form.formState.errors.priceRwf?.message}</FormMessage>
-                  </FormItem>
-                )}
-              />
+              <div className="space-y-2 sm:col-span-3">
+                <p className="text-sm font-medium text-ink">Prices (RWF)</p>
+                <p className="text-xs text-ink-2">
+                  One row per package. The package called Standard (or the middle one of three, or the only one) is the
+                  price shown on the course list and offered when enrolling.
+                </p>
+                <ul className="space-y-2">
+                  {tiers.fields.map((row, index) => (
+                    <li key={row.id} className="flex items-start gap-2">
+                      <div className="w-40 shrink-0">
+                        <Input
+                          aria-label={`Package ${index + 1} name`}
+                          placeholder="Package name"
+                          {...form.register(`priceTiers.${index}.label`)}
+                        />
+                        <p className="mt-1 text-xs text-red">{form.formState.errors.priceTiers?.[index]?.label?.message}</p>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <AmountInput
+                          aria-label={`Package ${index + 1} amount in RWF`}
+                          {...form.register(`priceTiers.${index}.amountRwf`)}
+                        />
+                        <p className="mt-1 text-xs text-red">
+                          {form.formState.errors.priceTiers?.[index]?.amountRwf?.message}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove package ${index + 1}`}
+                        disabled={tiers.fields.length === 1}
+                        onClick={() => tiers.remove(index)}
+                      >
+                        <Trash2Icon className="size-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={tiers.fields.length >= MAX_PRICE_TIERS}
+                    onClick={() => tiers.append({ label: "", amountRwf: "" })}
+                  >
+                    <PlusIcon className="size-4" />
+                    Add a price
+                  </Button>
+                  <p className="text-xs text-ink-2">Standard price: {formatRwf(standard)}</p>
+                </div>
+                <p className="text-xs text-red">
+                  {(form.formState.errors.priceTiers as { message?: string } | undefined)?.message ??
+                    form.formState.errors.priceTiers?.root?.message}
+                </p>
+              </div>
               <FormField
                 control={form.control}
                 name="trainerId"
@@ -377,77 +424,6 @@ export function CourseForm({ courseId }: { courseId?: string }) {
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="gap-1">
-              <CardTitle className="text-base">Pricing packages</CardTitle>
-              <CardDescription>
-                Optional tiers such as Basic, Standard or Comprehensive. The standard fee
-                above is the default when no package is chosen.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {tiers.length === 0 ? (
-                <p className="text-sm text-ink-2">
-                  No pricing packages yet. Add one to let staff bill a package instead of
-                  the standard fee.
-                </p>
-              ) : null}
-              {tiers.map((tier, index) => (
-                <div key={index} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                  <div>
-                    <Input
-                      aria-label={`Package ${index + 1} label`}
-                      placeholder="Label (e.g. Comprehensive)"
-                      value={tier.label}
-                      onChange={(e) => updateTier(index, "label", e.target.value)}
-                      className={tierError(index) ? "border-red-500" : undefined}
-                    />
-                    {tierError(index) ? (
-                      <p className="mt-1 text-xs text-red-600">{tierError(index)}</p>
-                    ) : null}
-                  </div>
-                  <div>
-                    <Input
-                      aria-label={`Package ${index + 1} amount`}
-                      type="number"
-                      min={0}
-                      step={500}
-                      placeholder="Amount (RWF)"
-                      value={Number.isNaN(tier.amountRwf) ? "" : tier.amountRwf}
-                      onChange={(e) => updateTier(index, "amountRwf", Number(e.target.value))}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove package ${index + 1}`}
-                    onClick={() => removeTier(index)}
-                  >
-                    <Trash2Icon className="size-4" />
-                  </Button>
-                </div>
-              ))}
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-ink-2">
-                  {tiers.length > 0
-                    ? `Total of ${tiers.length} package${tiers.length === 1 ? "" : "s"}, saved with the course.`
-                    : null}
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={addTier}
-                >
-                  <PlusIcon className="size-4" />
-                  Add package
-                </Button>
-              </div>
             </CardContent>
           </Card>
 

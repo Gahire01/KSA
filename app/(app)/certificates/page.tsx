@@ -1,7 +1,5 @@
 "use client";
 
-import { csvCell } from "@/lib/utils/csv";
-
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,6 +13,7 @@ import {
   ShieldCheckIcon,
 } from "lucide-react";
 
+import { ExportMenu } from "@/components/shared/ExportMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { FilterChips, type Chip } from "@/components/shared/FilterChips";
@@ -319,50 +318,6 @@ export default function CertificatesPage() {
     setFilters(EMPTY);
   };
 
-  const exportCsv = (ids: string[]) => {
-    const chosen = ids.length ? rows.filter((c) => ids.includes(c.id)) : rows;
-    const header = [
-      "student_number",
-      "trainee",
-      "trainee_no",
-      "course_code",
-      "course",
-      "duration",
-      "issued_by",
-      "issued_at",
-      "status",
-      "revoked_at",
-      "revoked_reason",
-    ];
-    /* csvCell quotes every field, doubles embedded quotes (a name with a comma cannot
-     * forge a column) and defuses cells that start like a spreadsheet formula. */
-    const lines = chosen.map((c) =>
-      [
-        c.studentNumber,
-        c.trainee.fullName,
-        c.trainee.traineeNo,
-        c.course.code,
-        c.course.name,
-        c.durationSnapshot,
-        c.trainerNameSnapshot,
-        c.issuedAt.slice(0, 10),
-        c.status,
-        c.revokedAt?.slice(0, 10) ?? "",
-        c.revokedReason ?? "",
-      ]
-        .map(csvCell)
-        .join(","),
-    );
-    const blob = new Blob([[header.join(","), ...lines].join("\n")], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `certificate-register-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <div className="space-y-5">
@@ -375,6 +330,7 @@ export default function CertificatesPage() {
         }
         actions={
           <>
+            <ExportMenu type="certificate-register" label="Export register" />
             <Button asChild variant="outline" size="sm" className="gap-1.5">
               <Link href="/verify">
                 <BadgeCheckIcon className="size-4" />
@@ -475,12 +431,6 @@ export default function CertificatesPage() {
               }
             />
           }
-          bulkActions={(ids) => (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => exportCsv(ids)}>
-              <DownloadIcon className="size-3.5" />
-              Export register
-            </Button>
-          )}
         />
       )}
     </div>

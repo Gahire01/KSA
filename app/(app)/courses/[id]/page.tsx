@@ -25,9 +25,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ApiError } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import { useCourse, useUpdateCourse } from "@/lib/api/hooks";
-import { mockApi } from "@/lib/mock";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import {
   categoryLabel,
@@ -49,12 +48,19 @@ export default function CourseDetailPage() {
 
   const course = courseQuery.data;
 
-  /* The question bank and attempt analytics arrive with the Phase 2 tables. */
-  const questions: unknown[] = [];
+  const questionsQuery = useQuery({
+    queryKey: ["exam-questions", id],
+    queryFn: () => api.get<{ items: Array<{ id: string; isActive: boolean }> }>("/questions", { courseId: id }),
+    enabled: Boolean(id),
+  });
+  const questions = questionsQuery.data?.items ?? [];
 
   const trainersQuery = useQuery({
     queryKey: ["trainers", "options"],
-    queryFn: () => mockApi.trainers.list(),
+    queryFn: async () =>
+      (await api.get<{ items: Array<{ id: string; name: string | null; email: string }> }>("/trainers")).items.map(
+        (t) => ({ id: t.id, name: t.name ?? t.email }),
+      ),
     staleTime: 5 * 60_000,
   });
 
@@ -213,6 +219,24 @@ export default function CourseDetailPage() {
       <Card>
         <CardContent className="space-y-4 p-5">
           <p className="text-sm leading-relaxed text-ink-2">{course.description}</p>
+          {course.priceTiers.length > 1 ? (
+            <table className="w-full max-w-md text-sm">
+              <thead>
+                <tr className="text-left text-xs tracking-wider text-ink-2 uppercase">
+                  <th className="py-1.5 font-medium">Package</th>
+                  <th className="py-1.5 text-right font-medium">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {course.priceTiers.map((tier) => (
+                  <tr key={tier.label} className="border-t border-line">
+                    <td className="py-1.5 text-ink">{tier.label}</td>
+                    <td className="py-1.5 text-right tabular text-ink">{formatRwf(tier.amountRwf)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             {trainer ? (
               <span className="flex items-center gap-2">
@@ -241,7 +265,6 @@ export default function CourseDetailPage() {
               <TabsTrigger value="questions">
                 Question bank ({questions.length})
               </TabsTrigger>
-              <TabsTrigger value="analytics">Analytics</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
@@ -249,17 +272,17 @@ export default function CourseDetailPage() {
             <TabsContent value="questions" className="mt-4">
               <EmptyState
                 compact
-                title="No questions yet"
-                description="The question bank is not in Phase 1 — it arrives with the exam tables in Phase 2. Course settings and enrolment counts above are live."
-              />
-            </TabsContent>
-
-            {/* Analytics */}
-            <TabsContent value="analytics" className="mt-4 space-y-4">
-              <EmptyState
-                compact
-                title="No attempt data yet"
-                description="Pass rates and per-question analytics need exam attempts, which land in Phase 2."
+                title={questions.length === 0 ? "No questions yet." : `${questions.length} questions in the bank`}
+                description={
+                  questions.length === 0
+                    ? `Upload via /exams/${course.id}/import.`
+                    : "Open the exam page to read the bank, import more questions or review sittings."
+                }
+                action={
+                  <Button asChild size="sm">
+                    <Link href={`/exams/${course.id}`}>{questions.length === 0 ? "Open exam page" : "Question bank"}</Link>
+                  </Button>
+                }
               />
             </TabsContent>
 

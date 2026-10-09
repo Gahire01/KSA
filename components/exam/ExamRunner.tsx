@@ -22,13 +22,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatDateTime, formatNumber, formatPercent } from "@/lib/utils/format";
 import { api, ApiError } from "@/lib/api/client";
-import { useExamLockdown } from "@/lib/hooks/use-exam-lockdown";
+import { ExamWatermark } from "@/components/exam/ExamWatermark";
+import { useContentProtection } from "@/lib/hooks/use-content-protection";
 
 /**
  * The exam runner.
  *
  * The layout, wording and components are the ones already approved — only the
- * data source changed, from lib/mock to the real API. Nothing here receives
+ * data source is the real API. Nothing here receives
  * `isCorrect` or any other server field: /next projects options to id + text.
  */
 
@@ -45,6 +46,7 @@ export interface RunnerPaper {
   examDurationMin: number;
   courseName: string;
   traineeName: string;
+  traineeNo: string;
   passMarkPct: number;
   attemptNumber: number;
   maxAttempts: number;
@@ -103,7 +105,7 @@ export function ExamRunner({
   /* Lockdown: blocked actions, tab-leave counting, fullscreen state. The server
    * owns the consequence: the second time the trainee leaves the window it fails and
    * closes the sitting itself and tells us so here. */
-  const { blurCount, fullscreen, screenHidden, leaveWarning, dismissLeaveWarning, requestFullscreen } = useExamLockdown({
+  const { blurCount, fullscreen, screenHidden, leaveWarning, dismissLeaveWarning, requestFullscreen } = useContentProtection({
     token,
     onAutoSubmitted: (result) => {
       autoSubmitted.current = true;
@@ -246,6 +248,7 @@ export function ExamRunner({
       /* user-select is also set inline: Safari still needs the prefixed property. */
       style={{ WebkitUserSelect: "none", userSelect: "none" }}
     >
+      <ExamWatermark traineeName={paper.traineeName} studentNumber={paper.traineeNo} />
       {!fullscreen ? (
         <div role="status" className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
           The exam works best in fullscreen.{" "}

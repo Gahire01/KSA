@@ -22,6 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -52,9 +53,8 @@ const schema = z.object({
   country: z.string().min(1, "Select a country."),
   category: z.string().min(1, "Select a category."),
   courseId: z.string().min(1, "Select a course."),
-  amountPaidRwf: z.coerce
-    .number({ invalid_type_error: "Enter an amount." })
-    .min(0, "Amount cannot be negative."),
+  /* Kept as text so the field can start empty; digits only, and empty means 0. */
+  amountPaidRwf: z.string().regex(/^\d{0,9}$/, "Use digits only."),
   notes: z.string().max(500, "Keep notes under 500 characters.").optional(),
   consent: z
     .boolean()
@@ -81,28 +81,21 @@ export default function NewTraineePage() {
       country: "Rwanda",
       category: "",
       courseId: "",
-      amountPaidRwf: 0,
+      amountPaidRwf: "",
       notes: "",
       consent: false,
     },
   });
 
   const courseId = form.watch("courseId");
-  const selectedCourse = courses.find((c) => c.id === courseId);
-  const price = selectedCourse?.priceRwf ?? 0;
   const amount = form.watch("amountPaidRwf");
+  const price = courses.find((c) => c.id === courseId)?.priceRwf ?? 0;
   const balance = Math.max(0, price - Number(amount || 0));
-
-  /* Picking a course defaults the amount to the standard fee; the field stays
-     editable so a partial payment or a package price can be entered instead. */
-  React.useEffect(() => {
-    if (selectedCourse) form.setValue("amountPaidRwf", selectedCourse.priceRwf);
-  }, [courseId, selectedCourse, form]);
 
   const createMutation = useCreateTrainee();
 
   const submit = (values: Values) => {
-    createMutation.mutate(toTraineeInput(values, categories), {
+    createMutation.mutate(toTraineeInput({ ...values, amountPaidRwf: Number(values.amountPaidRwf || 0) }, categories), {
       onSuccess: (trainee) => {
         toast.success("Trainee created", {
           description: `${trainee.name} · ${trainee.traineeNo}`,
@@ -252,7 +245,18 @@ export default function NewTraineePage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Course</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(next) => {
+                        field.onChange(next);
+                        /* The amount paid offers the course's standard price, and stays editable:
+                         * a trainee may have paid any package. Never overwrites what was typed. */
+                        const standard = courses.find((c) => c.id === next)?.priceRwf ?? 0;
+                        if (!form.getValues("amountPaidRwf") && standard > 0) {
+                          form.setValue("amountPaidRwf", String(standard));
+                        }
+                      }}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a course" />
@@ -277,16 +281,7 @@ export default function NewTraineePage() {
                   <FormItem>
                     <FormLabel>Amount paid (RWF)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={500}
-                        inputMode="numeric"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(e.target.value === "" ? 0 : Number(e.target.value))
-                        }
-                      />
+                      <AmountInput {...field} />
                     </FormControl>
                     <FormDescription>
                       {price > 0

@@ -205,6 +205,8 @@ export function OtpInput({
           ))}
         </div>
 
+        <p className="text-center text-xs text-ink-3">Don&apos;t see the code? Check spam.</p>
+
         {error ? (
           <p
             role="alert"

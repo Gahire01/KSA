@@ -123,7 +123,33 @@ Legend here: DONE = built, type-checked, linted, and (where noted) unit-tested o
 | P  Deploy | NOT DONE | no Vercel access; nothing pushed |
 | Q  Docs | DONE | this file + HANDOFF.md |
 
-Production URL: none (not deployed).
-Lighthouse: not measured.
+Production URL: none recorded here (see HANDOFF.md).
+Lighthouse: not measured (no browser run was possible in the build environment).
 
-Known limitations: see "KNOWN GAPS" in HANDOFF.md (mock-backed list/report pages, in-memory rate limiter and SSE, unverified raw SQL, TOTP routes, repo hygiene).
+Known limitations: see "KNOWN GAPS" in HANDOFF.md. The mock-backed pages and `lib/mock` are gone (Oct 2026 build).
+
+---
+
+## Security checklist (Part 14) — verified 2026-10-09
+
+✅ = verified in code (file:line); ⚠️ = a limit worth knowing, with the reason.
+
+- ✅ argon2id passwords + OTPs: `lib/auth/password.ts:29,95` (hash-wasm argon2id, 19 MiB / 2 passes); exam OTP hashed at `lib/exams/issue-attempt.ts:87`; sign-in code hashed in `app/api/auth/login/verify/route.ts`.
+  Tokens are 32 random bytes, so they are stored as a SHA-256 / HMAC digest (`lib/exams/token.ts:7`, session id in `lib/auth/session.ts`), which is the right tool for a high-entropy secret (argon2id is for guessable ones).
+- ✅ Session cookie `httpOnly`, `secure` in production, `SameSite=Lax`: `lib/auth/cookies.ts:26-28`.
+- ✅ Session TTL 30 days with "Remember me": `lib/auth/cookies.ts:4` (12 hours without it).
+- ✅ Rate limits: sign-in `lib/api/rate-limit.ts:22`, sign-in code verify `:34`, resend `:38`, exam OTP `:48`, answer autosave `:60`, integrity flag `app/api/exams/attempts/[token]/integrity-flag/route.ts:11`.
+  ⚠️ The limiter is in memory, so on a serverless host each instance counts for itself. The controls that actually stop guessing are in the database and do not depend on it: five tries per sign-in code, five per exam code (`otpAttempts`), and the account lockout (`app/api/auth/login/route.ts:89`).
+- ✅ Every API route checks the session via `guard()` (`lib/api/guard.ts:37`) except the ones that are public or authenticated another way, each on purpose: health, login/resend/verify/logout/me, the link and code redemptions, the public certificate verify, the signature image (locked signatures only), the cron route (bearer secret), and the exam-attempt routes (emailed token + the cookie set after the OTP).
+- ✅ No `isCorrect` in any trainee-reachable response: the paper is projected without it (`app/api/exams/attempts/[token]/next/route.ts:54`), the manifest holds ids only, and the 30-check HTTP test confirmed `/next`, `/verify-otp` and `/submit` bodies contain none. Staff-only authoring endpoints return it by design.
+- ✅ No stack traces in error responses: `apiFail` (`lib/api/response.ts:27`) sends a message and a request id only; causes go to the server log.
+- ✅ Security headers: HSTS `next.config.ts:29`, nosniff `:30`, Referrer-Policy `:31`, X-Frame-Options DENY `:32`, Permissions-Policy `:34`, CSP `:38`.
+- ✅ No wildcard CORS: no `Access-Control-*` header exists anywhere; `middleware.ts:16` rejects cross-origin state changes.
+- ✅ No secrets in source: grep for `re_…`, `postgresql://user:pass@` and `sk_…` over app, components, lib, prisma, scripts and root files returns nothing.
+- ✅ `.env.local` is ignored: `.gitignore:34` (`.env*`).
+- ✅ Exam tokens single-use: `linkMaxUses = 1`, redeemed atomically in `app/api/exams/attempts/[token]/verify-otp/route.ts:119`.
+- ✅ OTP expiry is server-side: `verify-otp/route.ts:91`.
+- ✅ Autosave never returns the answer key: the answer route returns `{ saved, questionId, hasAnswer }` only.
+- ✅ Audit log is append-only: nothing in `app` or `lib` updates or deletes `AuditLog`; `/api/audit-log` is GET only (a test confirmed 405 for DELETE and POST).
+
+Not part of the checklist but worth saying plainly: the in-app protections on the exam page deter and record; they cannot stop a phone camera or an OS screenshot (see "Content protection" in HANDOFF.md).

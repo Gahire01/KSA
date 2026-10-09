@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { priceTiersSchema } from "@/lib/courses/pricing";
+import { EXAM_DURATION_MIN, MAX_ATTEMPTS, PASS_MARK_PCT } from "@/lib/exams/rules";
+
 /**
  * Every body and query schema is `.strict()`.
  *
@@ -76,22 +79,12 @@ export const courseCreateSchema = z
     topics: z.array(z.string().trim().min(1).max(200)).max(40).default([]),
     durationValue: z.coerce.number().int().min(1, "Enter a duration.").max(999),
     durationUnit: z.enum(["DAY", "WEEK", "MONTH"]),
+    /* The standard price. When `priceTiers` is sent the server derives it from them. */
     priceRwf: z.coerce.number().int().min(0, "Price cannot be negative.").max(100_000_000),
-    priceTiers: z
-      .array(
-        z
-          .object({
-            label: z.string().trim().min(1, "Give the tier a label.").max(60),
-            amountRwf: z.coerce.number().int().min(0, "Amount cannot be negative.").max(100_000_000),
-          })
-          .strict(),
-      )
-      .max(20)
-      .optional()
-      .nullable(),
-    passMarkPct: z.coerce.number().int().min(1).max(100).default(50),
-    maxAttempts: z.coerce.number().int().min(1).max(10).default(2),
-    examDurationMin: z.coerce.number().int().min(1).max(600).default(30),
+    priceTiers: priceTiersSchema.optional(),
+    passMarkPct: z.coerce.number().int().min(1).max(100).default(PASS_MARK_PCT),
+    maxAttempts: z.coerce.number().int().min(1).max(10).default(MAX_ATTEMPTS),
+    examDurationMin: z.coerce.number().int().min(1).max(600).default(EXAM_DURATION_MIN),
     trainerId: z.string().trim().min(1).max(60).optional().nullable(),
     isActive: z.boolean().default(true),
   })

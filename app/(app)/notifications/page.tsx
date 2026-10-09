@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CheckCheckIcon, InboxIcon, RefreshCwIcon } from "lucide-react";
+import { CheckCheckIcon, InboxIcon, RefreshCwIcon, Trash2Icon, XIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -29,6 +29,7 @@ const TYPE_TONE: Record<NotificationType, string> = {
   "trainee.enrolled": "bg-navy/10 text-navy",
   "deadline.approaching": "bg-amber-bg text-amber",
   "certificate.issued": "bg-green-bg text-green",
+  "certificate.revoked": "bg-red-bg text-red",
   "exam.link.expiring": "bg-amber-bg text-amber",
   system: "bg-muted text-ink-2",
 };
@@ -53,6 +54,8 @@ export default function NotificationsPage() {
   const connected = useNotificationStore((s) => s.connected);
   const markRead = useNotificationStore((s) => s.markRead);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
+  const remove = useNotificationStore((s) => s.remove);
+  const clearAll = useNotificationStore((s) => s.clearAll);
 
   const visible = React.useMemo(
     () =>
@@ -114,6 +117,19 @@ export default function NotificationsPage() {
               <CheckCheckIcon className="size-3.5" />
               Mark all read
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => {
+                clearAll();
+                void api.delete("/notifications", { all: true }).catch(() => {});
+              }}
+              disabled={items.length === 0}
+            >
+              <Trash2Icon className="size-3.5" />
+              Clear all
+            </Button>
           </div>
         }
       />
@@ -124,11 +140,11 @@ export default function NotificationsPage() {
         <CardContent className="p-0">
           {visible.length === 0 ? (
             <EmptyState
-              title={tab === "unread" ? "You're all caught up" : "No notifications yet"}
+              title="You're all caught up."
               description={
                 tab === "unread"
                   ? "Every notification has been read."
-                  : "Exam submissions, payments and certificate issues will appear here as they happen."
+                  : "New activity (exam results, certificates, enrolments) will appear here as it happens."
               }
               action={
                 tab === "unread" ? (
@@ -142,7 +158,7 @@ export default function NotificationsPage() {
           ) : (
             <ul className="divide-y divide-line">
               {visible.map((n) => (
-                <li key={n.id}>
+                <li key={n.id} className="relative">
                   <button
                     type="button"
                     onClick={() => {
@@ -151,7 +167,7 @@ export default function NotificationsPage() {
                       if (n.link) router.push(n.link);
                     }}
                     className={cn(
-                      "flex w-full gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none",
+                      "flex w-full gap-3 py-3.5 pr-12 pl-4 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none",
                       n.read ? "opacity-70" : "bg-orange-bg/30",
                     )}
                   >
@@ -185,6 +201,18 @@ export default function NotificationsPage() {
                         <span>{formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}</span>
                       </span>
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      remove(n.id);
+                      void api.delete("/notifications", { id: n.id }).catch(() => {});
+                    }}
+                    aria-label={`Delete notification: ${n.title}`}
+                    title="Delete"
+                    className="absolute top-3 right-3 flex size-7 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-muted hover:text-ink focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none"
+                  >
+                    <XIcon className="size-4" />
                   </button>
                 </li>
               ))}

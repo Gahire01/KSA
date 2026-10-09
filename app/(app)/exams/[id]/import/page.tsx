@@ -3,11 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { DownloadIcon, LoaderIcon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -91,12 +93,43 @@ export default function ImportQuestionsPage() {
     URL.revokeObjectURL(url);
   }
 
+  /* The page renders for every real course; an id that matches nothing gets a friendly
+   * message instead of an upload form that could only fail. */
+  const courseQuery = useQuery({
+    queryKey: ["exam-course", courseId],
+    queryFn: () => api.get<{ id: string; name: string }>(`/courses/${encodeURIComponent(courseId)}`),
+    enabled: Boolean(courseId),
+    retry: false,
+  });
+
+  if (courseQuery.isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-9 w-72" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
+  if (!courseQuery.data) {
+    return (
+      <EmptyState
+        title="Course not found"
+        description="This course may have been removed, or the link is wrong."
+        action={
+          <Button asChild size="sm">
+            <Link href="/exams">Back to exams</Link>
+          </Button>
+        }
+      />
+    );
+  }
+
   const imported = result?.imported !== undefined;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Import questions"
+        title={`Import questions · ${courseQuery.data.name}`}
         description="Add many questions at once from a CSV or Excel file. You will see a preview before anything is saved."
         actions={
           <Button asChild variant="outline" size="sm">

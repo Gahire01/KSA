@@ -127,7 +127,8 @@ export async function finalizeAttempt(
   }
 
   const totalCount = questionIds.length;
-  const scorePct = totalCount === 0 ? 0 : Math.round((correctCount / totalCount) * 100);
+  /* Rounded DOWN: 99 of 200 is 49.5% and must read as 49, never as 50 beside a "not passed". */
+  const scorePct = totalCount === 0 ? 0 : Math.floor((correctCount * 100) / totalCount);
   const passMarkPct = attempt.course.passMarkPct;
   /* A tab-leave fail overrides the score: the sitting is lost whatever was answered. */
   const forcedFail = options.autoFlag === "tab_leave_fail";

@@ -61,6 +61,7 @@ export function publicCertificate(cert: {
   issuedAt: Date;
   revokedAt: Date | null;
   revokedReason: string | null;
+  contentHash: string;
   topicsSnapshot: string[];
   durationSnapshot: string;
   trainerNameSnapshot: string;
@@ -76,6 +77,10 @@ export function publicCertificate(cert: {
   return {
     status,
     studentNumber: cert.studentNumber,
+    /* The SHA-256 of the frozen snapshot, also stored in the PDF's Subject: it lets a
+     * holder's file be matched to this record. It includes the random verification token, so
+     * it cannot be used to confirm a guess about a certificate. */
+    contentHash: cert.contentHash,
     traineeName: cert.trainee.fullName,
     /* No internal id and no enrolment number: an employer verifies a certificate,
      * not a trainee record, and neither identifier belongs in a public payload. */

@@ -18,6 +18,9 @@ interface NotificationState {
   hydrate: (items: AppNotification[]) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
+  /** Removes one notification from the list (the caller deletes it server-side). */
+  remove: (id: string) => void;
+  clearAll: () => void;
   setConnected: (state: ConnectionState) => void;
 }
 
@@ -47,6 +50,12 @@ export const useNotificationStore = create<NotificationState>()(
         })),
       markAllRead: () =>
         set((s) => ({ items: s.items.map((n) => ({ ...n, read: true })) })),
+      remove: (id) =>
+        set((s) => ({
+          items: s.items.filter((n) => n.id !== id),
+          liveFeed: s.liveFeed.filter((n) => n.id !== id),
+        })),
+      clearAll: () => set({ items: [], liveFeed: [] }),
       setConnected: (state) =>
         set({
           connected: state,
@@ -54,7 +63,9 @@ export const useNotificationStore = create<NotificationState>()(
         }),
     }),
     {
-      name: "ksa-notifications",
+      /* v2: an earlier build persisted demo rows under the old key. Moving the key drops
+       * them, so only what the server sent (and what was pushed live) can appear. */
+      name: "ksa-notifications-v2",
       partialize: (state) => ({ items: state.items.slice(0, 60) }),
     },
   ),

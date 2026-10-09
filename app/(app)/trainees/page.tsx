@@ -1,22 +1,18 @@
 "use client";
 
-import { csvCell } from "@/lib/utils/csv";
-
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
-  DownloadIcon,
   MailIcon,
   PlusIcon,
   SendIcon,
   UploadIcon,
   WalletIcon,
 } from "lucide-react";
-import { toast } from "sonner";
 
+import { ExportMenu } from "@/components/shared/ExportMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
 import { FilterChips, type Chip } from "@/components/shared/FilterChips";
@@ -91,7 +87,6 @@ const EMPTY: Filters = {
 
 export default function TraineesPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const role = useAuthStore((s) => s.currentUser?.role ?? "ADMIN");
   const currentUser = useAuthStore((s) => s.currentUser);
   const isTrainer = role === "TRAINER";
@@ -195,74 +190,6 @@ export default function TraineesPage() {
     [courses],
   );
 
-  type BulkAction = "invite" | "export";
-
-  const bulkMutation = useMutation<number, Error, { action: BulkAction; ids: string[] }>({
-    mutationFn: async ({ action, ids }) => {
-      if (action === "export") {
-        const header = [
-          "trainee_no",
-          "name",
-          "email",
-          "phone",
-          "country",
-          "category",
-          "course",
-          "status",
-          "payment_status",
-          "amount_paid_rwf",
-          "total_due_rwf",
-          "enrolled_at",
-          "deadline",
-        ];
-        const lines = rows
-          .filter((t) => ids.includes(t.id))
-          .map((t) =>
-            [
-              t.traineeNo,
-              t.name,
-              t.email,
-              t.phone,
-              t.country,
-              t.category,
-              courseName(t.courseId),
-              t.status,
-              t.paymentStatus,
-              String(t.amountPaidRwf),
-              String(t.totalDueRwf),
-              t.enrolledAt.slice(0, 10),
-              t.deadline.slice(0, 10),
-            ]
-              .map(csvCell)
-              .join(","),
-          );
-        const blob = new Blob([[header.join(","), ...lines].join("\n")], {
-          type: "text/csv;charset=utf-8",
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `trainees-${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        return ids.length;
-      }
-      await new Promise((r) => setTimeout(r, 600));
-      return ids.length;
-    },
-    onSuccess: (count, variables) => {
-      if (variables.action === "invite") {
-        toast.success(`Exam link sent`, {
-          description: `Queued ${count} invitation${count === 1 ? "" : "s"}.`,
-        });
-        void queryClient.invalidateQueries({ queryKey: ["trainees"] });
-      } else {
-        toast.success("CSV exported", { description: `${count} rows downloaded.` });
-      }
-    },
-    onError: () => toast.error("That action could not be completed."),
-  });
-
   const columns = React.useMemo<ColumnDef<Trainee, unknown>[]>(
     () => [
       {
@@ -331,16 +258,6 @@ export default function TraineesPage() {
         cell: ({ row }) => (
           <span className="text-sm whitespace-nowrap text-ink-2">
             {formatDate(row.original.deadline)}
-          </span>
-        ),
-      },
-      {
-        id: "attendance",
-        header: "Attend.",
-        accessorFn: (t) => t.attendancePct,
-        cell: ({ row }) => (
-          <span className="text-sm tabular text-ink-2">
-            {formatNumber(row.original.attendancePct)}%
           </span>
         ),
       },
@@ -440,6 +357,12 @@ export default function TraineesPage() {
         }
         actions={
           <>
+            {!isTrainer ? (
+              <ExportMenu
+                type="trainee-roster"
+                params={{ courseIds: filters.courseIds, statuses: filters.statuses }}
+              />
+            ) : null}
             <Button asChild variant="outline" size="sm" className="gap-1.5">
               <Link href="/trainees/import">
                 <UploadIcon className="size-4" />
@@ -591,41 +514,22 @@ export default function TraineesPage() {
               }
             />
           }
-          bulkActions={(ids) => (
+          bulkActions={() => (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => bulkMutation.mutate({ action: "invite", ids })}
-                disabled={bulkMutation.isPending}
-              >
-                <SendIcon className="size-3.5" />
-                Send exam link
+              <Button size="sm" variant="outline" className="gap-1.5" asChild>
+                <Link href="/exams/new">
+                  <SendIcon className="size-3.5" />
+                  Send an exam
+                </Link>
               </Button>
               {!isTrainer ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5"
-                  asChild
-                >
+                <Button size="sm" variant="outline" className="gap-1.5" asChild>
                   <Link href="/payments/new">
                     <WalletIcon className="size-3.5" />
                     Record payment
                   </Link>
                 </Button>
               ) : null}
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => bulkMutation.mutate({ action: "export", ids })}
-                disabled={bulkMutation.isPending}
-              >
-                <DownloadIcon className="size-3.5" />
-                Export CSV
-              </Button>
             </>
           )}
         />

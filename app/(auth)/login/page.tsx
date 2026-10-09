@@ -575,6 +575,7 @@ export default function LoginPage() {
                   Remember me for 30 days
                 </label>
               </div>
+              <p className="-mt-1 text-xs text-ink-3">You can sign in from any device.</p>
 
               <Button
                 type="submit"

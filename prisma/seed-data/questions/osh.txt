@@ -1,0 +1,209 @@
+1. What is the main purpose of Occupational Safety and Health?
+A. To increase production at any cost
+B. To prevent work-related injuries, illnesses, and fatalities
+C. To reduce the number of workers
+D. To make workers wear PPE at all times
+Answer: B
+
+2. On a construction site, a worker notices that a scaffold has no proper guardrails. What should the worker do?
+A. Use it carefully
+B. Use it only for a short task
+C. Report the condition and prevent its use until it is made safe
+D. Ask another worker to use it first
+Answer: C
+
+3. Which of the following is a common hazard in mining operations?
+A. Ground instability
+B. Office paperwork
+C. Computer screens
+D. Filing cabinets
+Answer: A
+
+4. Before working on electrical equipment that could become energized, what is an important safety measure?
+A. Wear ordinary gloves
+B. Switch off the lights only
+C. Isolate the energy source and apply appropriate lockout/tagout procedures
+D. Work quickly before the equipment becomes hot
+Answer: C
+
+5. What is a near miss?
+A. An event that could have caused injury or damage but did not
+B. A minor injury requiring first aid
+C. A planned safety inspection
+D. A medical examination
+Answer: A
+
+6. A worker falls from a ladder but is not seriously injured. What should happen?
+A. Nothing because there is no serious injury
+B. The incident should be reported and investigated
+C. The worker should return immediately to work
+D. The ladder should simply be put back
+Answer: B
+
+7. Which control is generally the most effective according to the hierarchy of controls?
+A. PPE
+B. Warning signs
+C. Administrative controls
+D. Elimination
+Answer: D
+
+8. A construction worker is required to work near an open edge several metres above the ground. Which control provides the best protection?
+A. Telling the worker to be careful
+B. Providing a guardrail or other suitable fall-prevention system
+C. Giving the worker a mobile phone
+D. Reducing the work period to five minutes
+Answer: B
+
+9. Which of the following is a serious electrical hazard?
+A. Damaged electrical insulation exposing live conductors
+B. A clean electrical room
+C. A labelled distribution board
+D. A properly maintained cable
+Answer: A
+
+10. Why is housekeeping important at a workplace?
+A. It only improves appearance
+B. It helps control hazards such as slips, trips, falling objects, and blocked access
+C. It eliminates the need for PPE
+D. It replaces safety inspections
+Answer: B
+
+11. In an underground mine, workers report unusual ground movement. What is the safest response?
+A. Continue working until the end of the shift
+B. Investigate the condition and follow the mine's ground-control and emergency procedures
+C. Ignore it unless rocks start falling
+D. Ask workers to work faster
+Answer: B
+
+12. What does PPE stand for?
+A. Personal Protective Equipment
+B. Personal Prevention Environment
+C. Professional Protection Equipment
+D. Public Protective Environment
+Answer: A
+
+13. A worker is repeatedly exposed to high levels of noise in a factory. What is the best approach?
+A. Ignore it if the worker is used to the noise
+B. Assess the exposure and apply appropriate controls, including hearing protection where necessary
+C. Tell the worker to cover their ears with their hands
+D. Move the worker without investigating the source
+Answer: B
+
+14. Before using a chemical at work, which information should workers understand?
+A. Only its price
+B. Its hazards, safe handling, storage, and emergency information
+C. The company's profit from selling it
+D. The supervisor's personal opinion
+Answer: B
+
+15. An electrician is asked to repair a circuit, but there is no confirmation that the circuit has been isolated. What should the electrician do?
+A. Start work carefully
+B. Touch the cable with a tool to check
+C. Confirm proper isolation and absence of electrical energy before starting work
+D. Ask another worker to hold the cable
+Answer: C
+
+16. What is an LTI?
+A. Long-Term Inspection
+B. Lost Time Injury
+C. Labour Training Instruction
+D. Limited Technical Incident
+Answer: B
+
+17. A crane is lifting a heavy load on a construction project. Several workers are standing underneath the suspended load. What is the safest action?
+A. Allow them to stay if they are wearing helmets
+B. Ask them to move away from the suspended load and establish an exclusion zone
+C. Continue because the crane operator can see them
+D. Tell them to move only if the load starts swinging
+Answer: B
+
+18. What is one major risk associated with poor manual handling?
+A. Musculoskeletal injuries
+B. Improved physical fitness
+C. Better concentration
+D. Reduced fatigue
+Answer: A
+
+19. A worker is found working at height without appropriate fall protection. The supervisor says, "Let him finish; he only has five minutes left." What is the correct response?
+A. Allow the work because it is almost finished
+B. Stop the unsafe work and ensure appropriate controls are in place
+C. Ask the worker to work faster
+D. Record the issue after the work is completed
+Answer: B
+
+20. Which of the following can be a significant hazard during blasting operations in mining?
+A. Flyrock and uncontrolled blast effects
+B. Office lighting
+C. Clean drinking water
+D. Safety meetings
+Answer: A
+
+21. What should a worker do when they discover a serious and immediate workplace hazard?
+A. Ignore it
+B. Report it and take appropriate action to prevent exposure to the danger
+C. Wait until the monthly safety meeting
+D. Photograph it and continue working
+Answer: B
+
+22. During a fire emergency, what should workers normally do?
+A. Return to collect personal belongings
+B. Follow the emergency procedure and evacuate to the designated assembly point
+C. Hide in the nearest room
+D. Use any available exit regardless of the emergency plan
+Answer: B
+
+23. A mining company has experienced several minor ground-fall incidents but has not investigated them because nobody was injured. What is the main concern?
+A. There is no concern because nobody was injured
+B. The incidents may indicate a serious underlying ground-control problem
+C. Workers should simply be more careful
+D. The incidents should not be recorded
+Answer: B
+
+24. Which of the following is an example of an ergonomic hazard?
+A. Poor workstation design and prolonged awkward posture
+B. Electrical shock
+C. Explosives
+D. Fire
+Answer: A
+
+25. After a serious workplace incident, what should an investigation primarily aim to establish?
+A. Who should be blamed
+B. The immediate and underlying causes and how recurrence can be prevented
+C. How to avoid reporting the incident
+D. Which worker should be dismissed
+Answer: B
+
+26. A worker notices that an electrical extension cable has damaged insulation. What should the worker do?
+A. Continue using it carefully
+B. Cover the damage temporarily with paper
+C. Remove it from service and report it for proper repair or replacement
+D. Give it to another worker
+Answer: C
+
+27. Which statement about safety induction is correct?
+A. It is only necessary for new HSE officers
+B. It helps workers understand workplace hazards, rules, emergency arrangements, and safe working practices
+C. It replaces all other safety training
+D. It is only required after an accident
+Answer: B
+
+28. A worker has been working long hours for several consecutive days and begins making repeated mistakes. What is the most likely safety concern?
+A. Improved productivity
+B. Fatigue increasing the likelihood of human error and incidents
+C. Increased competence
+D. Better decision-making
+Answer: B
+
+29. A company has written safety procedures, but supervisors regularly ignore them to meet production targets. What does this situation demonstrate?
+A. Strong safety leadership
+B. A poor safety culture and a gap between procedures and actual practice
+C. Effective risk management
+D. Excellent production management
+Answer: B
+
+30. A worker sees another employee entering a restricted electrical area without authorization. What is the most appropriate response?
+A. Ignore it because it is not their responsibility
+B. Allow the person to continue if they are experienced
+C. Stop or report the unsafe access according to the workplace procedure
+D. Wait until an accident occurs
+Answer: C

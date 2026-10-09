@@ -78,6 +78,12 @@ export default function SendExamPage() {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [result, setResult] = React.useState<SendResult | null>(null);
 
+  /* /exams links here with ?courseId= so "Send exam" opens on the right course. */
+  React.useEffect(() => {
+    const preset = new URLSearchParams(window.location.search).get("courseId");
+    if (preset) setCourseId(preset);
+  }, []);
+
   const coursesQuery = useQuery({
     queryKey: ["courses", "send-options"],
     queryFn: async () => {
@@ -118,7 +124,9 @@ export default function SendExamPage() {
     onSuccess: (data) => {
       setResult(data);
       if (data.summary.sent > 0) {
-        toast.success(`${data.summary.sent} exam link${data.summary.sent === 1 ? "" : "s"} sent`);
+        toast.success("Exam link sent. Check inbox within 2 minutes; if not, check spam.", {
+          description: `${data.summary.sent} sent`,
+        });
       }
       for (const notice of data.summary.notices ?? []) toast.info(notice);
       if (data.summary.failed > 0) {

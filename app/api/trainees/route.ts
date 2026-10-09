@@ -3,35 +3,18 @@ import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { traineeCreateSchema, traineeListQuerySchema } from "@/lib/api/schemas";
 import { actorOf, audit } from "@/lib/audit";
 import { viaCourse } from "@/lib/auth/scope";
+import { invalidateCourses } from "@/lib/data-cache";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { REGISTER_MAX_STUDENT_NUMBER } from "../../../scripts/student-list/register-numbers";
+import { emit, ownerAndTrainerIds, ownerIds } from "@/lib/notifications/emit";
+import { recordPayment } from "@/lib/payments/ledger";
+import { nextTraineeNo } from "@/lib/trainees/number";
+import { withoutMoney } from "@/lib/trainees/privacy";
 
 export const traineeInclude = {
   course: { select: { id: true, code: true, name: true, priceRwf: true } },
   category: { select: { id: true, name: true } },
 } as const;
-
-/**
- * Next student number: plain digits, continuing from the highest number held
- * (never below the academy's register, whose last slot is 456, so the first new
- * trainee is 457). No prefix: this is also the number printed on the certificate.
- *
- * The maximum is taken numerically in SQL over the all-digit numbers only. A
- * string sort would rank "99" above "456", and a legacy "KSA-0001" above both.
- * Two simultaneous creates could pick the same number; the unique index then
- * rejects the loser, which the caller retries.
- */
-async function nextTraineeNo(): Promise<string> {
-  const rows = await prisma.$queryRaw<Array<{ highest: number | null }>>`
-    SELECT MAX("traineeNo"::bigint)::int AS highest
-    FROM "Trainee"
-    WHERE "traineeNo" ~ '^[0-9]{1,9}$'
-  `;
-
-  const highest = Math.max(rows[0]?.highest ?? 0, REGISTER_MAX_STUDENT_NUMBER);
-  return String(highest + 1);
-}
 
 /** GET /api/trainees — search, filter, paginated. */
 export async function GET(request: Request) {
@@ -51,7 +34,8 @@ export async function GET(request: Request) {
   /* Each filter accepts either a single value or a CSV list, and both spellings
    * of the plural alias are accepted so the UI can use its own names. */
   const statuses = d.status ?? d.statuses;
-  const payment = d.paymentStatus ?? d.paymentStatuses;
+  /* A trainer cannot filter by what people owe: that would leak it through the result set. */
+  const payment = gate.trainerScope ? undefined : (d.paymentStatus ?? d.paymentStatuses);
   const courseIds = d.courseId ?? d.courseIds;
   const categoryIds = d.categoryId ?? d.categoryIds;
   const countries = d.country ?? d.countries;
@@ -96,7 +80,7 @@ export async function GET(request: Request) {
   ]);
 
   return apiOk({
-    items,
+    items: gate.trainerScope ? items.map(withoutMoney) : items,
     page,
     pageSize,
     total,
@@ -143,22 +127,39 @@ export async function POST(request: Request) {
   /* Retry a couple of times if a concurrent create claimed the same number. */
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      const trainee = await prisma.trainee.create({
-        data: {
-          traineeNo: await nextTraineeNo(),
-          fullName: data.fullName,
-          email: data.email.toLowerCase(),
-          phone: data.phone,
-          countryCode: data.countryCode,
-          categoryId: data.categoryId,
-          courseId,
-          deadlineAt: data.deadlineAt ?? null,
-          status: data.status,
-          paymentStatus: data.paymentStatus,
-          amountPaidRwf: data.amountPaidRwf,
-          notes: data.notes ?? null,
-        },
-        include: traineeInclude,
+      const traineeNo = await nextTraineeNo();
+
+      /* The trainee and any opening payment are written in ONE transaction: either both exist or
+       * neither does, so a failed payment can never leave a trainee behind (whose retry would then
+       * be refused as a duplicate email). The amount goes through the ledger so the trainee's
+       * total, status and the payments register all agree; `paymentStatus` from the client is
+       * ignored, it is derived from the money. */
+      const trainee = await prisma.$transaction(async (tx) => {
+        const created = await tx.trainee.create({
+          data: {
+            traineeNo,
+            fullName: data.fullName,
+            email: data.email.toLowerCase(),
+            phone: data.phone,
+            countryCode: data.countryCode,
+            categoryId: data.categoryId,
+            courseId,
+            deadlineAt: data.deadlineAt ?? null,
+            status: data.status,
+            notes: data.notes ?? null,
+          },
+          select: { id: true },
+        });
+        if (data.amountPaidRwf > 0) {
+          await recordPayment(tx, {
+            traineeId: created.id,
+            amountRwf: data.amountPaidRwf,
+            method: "CASH",
+            notes: "Paid at enrolment",
+            recorder: { id: gate.session.user.id, name: gate.session.user.name ?? gate.session.user.email },
+          });
+        }
+        return tx.trainee.findUniqueOrThrow({ where: { id: created.id }, include: traineeInclude });
       });
 
       await audit({
@@ -167,6 +168,14 @@ export async function POST(request: Request) {
         entityType: "Trainee",
         entityId: trainee.id,
         meta: { traineeNo: trainee.traineeNo, courseId },
+      });
+
+      await invalidateCourses();
+      await emit("trainee.enrolled", {
+        recipients: (courseId ? await ownerAndTrainerIds(courseId) : await ownerIds()).map((userId) => ({ userId })),
+        title: "New trainee enrolled",
+        link: `/trainees/${trainee.id}`,
+        body: `${trainee.fullName} (${trainee.traineeNo}) was enrolled${trainee.course ? ` in ${trainee.course.name}` : ""}.`,
       });
 
       return apiOk(trainee, 201);

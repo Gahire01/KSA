@@ -4,6 +4,7 @@ import { examSubmitSchema } from "@/lib/api/exam-schemas";
 import { apiFail, zodMessage } from "@/lib/api/response";
 import { loadAttemptByToken } from "@/lib/exams/attempt";
 import { finalizeAttempt, recordedResult } from "@/lib/exams/finalize";
+import { TAB_LEAVE_FAIL_AT } from "@/lib/exams/rules";
 import { readExamSession } from "@/lib/exams/session-cookie";
 
 /**
@@ -44,6 +45,12 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
   /* Any blurCount in the body is ignored; see the answer route. */
-  const result = await finalizeAttempt(attempt, { token });
+  /* If the integrity route could not finish the job on the second leave (a race, a database
+   * hiccup), the attempt is still STARTED with its leaves recorded: a normal submit must grade it
+   * as the tab-leave failure it is, never by score. */
+  const result = await finalizeAttempt(attempt, {
+    token,
+    autoFlag: attempt.blurCount >= TAB_LEAVE_FAIL_AT ? "tab_leave_fail" : undefined,
+  });
   return result.ok ? NextResponse.json({ ok: true, data: result.data }) : apiFail(result.error, result.status);
 }

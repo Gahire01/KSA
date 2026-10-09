@@ -24,7 +24,8 @@ export const ACADEMY = {
   address: OWNER_TODO,
   phone: OWNER_TODO,
   email: OWNER_TODO,
-  website: OWNER_TODO,
+  /** The deployed address when known; the unfilled marker otherwise. */
+  website: (process.env.NEXT_PUBLIC_APP_URL as string | undefined) || OWNER_TODO,
   /** Business registration / accreditation number shown on legal footers. */
   registrationNumber: OWNER_TODO,
 } as const;

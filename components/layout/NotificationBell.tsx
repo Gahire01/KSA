@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { BellIcon, CheckCheckIcon } from "lucide-react";
+import { BellIcon, CheckCheckIcon, Trash2Icon, XIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ export function NotificationBell() {
   const items = useNotificationStore((s) => s.items);
   const markRead = useNotificationStore((s) => s.markRead);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
+  const remove = useNotificationStore((s) => s.remove);
+  const clearAll = useNotificationStore((s) => s.clearAll);
   const connected = useNotificationStore((s) => s.connected);
 
   const sorted = React.useMemo(
@@ -33,6 +35,13 @@ export function NotificationBell() {
   const persistRead = (id?: string) => {
     void api.post("/notifications", id ? { id } : { all: true }).catch(() => {
       /* Offline — the optimistic update stands. */
+    });
+  };
+
+  /* Same optimistic pattern as read: the row goes at once, the server catches up. */
+  const persistDelete = (id?: string) => {
+    void api.delete("/notifications", id ? { id } : { all: true }).catch(() => {
+      /* Offline — the next hydration restores whatever the server still holds. */
     });
   };
 
@@ -92,16 +101,29 @@ export function NotificationBell() {
             >
               <CheckCheckIcon className="size-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 text-xs"
+              onClick={() => {
+                clearAll();
+                persistDelete();
+              }}
+              disabled={sorted.length === 0}
+            >
+              <Trash2Icon className="size-3.5" />
+              Clear all
+            </Button>
           </div>
         </div>
 
         <ScrollArea className="max-h-[26rem]">
           {sorted.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-ink-2">No notifications yet.</p>
+            <p className="px-4 py-10 text-center text-sm text-ink-2">You&apos;re all caught up.</p>
           ) : (
             <ul className="divide-y divide-line">
               {sorted.map((n) => (
-                <li key={n.id}>
+                <li key={n.id} className="relative">
                   <button
                     type="button"
                     onClick={() => {
@@ -112,7 +134,7 @@ export function NotificationBell() {
                       if (n.link && n.link !== pathname) router.push(n.link);
                     }}
                     className={cn(
-                      "flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none",
+                      "flex w-full gap-3 py-3 pr-10 pl-4 text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none",
                       n.read ? "opacity-60" : "bg-orange-bg/40",
                     )}
                   >
@@ -142,6 +164,18 @@ export function NotificationBell() {
                         </Badge>
                       ) : null}
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      remove(n.id);
+                      persistDelete(n.id);
+                    }}
+                    aria-label={`Delete notification: ${n.title}`}
+                    title="Delete"
+                    className="absolute top-2.5 right-2 flex size-6 items-center justify-center rounded-md text-ink-3 transition-colors hover:bg-muted hover:text-ink focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none"
+                  >
+                    <XIcon className="size-3.5" />
                   </button>
                 </li>
               ))}

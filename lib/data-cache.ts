@@ -25,6 +25,34 @@ export async function getCategoriesCached() {
   )();
 }
 
+/**
+ * The unfiltered course list (what every dropdown and the courses page open with), cached
+ * for 60 seconds. Searched, filtered or trainer-scoped requests skip the cache and read
+ * the database directly, so nobody sees another trainer's courses. Anything that changes
+ * a course or its trainee count calls {@link invalidateCourses}.
+ */
+export async function getCoursesCached(page: number, pageSize: number) {
+  return unstable_cache(
+    async () => {
+      const [items, total] = await Promise.all([
+        prisma.course.findMany({
+          orderBy: { createdAt: "asc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          include: {
+            category: { select: { id: true, name: true } },
+            _count: { select: { trainees: true } },
+          },
+        }),
+        prisma.course.count(),
+      ]);
+      return { items, total };
+    },
+    ["courses", String(page), String(pageSize)],
+    { revalidate: 60, tags: [TAGS.courses, TAGS.courseLists] },
+  )();
+}
+
 export async function invalidateCategories() {
   revalidateTag(TAGS.categories);
 }

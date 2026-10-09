@@ -8,12 +8,12 @@
 import type {
   CategoryDTO,
   CourseDTO,
-  PriceTierDTO,
   TraineeDTO,
   DurationUnit as ApiDurationUnit,
   CourseInput,
   TraineeInput,
 } from "@/lib/api/types";
+import { parseTiers, standardPrice } from "@/lib/courses/pricing";
 import type { Category, Country, Course, DurationUnit, EnrollmentStatus, Trainee } from "@/lib/types";
 
 /* ── DTO → view model ────────────────────────────────────────── */
@@ -28,13 +28,12 @@ export function toCourse(dto: CourseDTO): Course {
     durationValue: dto.durationValue,
     durationUnit: dto.durationUnit.toLowerCase() as DurationUnit,
     priceRwf: dto.priceRwf,
-    priceTiers: dto.priceTiers ?? undefined,
+    priceTiers: parseTiers(dto.priceTiers),
     passMarkPct: dto.passMarkPct,
     maxAttempts: dto.maxAttempts,
     validityMonths: dto.validityMonths,
     examDurationMin: dto.examDurationMin,
     trainerId: dto.trainerId ?? "",
-    /* Question bank is Phase 2; nothing to count yet. */
     questionCount: 0,
     isActive: dto.isActive,
     enrolledCount: dto._count?.trainees ?? 0,
@@ -58,8 +57,6 @@ export function toTrainee(dto: TraineeDTO): Trainee {
     courseId: dto.courseId ?? "",
     enrolledAt: dto.enrolledAt,
     deadline: dto.deadlineAt ?? "",
-    /* Attendance and exam scores arrive with the exams/attempts tables in Phase 2. */
-    attendancePct: 0,
     examScore: null,
     notes: dto.notes ?? "",
     createdAt: dto.createdAt,
@@ -79,7 +76,7 @@ export function toTrainees(list: TraineeDTO[]): Trainee[] {
 
 /** The forms work in category *names*; the API keys on ids. */
 function categoryIdByName(categories: CategoryDTO[], name: string): string {
-  const match = (categories ?? []).find(
+  const match = categories.find(
     (c) => c.name.toLowerCase() === String(name).trim().toLowerCase(),
   );
 
@@ -124,8 +121,8 @@ export interface CourseFormValues {
   description: string;
   durationValue: number;
   durationUnit: string;
-  priceRwf: number;
-  priceTiers: PriceTierDTO[];
+  /** Every package; the standard price is derived from it. */
+  priceTiers: Array<{ label: string; amountRwf: number }>;
   passMarkPct: number;
   maxAttempts: number;
   examDurationMin: number;
@@ -144,8 +141,8 @@ export function toCourseInput(
     description: values.description,
     durationValue: values.durationValue,
     durationUnit: values.durationUnit.toUpperCase() as ApiDurationUnit,
-    priceRwf: values.priceRwf,
-    priceTiers: values.priceTiers.length ? values.priceTiers : null,
+    priceRwf: standardPrice(values.priceTiers),
+    priceTiers: values.priceTiers,
     passMarkPct: values.passMarkPct,
     maxAttempts: values.maxAttempts,
     examDurationMin: values.examDurationMin,

@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
     "/api/reports/[type]": ["./public/logo.png"],
   },
   experimental: {
-    optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
+    optimizePackageImports: ["lucide-react", "date-fns", "recharts", "motion", "@tanstack/react-table"],
   },
   images: {
     remotePatterns: [],

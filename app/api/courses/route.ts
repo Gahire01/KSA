@@ -5,7 +5,8 @@ import { actorOf, audit } from "@/lib/audit";
 import { courseWhere, isActiveTrainer } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { invalidateCourses } from "@/lib/data-cache";
+import { standardPrice } from "@/lib/courses/pricing";
+import { getCoursesCached, invalidateCourses } from "@/lib/data-cache";
 
 /** GET /api/courses — search, filter by category/active, paginated. */
 export async function GET(request: Request) {
@@ -36,19 +37,23 @@ export async function GET(request: Request) {
       : {}),
   };
 
-  const [items, total] = await Promise.all([
-    prisma.course.findMany({
-      where,
-      orderBy: { createdAt: "asc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      include: {
-        category: { select: { id: true, name: true } },
-        _count: { select: { trainees: true } },
-      },
-    }),
-    prisma.course.count({ where }),
-  ]);
+  /* The plain list (no search, no filter, no trainer scope) is cached for 60 seconds. */
+  const plain = !search && !categoryIds?.length && typeof isActive !== "boolean" && gate.trainerScope === null;
+  const [items, total] = plain
+    ? await getCoursesCached(page, pageSize).then((r) => [r.items, r.total] as const)
+    : await Promise.all([
+        prisma.course.findMany({
+          where,
+          orderBy: { createdAt: "asc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          include: {
+            category: { select: { id: true, name: true } },
+            _count: { select: { trainees: true } },
+          },
+        }),
+        prisma.course.count({ where }),
+      ]);
 
   return apiOk({
     items,
@@ -95,7 +100,9 @@ export async function POST(request: Request) {
       topics: data.topics,
       durationValue: data.durationValue,
       durationUnit: data.durationUnit,
-      priceRwf: data.priceRwf,
+      /* Packages, when given, decide the standard price. */
+      priceRwf: data.priceTiers ? standardPrice(data.priceTiers) : data.priceRwf,
+      ...(data.priceTiers ? { priceTiers: data.priceTiers } : {}),
       passMarkPct: data.passMarkPct,
       maxAttempts: data.maxAttempts,
       examDurationMin: data.examDurationMin,

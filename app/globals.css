@@ -331,38 +331,9 @@
     }
   }
 
-  @keyframes ksa-fade-up {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-
-  /* Page mount: the wrapper fades, and each section of the page rises in turn. */
+  /* Page mount: one 150ms opacity fade. Nothing moves, so there is no layout shift. */
   .ksa-page-enter {
-    animation: ksa-fade-in 200ms ease-out both;
-  }
-  .ksa-page-enter > * > * {
-    animation: ksa-fade-up 200ms ease-out both;
-  }
-  .ksa-page-enter > * > *:nth-child(2) {
-    animation-delay: 50ms;
-  }
-  .ksa-page-enter > * > *:nth-child(3) {
-    animation-delay: 100ms;
-  }
-  .ksa-page-enter > * > *:nth-child(4) {
-    animation-delay: 150ms;
-  }
-  .ksa-page-enter > * > *:nth-child(5) {
-    animation-delay: 200ms;
-  }
-  .ksa-page-enter > * > *:nth-child(n + 6) {
-    animation-delay: 250ms;
+    animation: ksa-fade-in 150ms ease-out both;
   }
 
   /* Skeleton shimmer. */

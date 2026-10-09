@@ -61,7 +61,7 @@ Blockers: none.
 26. Timer: every course has examDurationMin = 60 ................... PASS
 
 Other tests run: payments ledger (30 checks), reports + audit + import (23), pricing tiers (10), tab-leave (8),
-review-fix regression (see below). `tsc` and `eslint` are clean; the production build is verified at the end.
+review-fix regression (see below). `tsc` and `eslint` are clean; `pnpm build` is green (Next 15.5.26, all routes compiled, 2026-10-09).
 
 ### Not verified (and why)
 - No deploy: there are no Vercel / Neon / Resend credentials here. Re-check the Vercel build after the PR merges.

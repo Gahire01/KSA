@@ -1,7 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
 
-import { shuffle } from "@/lib/utils/shuffle";
-
 /**
  * The exam manifest is the frozen question order for one sitting.
  *
@@ -73,25 +71,6 @@ function shuffleWith(rnd: () => number, items: readonly string[]): string[] {
     out[j] = a;
   }
   return out;
-}
-
-/** Deterministic per-seed shuffle using the shared util — used for previews. */
-export function buildManifestFromSeed(
-  courseId: string,
-  questions: ManifestInputQuestion[],
-  seed: string,
-): ExamManifest {
-  const ordered = shuffle(questions, seed);
-
-  return {
-    version: 1,
-    courseId,
-    questionIds: ordered.map((q) => q.id),
-    questions: ordered.map((q) => ({
-      questionId: q.id,
-      optionIds: shuffle(q.options, `${seed}:${q.id}`).map((o) => o.id),
-    })),
-  };
 }
 
 /** The real thing: shuffles both questions and their options. */

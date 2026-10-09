@@ -20,6 +20,9 @@ const eslintConfig = [
       /* Written by `prisma generate`; large, machine-made and never edited by hand. */
       "lib/generated/**",
       "next-env.d.ts",
+      "tmp-*.ts",
+      "tmp-*.tsx",
+      "tmp-*.mjs",
     ],
   },
 ];

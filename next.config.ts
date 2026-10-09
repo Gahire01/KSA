@@ -40,6 +40,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  /* ExcelJS drags in an old rimraf that the bundler cannot resolve under pnpm's strict layout;
+   * left external, Node resolves its own dependencies at runtime. */
+  serverExternalPackages: ["exceljs"],
   typedRoutes: false,
   devIndicators: false,
   /* The certificate PDF reads the logo and the legacy signature straight off disk. Next's
@@ -47,6 +50,7 @@ const nextConfig: NextConfig = {
    * those files and every PDF would silently print without them. */
   outputFileTracingIncludes: {
     "/api/certificates/[id]/pdf": ["./public/logo.png", "./public/certificate/signature.png"],
+    "/api/reports/[type]": ["./public/logo.png"],
   },
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns", "recharts"],

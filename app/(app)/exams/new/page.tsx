@@ -124,7 +124,9 @@ export default function SendExamPage() {
     onSuccess: (data) => {
       setResult(data);
       if (data.summary.sent > 0) {
-        toast.success(`${data.summary.sent} exam link${data.summary.sent === 1 ? "" : "s"} sent`);
+        toast.success("Exam link sent. Check inbox within 2 minutes; if not, check spam.", {
+          description: `${data.summary.sent} sent`,
+        });
       }
       for (const notice of data.summary.notices ?? []) toast.info(notice);
       if (data.summary.failed > 0) {

@@ -7,7 +7,10 @@
  * lib/email/send.ts, which owns that policy.
  */
 
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
+import { TEXT_FOOTER } from "@/lib/email/footer";
+
+/* Overridable so a test run can point at a local capture server instead of sending real mail. */
+const RESEND_ENDPOINT = process.env.RESEND_API_URL ?? "https://api.resend.com/emails";
 
 export interface SendResult {
   ok: boolean;
@@ -22,6 +25,22 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   text: string;
+}
+
+/**
+ * Where a reply lands: EMAIL_REPLY_TO if set, otherwise the owner's own address, so a
+ * trainee who answers a mail reaches a person instead of a dead no-reply box. Looked up
+ * once per process; a failed lookup just means no Reply-To header, never a failed send.
+ */
+let replyToPromise: Promise<string | null> | undefined;
+
+function replyToAddress(): Promise<string | null> {
+  if (process.env.EMAIL_REPLY_TO?.trim()) return Promise.resolve(process.env.EMAIL_REPLY_TO.trim());
+  replyToPromise ??= import("@/lib/db")
+    .then(({ prisma }) => prisma.user.findFirst({ where: { role: "OWNER", isActive: true }, select: { email: true } }))
+    .then((owner) => owner?.email ?? null)
+    .catch(() => null);
+  return replyToPromise;
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
@@ -40,6 +59,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
   }
 
   try {
+    const replyTo = await replyToAddress();
     const response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
@@ -49,9 +69,11 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
       body: JSON.stringify({
         from,
         to: [input.to],
+        ...(replyTo ? { reply_to: replyTo } : {}),
         subject: input.subject,
+        /* HTML plus a plain-text alternative: mail with only HTML scores worse with spam filters. */
         html: input.html,
-        text: input.text,
+        text: `${input.text}${TEXT_FOOTER}`,
       }),
       /* Email must not hold up the request that triggered it. */
       signal: AbortSignal.timeout(10_000),

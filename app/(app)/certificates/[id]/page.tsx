@@ -214,6 +214,7 @@ export default function CertificateDetailPage() {
                 topics: cert.topicsSnapshot,
                 duration: cert.durationSnapshot,
                 issuedAt: cert.issuedAt,
+                contentHash: cert.contentHash,
                 signerName: cert.signerNameSnapshot,
                 signerTitle: cert.signerTitleSnapshot,
                 signatureUrl: cert.signatureUrlSnapshot,

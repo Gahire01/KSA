@@ -1,12 +1,4 @@
-import {
-  Document,
-  Font,
-  Image,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-} from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -17,19 +9,20 @@ import { join } from "node:path";
  * A course retitled or a trainee renamed next month must not change a certificate
  * somebody is already holding, so everything printed here is frozen at issue time.
  *
- * Layout (kept identical to the on-screen preview in app/(app)/certificates/[id]):
- *   top     logo top-right; KIGALI SAFETY ACADEMY centred; orange divider
- *   centre  "This is to certify that", trainee name, the completion line, the
- *           course in capitals, the topics covered
- *   bottom  signature block (left) | one line: Student#, Issued, Duration
- *           (centre) | QR code to the verify page (bottom-right, uncaptioned)
+ * Layout (kept identical to the on-screen preview in components/certificate/CertificateSheet):
+ *   top     large centred logo (and a faint copy behind the page as a watermark)
+ *   centre  italic "This is to certify that", the trainee's name on a ruled line, the
+ *           italic completion line, the course in capitals, a left-aligned topics paragraph
+ *   bottom  signature block (left) | Student# / Issued / Duration as value-over-label
+ *           with the uncaptioned QR code beneath (right) | a thin certificate-ID line
+ *   foot    "Issued to {name} · Student #{n}" in 7px mono, outside the frame
  *
- * Sizes are the web spec's pixels converted to PDF points (x 0.75). There is no
+ * Sizes are the web design's pixels converted to PDF points (x 0.75). There is no
  * expiry, "valid until" or revoked marking anywhere on it: a certificate does not
  * lapse, and revocation is shown on the public verification page.
  *
- * Fonts are the built-in Helvetica family, so a render never depends on the
- * network or on a font file being shipped.
+ * Fonts are the built-in Helvetica/Times/Courier families, so a render never depends on
+ * the network or on a font file being shipped.
  */
 
 export interface CertificateDoc {
@@ -55,7 +48,7 @@ const palette = {
   ink2: "#4B5563",
   navy: "#0F2340",
   orange: "#E8590C",
-  line: "#D8D3CB",
+  line: "#9CA3AF",
   paper: "#FFFFFF",
 };
 
@@ -78,28 +71,26 @@ const styles = StyleSheet.create({
     borderColor: palette.orange,
     flex: 1,
     alignItems: "center",
-    paddingTop: 22,
-    paddingBottom: 16,
-    paddingHorizontal: 28,
+    paddingTop: 16,
+    paddingBottom: 10,
+    paddingHorizontal: 36,
   },
-  logo: { position: "absolute", top: 14, right: 20, width: 60, height: 60 },
-  org: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 21,
-    letterSpacing: 2.5,
-    color: palette.navy,
-    marginTop: 26,
-  },
-  divider: { width: 90, height: 1, backgroundColor: palette.orange, marginTop: 8 },
-  certifies: { fontSize: 10.5, color: palette.ink2, marginTop: 18 },
+  /* Faint centred logo behind everything, as on the reference sample. */
+  watermark: { position: "absolute", top: 120, left: 280, width: 200, height: 200, opacity: 0.06 },
+  logo: { width: 82, height: 82 },
+  certifies: { fontFamily: "Times-Italic", fontSize: 10.5, color: palette.ink2, marginTop: 10 },
   name: {
     fontFamily: "Helvetica-Bold",
     fontSize: 25.5,
     color: palette.navy,
-    marginTop: 8,
+    marginTop: 4,
     textAlign: "center",
+    width: "100%",
+    paddingBottom: 3,
+    borderBottomWidth: 0.75,
+    borderBottomColor: palette.line,
   },
-  body: { fontSize: 10.5, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 560 },
+  body: { fontFamily: "Times-Italic", fontSize: 10.5, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 560 },
   course: {
     fontFamily: "Helvetica-Bold",
     fontSize: 19.5,
@@ -109,7 +100,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     maxWidth: 640,
   },
-  topics: { fontSize: 8.25, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 540 },
+  topics: { fontSize: 8.25, color: palette.ink2, textAlign: "justify", marginTop: 12, width: "100%", lineHeight: 1.45 },
   bottom: {
     marginTop: "auto",
     width: "100%",
@@ -118,64 +109,34 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 10,
   },
-  /* Left and right take equal space so the centre line is truly centred. */
-  colLeft: { flex: 1, alignItems: "flex-start" },
-  colCenter: { alignItems: "center", paddingBottom: 2 },
-  colRight: { flex: 1, alignItems: "flex-end" },
   /* The 45pt band is the 60px signature height; bottom-aligned so the line sits on
    * one baseline whether or not an image is present. */
   signatureBlock: { width: 180 },
   signatureBand: { height: 45, width: 180, justifyContent: "flex-end", alignItems: "center" },
   signatureImage: { maxWidth: 180, maxHeight: 45, objectFit: "contain" },
   signatureLine: { width: 180, height: 1.5, backgroundColor: palette.ink },
-  signatureName: {
+  signatureName: { fontFamily: "Helvetica-Bold", fontSize: 10.5, color: palette.navy, marginTop: 3, width: 180 },
+  signatureTitle: { fontSize: 8.5, color: palette.ink2, marginTop: 1, width: 180 },
+  right: { alignItems: "flex-end" },
+  facts: { flexDirection: "row", width: 240 },
+  fact: { flex: 1, alignItems: "center", marginLeft: 12 },
+  factValue: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 10.5,
+    fontSize: 9,
     color: palette.navy,
-    marginTop: 3,
+    width: "100%",
     textAlign: "center",
-    width: 180,
+    paddingBottom: 1,
+    borderBottomWidth: 0.5,
+    borderBottomColor: palette.line,
   },
-  signatureTitle: { fontSize: 8.5, color: palette.ink2, marginTop: 1, textAlign: "center", width: 180 },
-  qr: { width: 67.5, height: 67.5 },
-  factLine: { fontSize: 8.25, color: palette.ink2 },
-  factStrong: { fontFamily: "Helvetica-Bold", color: palette.navy },
+  factLabel: { fontSize: 7.5, color: palette.ink2, marginTop: 2 },
+  qr: { width: 67.5, height: 67.5, marginTop: 8 },
+  certId: { fontFamily: "Courier", fontSize: 6, color: "#6B7280", width: "100%", marginTop: 8 },
   footer: { position: "absolute", bottom: 8, left: 28, right: 28, alignItems: "center" },
   /* 7px at the x 0.75 scale, monospaced: a quiet line that ties a copy to its holder. */
   footerText: { fontFamily: "Courier", fontSize: 5.25, color: palette.ink2 },
 });
-
-/**
- * Registers the fonts once per process.
- *
- * Helvetica is react-pdf's built-in and needs no file, so a missing local font is a
- * graceful fallback to the base-14 set rather than a failed render.
- */
-let fontsRegistered = false;
-
-function registerFonts() {
-  if (fontsRegistered) return;
-  fontsRegistered = true;
-
-  const candidates = [
-    { family: "Inter", files: ["Inter-Regular.ttf", "Inter-SemiBold.ttf"] },
-  ];
-
-  for (const { family, files } of candidates) {
-    for (const file of files) {
-      const path = join(process.cwd(), "public", "fonts", file);
-      try {
-        Font.register({
-          family,
-          src: readFileSync(path).toString("base64"),
-        });
-        break;
-      } catch {
-        /* Not shipped in this deployment — Helvetica stands in. */
-      }
-    }
-  }
-}
 
 function formatDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
@@ -188,18 +149,14 @@ function formatDate(date: Date): string {
  * render must not fetch over the network, and a missing file falls back to no
  * image rather than a failed render.
  */
-type Asset = { src: string; width: number; height: number } | null;
+type Asset = { src: string } | null;
 
 function loadAsset(relativePath: string): Asset {
   try {
     const data = readFileSync(join(process.cwd(), "public", relativePath));
     const ext = relativePath.split(".").pop()?.toLowerCase();
     const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "image/png";
-    return {
-      src: `data:${mime};base64,${data.toString("base64")}`,
-      width: 0,
-      height: 0,
-    };
+    return { src: `data:${mime};base64,${data.toString("base64")}` };
   } catch {
     return null;
   }
@@ -224,15 +181,19 @@ type ReactPdfDocumentProps = React.ComponentProps<typeof Document>;
 export function CertificateDocument({
   doc,
 }: ReactPdfDocumentProps & { doc: CertificateDoc }) {
-  registerFonts();
-
   const logo = getLogo();
   const signature: Asset =
     doc.signatureSrc === undefined
       ? getSignature()
       : doc.signatureSrc === null
         ? null
-        : { src: doc.signatureSrc, width: 0, height: 0 };
+        : { src: doc.signatureSrc };
+
+  const facts: Array<[string, string]> = [
+    [String(doc.studentNumber), "Student #"],
+    [formatDate(doc.issuedAt), "Issued"],
+    [doc.duration, "Duration"],
+  ];
 
   return (
     <Document
@@ -248,10 +209,12 @@ export function CertificateDocument({
           <View style={styles.innerFrame}>
             {logo ? (
               // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+              <Image src={logo.src} style={styles.watermark} />
+            ) : null}
+            {logo ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
               <Image src={logo.src} style={styles.logo} />
             ) : null}
-            <Text style={styles.org}>KIGALI SAFETY ACADEMY</Text>
-            <View style={styles.divider} />
 
             <Text style={styles.certifies}>This is to certify that</Text>
             <Text style={styles.name}>{doc.traineeName}</Text>
@@ -264,35 +227,37 @@ export function CertificateDocument({
             ) : null}
 
             <View style={styles.bottom}>
-              <View style={styles.colLeft}>
-                <View style={styles.signatureBlock}>
-                  <View style={styles.signatureBand}>
-                    {signature ? (
-                      // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
-                      <Image src={signature.src} style={styles.signatureImage} />
-                    ) : null}
-                  </View>
-                  <View style={styles.signatureLine} />
-                  <Text style={styles.signatureName}>{doc.directorName}</Text>
-                  <Text style={styles.signatureTitle}>{doc.directorTitle}</Text>
+              <View style={styles.signatureBlock}>
+                <View style={styles.signatureBand}>
+                  {signature ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+                    <Image src={signature.src} style={styles.signatureImage} />
+                  ) : null}
                 </View>
+                <View style={styles.signatureLine} />
+                <Text style={styles.signatureName}>{doc.directorName}</Text>
+                <Text style={styles.signatureTitle}>{doc.directorTitle}</Text>
               </View>
 
-              <View style={styles.colCenter}>
-                <Text style={styles.factLine}>
-                  Student# <Text style={styles.factStrong}>{doc.studentNumber}</Text>
-                  {"   ·   "}Issued <Text style={styles.factStrong}>{formatDate(doc.issuedAt)}</Text>
-                  {"   ·   "}Duration <Text style={styles.factStrong}>{doc.duration}</Text>
-                </Text>
-              </View>
-
-              <View style={styles.colRight}>
+              <View style={styles.right}>
+                <View style={styles.facts}>
+                  {facts.map(([value, label]) => (
+                    <View key={label} style={styles.fact}>
+                      <Text style={styles.factValue}>{value}</Text>
+                      <Text style={styles.factLabel}>{label}</Text>
+                    </View>
+                  ))}
+                </View>
                 {doc.qrSrc ? (
                   // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
                   <Image src={doc.qrSrc} style={styles.qr} />
                 ) : null}
               </View>
             </View>
+
+            <Text style={styles.certId}>
+              Certificate ID: {doc.studentNumber}-{doc.contentHash.slice(0, 12).toUpperCase()}
+            </Text>
           </View>
         </View>
 

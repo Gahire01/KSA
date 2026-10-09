@@ -9,10 +9,12 @@ import { formatDate } from "@/lib/utils/format";
  * The on-screen certificate. Mirrors lib/certificates/pdf.tsx element for element
  * (px here, pt there at x 0.75), so what staff preview is what the holder receives.
  *
- * Layout: logo top-right; KIGALI SAFETY ACADEMY centred under an orange divider;
- * the completion text; then signature block (left), one fact line (centre) and the
- * uncaptioned QR code (bottom-right). Navy 2px border, thin orange border inside.
- * There is no revoked, expiry or "scan" wording on the sheet.
+ * Layout (after the academy's reference sample): large centred logo; italic lead-in; the
+ * trainee's name on a ruled line; italic completion text; the course in large type; a
+ * left-aligned topics paragraph; then signature block (bottom-left) and, bottom-right,
+ * Student# / Issued / Duration as value-over-label with the uncaptioned QR beneath. A
+ * thin certificate-ID line runs along the bottom. Navy 2px border, thin orange one inside,
+ * a faint logo watermark behind. There is no revoked, expiry or "scan" wording on it.
  *
  * Anti-copy (honest scope): right-click and text selection are off and the images
  * cannot be dragged out. That deters casual saving; a screenshot cannot be stopped,
@@ -26,6 +28,8 @@ export interface CertificateSheetData {
   topics: string[];
   duration: string;
   issuedAt: string;
+  /** SHA-256 of the frozen snapshot; its first characters make the printed certificate ID. */
+  contentHash: string;
   /** null = legacy certificate printed with the original static signature. */
   signerName: string | null;
   signerTitle: string | null;
@@ -33,6 +37,12 @@ export interface CertificateSheetData {
 }
 
 export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetData; verifyUrl: string }) {
+  const facts: Array<[string, string]> = [
+    [String(cert.studentNumber), "Student #"],
+    [formatDate(cert.issuedAt, "dd.MM.yyyy"), "Issued"],
+    [cert.duration, "Duration"],
+  ];
+
   return (
     <div
       className="relative overflow-hidden rounded-xl border-2 border-[#0F2340] bg-card p-2.5 select-none print:hidden sm:p-3"
@@ -44,45 +54,36 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
         style={{ backgroundImage: "url('/cert-bg.svg')", backgroundSize: "cover" }}
         aria-hidden
       />
-      <div className="relative flex min-h-[28rem] flex-col items-center border border-orange px-5 pt-5 pb-6 text-center sm:px-10 sm:pb-8">
-        <div className="flex w-full justify-end sm:absolute sm:top-5 sm:right-6 sm:w-auto">
-          <Image
-            src="/logo.png"
-            alt="Kigali Safety Academy"
-            width={80}
-            height={80}
-            draggable={false}
-            className="pointer-events-none h-20 w-20 rounded-xl"
-            priority={false}
-          />
-        </div>
+      <div className="relative flex min-h-[32rem] flex-col items-center border border-orange px-5 pt-6 pb-4 text-center sm:px-12">
+        <Image
+          src="/logo.png"
+          alt="Kigali Safety Academy"
+          width={110}
+          height={110}
+          draggable={false}
+          className="pointer-events-none h-[110px] w-[110px] object-contain"
+          priority={false}
+        />
 
-        <div className="flex flex-col items-center gap-2 pt-2 sm:pt-7">
-          <p className="font-display text-[28px] leading-tight font-semibold tracking-[0.12em] text-[#0F2340] uppercase">
-            Kigali Safety Academy
+        <p className="mt-3 font-serif text-sm text-ink-2 italic">This is to certify that</p>
+        <p className="mt-1 w-full border-b border-ink-3/50 pb-1 font-display text-[34px] leading-tight font-semibold text-[#0F2340]">
+          {cert.traineeName}
+        </p>
+        <p className="mx-auto mt-3 max-w-xl font-serif text-sm leading-relaxed text-ink-2 italic">
+          Has successfully completed KSAcademy occupational Health and Safety Course in
+        </p>
+        <p className="mt-2 font-display text-[26px] leading-tight font-semibold tracking-wide text-orange uppercase">
+          {cert.courseName}
+        </p>
+        {cert.topics.length > 0 ? (
+          <p className="mt-4 w-full text-left text-[11px] leading-relaxed text-justify text-ink-2">
+            Topics covered : {cert.topics.join(" , ")}
           </p>
-          <div className="h-px w-24 bg-orange" aria-hidden />
-        </div>
+        ) : null}
 
-        <div className="mt-5 space-y-3">
-          <p className="text-sm text-ink-2">This is to certify that</p>
-          <p className="font-display text-[34px] leading-tight font-semibold text-[#0F2340]">{cert.traineeName}</p>
-          <p className="mx-auto max-w-xl text-sm leading-relaxed text-ink-2">
-            Has successfully completed KSAcademy occupational Health and Safety Course in
-          </p>
-          <p className="font-display text-[26px] leading-tight font-semibold tracking-wide text-orange uppercase">
-            {cert.courseName}
-          </p>
-          {cert.topics.length > 0 ? (
-            <p className="mx-auto max-w-[720px] text-[11px] leading-relaxed text-ink-2">
-              Topics covered : {cert.topics.join(" , ")}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="mt-auto grid w-full items-end gap-5 pt-8 sm:grid-cols-[1fr_auto_1fr]">
+        <div className="mt-auto grid w-full items-end gap-6 pt-8 sm:grid-cols-[1fr_auto]">
           {/* Signature: image sits on the line, name directly under it (gap <= 6px). */}
-          <div className="mx-auto w-60 sm:mx-0">
+          <div className="mx-auto w-60 text-left sm:mx-0">
             <div className="flex h-[60px] items-end justify-center">
               {cert.signerName === null ? (
                 /* Issued before the signature system: original static image. */
@@ -112,18 +113,22 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
             <p className="text-xs text-ink-2">{cert.signerTitle ?? "Director"}</p>
           </div>
 
-          <p className="text-[11px] whitespace-nowrap text-ink-2">
-            Student# <strong className="font-semibold text-[#0F2340]">{cert.studentNumber}</strong>
-            <span className="px-2">·</span>
-            Issued <strong className="font-semibold text-[#0F2340]">{formatDate(cert.issuedAt, "dd.MM.yyyy")}</strong>
-            <span className="px-2">·</span>
-            Duration <strong className="font-semibold text-[#0F2340]">{cert.duration}</strong>
-          </p>
-
-          <div className="flex justify-center sm:justify-end">
+          <div className="flex flex-col items-end gap-3">
+            <dl className="grid w-full grid-cols-3 gap-4 text-center sm:w-80">
+              {facts.map(([value, label]) => (
+                <div key={label}>
+                  <dd className="border-b border-ink-3/50 pb-0.5 text-[12px] font-semibold text-[#0F2340]">{value}</dd>
+                  <dt className="pt-0.5 text-[10px] text-ink-2">{label}</dt>
+                </div>
+              ))}
+            </dl>
             <QRCodeSVG value={verifyUrl || " "} size={90} level="M" marginSize={1} />
           </div>
         </div>
+
+        <p className="mt-3 w-full text-left font-mono text-[8px] text-ink-3">
+          Certificate ID: {cert.studentNumber}-{cert.contentHash.slice(0, 12).toUpperCase()}
+        </p>
       </div>
     </div>
   );

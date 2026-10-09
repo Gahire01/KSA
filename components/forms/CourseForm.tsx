@@ -176,6 +176,14 @@ export function CourseForm({ courseId }: { courseId?: string }) {
     }
   };
 
+  /* Hooks first, early return after: the order of hooks must not depend on the loading state. */
+  const tiers = useFieldArray({ control: form.control, name: "priceTiers" });
+  const watchedTiers = form.watch("priceTiers");
+  const standard = standardPrice(
+    watchedTiers.map((t) => ({ label: t.label, amountRwf: Number(t.amountRwf || 0) })),
+  );
+  const passMark = form.watch("passMarkPct");
+
   if (isEdit && courseQuery.isLoading) {
     return (
       <div className="mx-auto max-w-3xl space-y-4">
@@ -184,13 +192,6 @@ export function CourseForm({ courseId }: { courseId?: string }) {
       </div>
     );
   }
-
-  const tiers = useFieldArray({ control: form.control, name: "priceTiers" });
-  const watchedTiers = form.watch("priceTiers");
-  const standard = standardPrice(
-    watchedTiers.map((t) => ({ label: t.label, amountRwf: Number(t.amountRwf || 0) })),
-  );
-  const passMark = form.watch("passMarkPct");
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">

@@ -182,7 +182,6 @@ export interface Trainee {
   courseId: string;
   enrolledAt: string;
   deadline: string;
-  attendancePct: number;
   examScore: number | null;
   notes: string;
   createdAt: string;

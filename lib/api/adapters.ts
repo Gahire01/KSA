@@ -56,8 +56,6 @@ export function toTrainee(dto: TraineeDTO): Trainee {
     courseId: dto.courseId ?? "",
     enrolledAt: dto.enrolledAt,
     deadline: dto.deadlineAt ?? "",
-    /* Attendance and exam scores arrive with the exams/attempts tables in Phase 2. */
-    attendancePct: 0,
     examScore: null,
     notes: dto.notes ?? "",
     createdAt: dto.createdAt,

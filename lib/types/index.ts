@@ -155,7 +155,10 @@ export interface Course {
   description: string;
   durationValue: number;
   durationUnit: DurationUnit;
+  /** The standard price. */
   priceRwf: number;
+  /** Every package on offer; empty when only the standard price is set. */
+  priceTiers: Array<{ label: string; amountRwf: number }>;
   passMarkPct: number;
   maxAttempts: number;
   validityMonths: number | null;

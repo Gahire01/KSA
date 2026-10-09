@@ -164,7 +164,10 @@ model Course {
   topics          String[]
   durationValue   Int
   durationUnit    DurationUnit
+  /// The STANDARD price: the middle tier where there are three, the only one where there is one.
   priceRwf        Int
+  /// Every package on offer, e.g. [{ "label": "Basic", "amountRwf": 100000 }, ...]. Null = priceRwf only.
+  priceTiers      Json?
   passMarkPct     Int          @default(50)
   maxAttempts     Int          @default(2)
   validityMonths  Int?

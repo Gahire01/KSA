@@ -3,6 +3,7 @@ import { z } from "zod";
 import { guard } from "@/lib/api/guard";
 import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { actorOf, audit } from "@/lib/audit";
+import { invalidateCourses } from "@/lib/data-cache";
 import { prisma } from "@/lib/db";
 import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseCsv } from "@/lib/exams/import";
 import { recordPayment } from "@/lib/payments/ledger";
@@ -165,6 +166,7 @@ export async function POST(request: Request) {
     }
   }
 
+  await invalidateCourses();
   await audit({
     ...actorOf(gate.session),
     action: "trainee.import",

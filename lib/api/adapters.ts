@@ -13,6 +13,7 @@ import type {
   CourseInput,
   TraineeInput,
 } from "@/lib/api/types";
+import { parseTiers, standardPrice } from "@/lib/courses/pricing";
 import type { Category, Country, Course, DurationUnit, EnrollmentStatus, Trainee } from "@/lib/types";
 
 /* ── DTO → view model ────────────────────────────────────────── */
@@ -27,12 +28,12 @@ export function toCourse(dto: CourseDTO): Course {
     durationValue: dto.durationValue,
     durationUnit: dto.durationUnit.toLowerCase() as DurationUnit,
     priceRwf: dto.priceRwf,
+    priceTiers: parseTiers(dto.priceTiers),
     passMarkPct: dto.passMarkPct,
     maxAttempts: dto.maxAttempts,
     validityMonths: dto.validityMonths,
     examDurationMin: dto.examDurationMin,
     trainerId: dto.trainerId ?? "",
-    /* Question bank is Phase 2; nothing to count yet. */
     questionCount: 0,
     isActive: dto.isActive,
     enrolledCount: dto._count?.trainees ?? 0,
@@ -120,7 +121,8 @@ export interface CourseFormValues {
   description: string;
   durationValue: number;
   durationUnit: string;
-  priceRwf: number;
+  /** Every package; the standard price is derived from it. */
+  priceTiers: Array<{ label: string; amountRwf: number }>;
   passMarkPct: number;
   maxAttempts: number;
   examDurationMin: number;
@@ -139,7 +141,8 @@ export function toCourseInput(
     description: values.description,
     durationValue: values.durationValue,
     durationUnit: values.durationUnit.toUpperCase() as ApiDurationUnit,
-    priceRwf: values.priceRwf,
+    priceRwf: standardPrice(values.priceTiers),
+    priceTiers: values.priceTiers,
     passMarkPct: values.passMarkPct,
     maxAttempts: values.maxAttempts,
     examDurationMin: values.examDurationMin,

@@ -8,6 +8,21 @@ NOT stoppable: phone camera, OS screenshot tools, hardware
   capture.
 We make cheating hard and traceable, not impossible.
 
+## Pricing (client-supplied)
+Construction Safety  — 100k / 250k / 300k RWF
+First Aid            —  30k /  40k /  50k RWF
+Fire Fighting        —  30k RWF (single)
+Rigger Safety        —  30k /  40k /  50k RWF
+Occupational Safety  — 100k / 200k / 250k RWF
+Owner can edit any tier from /courses/[id]/edit.
+
+How it works: `Course.priceTiers` (JSON) holds every package and `Course.priceRwf` is the STANDARD price
+(the one named Standard, else the middle of three, else the only one). `/courses` lists the standard price;
+`/courses/[id]` shows a package table when there is more than one; the course editor adds, removes and edits
+packages; `/trainees/new` offers the standard price in the amount-paid box and leaves it editable. A trainee
+counts as paid in full once they have paid the cheapest package (`lib/courses/pricing.ts`). Re-running the seed
+resets the five courses' prices to the values above.
+
 ---
 
 ## Morning summary — 2026-10-08 (verification + gap-closing run, from clone at ksa-work/KSA)

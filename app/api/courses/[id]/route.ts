@@ -4,6 +4,7 @@ import { courseUpdateSchema } from "@/lib/api/schemas";
 import { actorOf, audit } from "@/lib/audit";
 import { isActiveTrainer, ownsCourse } from "@/lib/auth/scope";
 import { prisma } from "@/lib/db";
+import { standardPrice } from "@/lib/courses/pricing";
 import { invalidateCourses } from "@/lib/data-cache";
 
 type Params = { params: Promise<{ id: string }> };
@@ -70,7 +71,12 @@ export async function PATCH(request: Request, { params }: Params) {
       ...(data.topics !== undefined ? { topics: data.topics } : {}),
       ...(data.durationValue !== undefined ? { durationValue: data.durationValue } : {}),
       ...(data.durationUnit !== undefined ? { durationUnit: data.durationUnit } : {}),
-      ...(data.priceRwf !== undefined ? { priceRwf: data.priceRwf } : {}),
+      /* Packages, when sent, decide the standard price too; a bare priceRwf edits it alone. */
+      ...(data.priceTiers !== undefined
+        ? { priceTiers: data.priceTiers, priceRwf: standardPrice(data.priceTiers) }
+        : data.priceRwf !== undefined
+          ? { priceRwf: data.priceRwf }
+          : {}),
       ...(data.passMarkPct !== undefined ? { passMarkPct: data.passMarkPct } : {}),
       ...(data.maxAttempts !== undefined ? { maxAttempts: data.maxAttempts } : {}),
       ...(data.examDurationMin !== undefined

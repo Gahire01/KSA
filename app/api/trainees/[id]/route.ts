@@ -3,6 +3,7 @@ import { apiFail, apiNotFound, apiOk, zodMessage } from "@/lib/api/response";
 import { traineeUpdateSchema } from "@/lib/api/schemas";
 import { actorOf, audit } from "@/lib/audit";
 import { viaCourse } from "@/lib/auth/scope";
+import { invalidateCourses } from "@/lib/data-cache";
 import { prisma } from "@/lib/db";
 import { recordPayment, settlementAmount, syncTraineeTotals } from "@/lib/payments/ledger";
 import { traineeInclude } from "@/app/api/trainees/route";
@@ -88,12 +89,14 @@ export async function PATCH(request: Request, { params }: Params) {
         });
       } else {
         const course = data.courseId
-          ? await tx.course.findUnique({ where: { id: data.courseId }, select: { priceRwf: true } })
+          ? await tx.course.findUnique({ where: { id: data.courseId }, select: { priceRwf: true, priceTiers: true } })
           : null;
         await syncTraineeTotals(tx, id, settlementAmount(course));
       }
     });
   }
+
+  if (courseChanged) await invalidateCourses();
 
   const trainee = await prisma.trainee.findUniqueOrThrow({ where: { id }, include: traineeInclude });
 
@@ -133,6 +136,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   await prisma.trainee.delete({ where: { id } });
+  await invalidateCourses();
 
   await audit({
     ...actorOf(gate.session),

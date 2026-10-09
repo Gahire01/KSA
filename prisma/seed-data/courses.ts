@@ -17,7 +17,9 @@ export type SeedCourse = {
   topics: string[];
   durationValue: number;
   durationUnit: DurationUnit;
+  /** The standard price: the middle tier of three, or the only one. */
   priceRwf: number;
+  priceTiers: Array<{ label: string; amountRwf: number }>;
   validityMonths: number | null;
   passMarkPct: number;
   maxAttempts: number;
@@ -55,7 +57,12 @@ export const COURSES: SeedCourse[] = [
     ],
     durationValue: 3,
     durationUnit: "MONTH",
-    priceRwf: 0,
+    priceRwf: 250_000,
+    priceTiers: [
+      { label: "Basic", amountRwf: 100_000 },
+      { label: "Standard", amountRwf: 250_000 },
+      { label: "Comprehensive", amountRwf: 300_000 },
+    ],
     validityMonths: null,
     ...RULES,
   },
@@ -76,7 +83,12 @@ export const COURSES: SeedCourse[] = [
     ],
     durationValue: 3,
     durationUnit: "MONTH",
-    priceRwf: 0,
+    priceRwf: 200_000,
+    priceTiers: [
+      { label: "Basic", amountRwf: 100_000 },
+      { label: "Standard", amountRwf: 200_000 },
+      { label: "Comprehensive", amountRwf: 250_000 },
+    ],
     validityMonths: null,
     ...RULES,
   },
@@ -97,7 +109,12 @@ export const COURSES: SeedCourse[] = [
     ],
     durationValue: 1,
     durationUnit: "DAY",
-    priceRwf: 85_000,
+    priceRwf: 40_000,
+    priceTiers: [
+      { label: "Basic", amountRwf: 30_000 },
+      { label: "Standard", amountRwf: 40_000 },
+      { label: "Comprehensive", amountRwf: 50_000 },
+    ],
     validityMonths: null,
     ...RULES,
   },
@@ -118,7 +135,8 @@ export const COURSES: SeedCourse[] = [
     ],
     durationValue: 3,
     durationUnit: "MONTH",
-    priceRwf: 120_000,
+    priceRwf: 30_000,
+    priceTiers: [{ label: "Standard", amountRwf: 30_000 }],
     validityMonths: null,
     ...RULES,
   },
@@ -140,7 +158,12 @@ export const COURSES: SeedCourse[] = [
     ],
     durationValue: 3,
     durationUnit: "MONTH",
-    priceRwf: 0,
+    priceRwf: 40_000,
+    priceTiers: [
+      { label: "Basic", amountRwf: 30_000 },
+      { label: "Standard", amountRwf: 40_000 },
+      { label: "Comprehensive", amountRwf: 50_000 },
+    ],
     validityMonths: null,
     ...RULES,
   },

@@ -22,12 +22,14 @@ export interface CourseDTO {
   topics: string[];
   durationValue: number;
   durationUnit: DurationUnit;
+  /** The standard price. */
   priceRwf: number;
+  /** Every package on offer, as stored (JSON); read it with parseTiers. */
+  priceTiers?: unknown;
   passMarkPct: number;
   maxAttempts: number;
   validityMonths: number | null;
   examDurationMin: number;
-  /** Loose string until the Trainer model lands in Phase 2. */
   trainerId?: string | null;
   isActive: boolean;
   createdAt: string;
@@ -136,6 +138,7 @@ export interface CourseInput {
   durationValue: number;
   durationUnit: DurationUnit;
   priceRwf: number;
+  priceTiers?: Array<{ label: string; amountRwf: number }>;
   passMarkPct?: number;
   maxAttempts?: number;
   validityMonths?: number | null;

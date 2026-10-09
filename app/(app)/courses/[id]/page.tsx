@@ -200,6 +200,24 @@ export default function CourseDetailPage() {
       <Card>
         <CardContent className="space-y-4 p-5">
           <p className="text-sm leading-relaxed text-ink-2">{course.description}</p>
+          {course.priceTiers.length > 1 ? (
+            <table className="w-full max-w-md text-sm">
+              <thead>
+                <tr className="text-left text-xs tracking-wider text-ink-2 uppercase">
+                  <th className="py-1.5 font-medium">Package</th>
+                  <th className="py-1.5 text-right font-medium">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {course.priceTiers.map((tier) => (
+                  <tr key={tier.label} className="border-t border-line">
+                    <td className="py-1.5 text-ink">{tier.label}</td>
+                    <td className="py-1.5 text-right tabular text-ink">{formatRwf(tier.amountRwf)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             {trainer ? (
               <span className="flex items-center gap-2">

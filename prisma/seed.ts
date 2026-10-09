@@ -150,6 +150,7 @@ async function main() {
       durationValue: course.durationValue,
       durationUnit: course.durationUnit,
       priceRwf: course.priceRwf,
+      priceTiers: course.priceTiers,
       passMarkPct: course.passMarkPct,
       maxAttempts: course.maxAttempts,
       validityMonths: course.validityMonths,

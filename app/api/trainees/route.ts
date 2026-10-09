@@ -3,6 +3,7 @@ import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { traineeCreateSchema, traineeListQuerySchema } from "@/lib/api/schemas";
 import { actorOf, audit } from "@/lib/audit";
 import { viaCourse } from "@/lib/auth/scope";
+import { invalidateCourses } from "@/lib/data-cache";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { emit, ownerAndTrainerIds, ownerIds } from "@/lib/notifications/emit";
@@ -168,6 +169,7 @@ export async function POST(request: Request) {
         meta: { traineeNo: trainee.traineeNo, courseId },
       });
 
+      await invalidateCourses();
       await emit("trainee.enrolled", {
         recipients: (courseId ? await ownerAndTrainerIds(courseId) : await ownerIds()).map((userId) => ({ userId })),
         title: "New trainee enrolled",

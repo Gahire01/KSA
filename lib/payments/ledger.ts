@@ -9,6 +9,8 @@ import type { Payment, PaymentMethod, Prisma } from "@/lib/generated/prisma/clie
  * two cannot drift. Rows are never edited or deleted: a mistake is a refund entry.
  */
 
+import { settlementPrice } from "@/lib/courses/pricing";
+
 type Tx = Prisma.TransactionClient;
 
 export type PaymentStatusValue = "PAID" | "PARTIAL" | "UNPAID";
@@ -23,8 +25,8 @@ export interface Recorder {
  * The amount at which a trainee counts as paid in full. Any package price will do: a
  * trainee who paid the lowest one has bought that package, not part of a bigger one.
  */
-export function settlementAmount(course: { priceRwf: number } | null): number {
-  return course?.priceRwf ?? 0;
+export function settlementAmount(course: { priceRwf: number; priceTiers?: unknown } | null): number {
+  return settlementPrice(course);
 }
 
 export function paymentStatusFor(paidRwf: number, settlesAtRwf: number): PaymentStatusValue {
@@ -73,7 +75,7 @@ export async function recordPayment(tx: Tx, input: RecordPaymentInput): Promise<
 
   const trainee = await tx.trainee.findUniqueOrThrow({
     where: { id: input.traineeId },
-    select: { courseId: true, course: { select: { priceRwf: true } } },
+    select: { courseId: true, course: { select: { priceRwf: true, priceTiers: true } } },
   });
 
   const now = new Date();

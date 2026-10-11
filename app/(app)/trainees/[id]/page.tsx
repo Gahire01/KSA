@@ -126,7 +126,8 @@ export default function TraineeDetailPage() {
         }),
     });
 
-  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT });
+  /* Display lookup only (resolves a course name), so archived courses stay visible here. */
+  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT, includeInactive: true });
   const courseName = React.useCallback(
     (courseId: string) =>
       coursesQuery.data?.items.find((c) => c.id === courseId)?.name ?? "—",

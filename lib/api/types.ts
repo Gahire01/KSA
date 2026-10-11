@@ -167,6 +167,8 @@ export interface CourseFilters {
   search?: string;
   categoryId?: string[];
   isActive?: boolean;
+  /** Include archived courses (for management views; dropdowns default to active only). */
+  includeInactive?: boolean;
   page?: number;
   pageSize?: number;
 }

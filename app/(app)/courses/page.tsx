@@ -54,6 +54,8 @@ export default function CoursesPage() {
     search: debounced.trim() || undefined,
     categoryId: categoryIds.length ? categoryIds : undefined,
     isActive: activeOnly ? true : undefined,
+    /* The list API defaults to active only; ask for everything when the toggle is off. */
+    includeInactive: activeOnly ? undefined : true,
     page: 1,
     /* The grid paginates client-side; MAX_PAGE_SIZE caps a single request. */
     pageSize: 100,

@@ -20,13 +20,20 @@ export async function GET(request: Request) {
 
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
-  const { search, isActive, page, pageSize } = parsed.data;
+  const { search, isActive, includeInactive, page, pageSize } = parsed.data;
   const categoryIds = parsed.data.categoryId ?? parsed.data.categoryIds;
+
+  /* The default list is the active catalogue: archived courses cannot take new
+   * enrolments, so every dropdown and picker offers active courses only. An
+   * explicit `isActive` still filters exactly, and `includeInactive=true` lifts
+   * the default for management views that must list everything. */
+  const activeFilter: boolean | undefined =
+    typeof isActive === "boolean" ? isActive : includeInactive === true ? undefined : true;
 
   const where: Prisma.CourseWhereInput = {
     ...courseWhere(gate.trainerScope),
     ...(categoryIds?.length ? { categoryId: { in: categoryIds } } : {}),
-    ...(typeof isActive === "boolean" ? { isActive } : {}),
+    ...(activeFilter === undefined ? {} : { isActive: activeFilter }),
     ...(search
       ? {
           OR: [
@@ -37,8 +44,8 @@ export async function GET(request: Request) {
       : {}),
   };
 
-  /* The plain list (no search, no filter, no trainer scope) is cached for 60 seconds. */
-  const plain = !search && !categoryIds?.length && typeof isActive !== "boolean" && gate.trainerScope === null;
+  /* The plain active list (no search, no filter, no trainer scope) is cached for 60 seconds. */
+  const plain = !search && !categoryIds?.length && activeFilter === true && gate.trainerScope === null;
   const [items, total] = plain
     ? await getCoursesCached(page, pageSize).then((r) => [r.items, r.total] as const)
     : await Promise.all([

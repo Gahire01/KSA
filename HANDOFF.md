@@ -2,6 +2,8 @@
 Launch-prep parts 5–19 (certificate redesign + exam seeding postponed, untouched).
 - Part 5 attendance: already removed (verified — no UI refs, no `attendancePct`, dashboard shows Certificates issued).
 - Part 6 notifications: added a confirm dialog before Clear all (bell + notifications page). SSE stream, per-row delete, empty state, LiveIndicator already in place; no Notification seed exists.
+- Part 9 owner login: added "Each browser keeps its own session." under the form. Owner is exempt from the device cap in code (`enforceDeviceCap` returns early for OWNER); limits only bite on access-link `admitDevice`.
+- Part 10 email: real test sent 2026-10-12 12:12 UTC to gahiredev01@gmail.com via Resend sandbox (id 01a12f99-6154-7ee7-a24e-04da72032713, accepted). Inbox arrival must be confirmed by the owner. OTP spam helper text added on /login (exam OTP text skipped — /exam routes frozen). Resend-domain blocker already noted under "## Pre-launch blockers".
 - (Parts continue below; summary completed at the end.)
 
 ## Morning summary — 2026-10-09

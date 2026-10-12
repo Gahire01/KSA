@@ -96,7 +96,7 @@ export default function DashboardPage() {
         actions={
           isOwnerOrAdmin ? (
             <Button asChild size="sm" className="no-print">
-              <Link href="/trainees/new">Add trainee</Link>
+              <Link href="/trainees/new">Register trainee</Link>
             </Button>
           ) : null
         }

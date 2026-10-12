@@ -117,7 +117,7 @@ export default function NewTraineePage() {
             ← Trainees
           </Link>
         }
-        title="Add a trainee"
+        title="Register trainee"
         subtitle="Create a single enrolment record. You can import many at once from CSV."
         actions={
           <Button asChild variant="outline" size="sm">

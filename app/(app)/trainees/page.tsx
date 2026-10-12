@@ -372,7 +372,7 @@ export default function TraineesPage() {
             <Button asChild size="sm" className="gap-1.5">
               <Link href="/trainees/new">
                 <PlusIcon className="size-4" />
-                Add trainee
+                Register trainee
               </Link>
             </Button>
           </>

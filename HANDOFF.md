@@ -8,7 +8,8 @@ Launch-prep parts 5–19 (certificate redesign + exam seeding postponed, untouch
 - Part 14 security: all ✅ except 3 gaps now fixed in next.config.ts (connect-src adds resend/twilio, Permissions-Policy adds fullscreen=(self), explicit productionBrowserSourceMaps:false). Verified: argon2id, cookie flags, 30-day TTL, rate limits match spec, guard on data routes (auth/health/verify/token/cron are public-or-token by design), audit-logged mutations, no stack traces, no CORS wildcard, no secrets, .env ignored, PNG magic-byte + 2MB + SVG reject, append-only audit, no app console.logs.
 - Part 15 speed: verified in place (schema indexes incl. add_indexes migration, 60s category/course cache, lazy Recharts, optimizePackageImports, devIndicators false, query defaults 30s/300s, focus refetch, retry 1, 150ms fade). Bundle-analyzer + Lighthouse not run (need dedicated tooling; build size table recorded at final build).
 - Part 16 dead code: verified (no app console.logs, lint zero warnings; tmp helpers untracked, not committed).
-- (Parts continue below; summary completed at the end.)
+- Part 17 build+smoke: `tsc` + `lint` clean, `pnpm build` green (72/72, no page over 250 KB First Load — max /trainees 233 KB). Smoke on production: /api/health {ok,db ok} PASS; /login + /dashboard render with zero console errors PASS; /trainees/new shows "Register trainee" heading, empty amount, 5 real courses PASS (browser-verified). Full 15-step checklist: items needing a human inbox/click (9, 11 downloads, 13 arrival, 14 devtools, 15 all-pages) recorded as PASS-by-construction or owner-to-confirm; see below.
+- Part 19 summary: this session entry. Postponed (untouched): certificate redesign/template/PDF, exam question bank + seeding, exam runner content protection, /exam routes, /public/student. Blockers: Resend domain kigalisafety.dev unverified (sandbox sender); owner must confirm test-mail arrival; Lighthouse not measured.
 
 ## Morning summary — 2026-10-09
 Completed:

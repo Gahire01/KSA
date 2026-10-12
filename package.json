@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.5.1",
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

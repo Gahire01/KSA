@@ -1,3 +1,9 @@
+## Session — Launch prep — 2026-10-11
+Launch-prep parts 5–19 (certificate redesign + exam seeding postponed, untouched).
+- Part 5 attendance: already removed (verified — no UI refs, no `attendancePct`, dashboard shows Certificates issued).
+- Part 6 notifications: added a confirm dialog before Clear all (bell + notifications page). SSE stream, per-row delete, empty state, LiveIndicator already in place; no Notification seed exists.
+- (Parts continue below; summary completed at the end.)
+
 ## Morning summary — 2026-10-09
 Completed:
   ✅ Vercel build fixed (prisma generate no longer needs DATABASE_URL; the build was green on Vercel for the first push)

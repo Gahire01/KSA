@@ -6,6 +6,7 @@ import { BellIcon, CheckCheckIcon, Trash2Icon, XIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ export function NotificationBell() {
   const remove = useNotificationStore((s) => s.remove);
   const clearAll = useNotificationStore((s) => s.clearAll);
   const connected = useNotificationStore((s) => s.connected);
+  const [confirmClear, setConfirmClear] = React.useState(false);
 
   const sorted = React.useMemo(
     () => [...items].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
@@ -46,6 +48,7 @@ export function NotificationBell() {
   };
 
   return (
+    <>
     <Popover>
       <PopoverTrigger asChild>
         <Button
@@ -105,10 +108,7 @@ export function NotificationBell() {
               variant="ghost"
               size="sm"
               className="gap-1 text-xs"
-              onClick={() => {
-                clearAll();
-                persistDelete();
-              }}
+              onClick={() => setConfirmClear(true)}
               disabled={sorted.length === 0}
             >
               <Trash2Icon className="size-3.5" />
@@ -184,5 +184,18 @@ export function NotificationBell() {
         </ScrollArea>
       </PopoverContent>
     </Popover>
+    <ConfirmDialog
+      open={confirmClear}
+      onOpenChange={setConfirmClear}
+      title="Clear all notifications?"
+      description="Every notification in this list will be permanently deleted. This cannot be undone."
+      confirmLabel="Clear all"
+      confirmVariant="destructive"
+      onConfirm={() => {
+        clearAll();
+        persistDelete();
+      }}
+    />
+    </>
   );
 }

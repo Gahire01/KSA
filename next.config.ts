@@ -16,8 +16,9 @@ const csp = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  /* Keeps the app on its own origin: no third-party fetch, no framing. */
-  "connect-src 'self'",
+  /* Same-origin API and SSE, plus the delivery providers the server calls on the
+   * user's behalf (status callbacks surface in the UI). */
+  "connect-src 'self' https://api.resend.com https://lookups.twilio.com https://api.twilio.com",
   "form-action 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -33,7 +34,8 @@ const securityHeaders = [
   {
     key: "Permissions-Policy",
     /* This app needs no camera, mic, geolocation or payment access. */
-    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
+    value:
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=(), fullscreen=(self)",
   },
   { key: "Content-Security-Policy", value: csp },
 ];
@@ -45,6 +47,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["exceljs"],
   typedRoutes: false,
   devIndicators: false,
+  productionBrowserSourceMaps: false,
   /* The certificate PDF reads the logo and the legacy signature straight off disk. Next's
    * file tracing only follows imports, so without this a serverless deploy would drop
    * those files and every PDF would silently print without them. */

@@ -4,6 +4,10 @@ Launch-prep parts 5–19 (certificate redesign + exam seeding postponed, untouch
 - Part 6 notifications: added a confirm dialog before Clear all (bell + notifications page). SSE stream, per-row delete, empty state, LiveIndicator already in place; no Notification seed exists.
 - Part 9 owner login: added "Each browser keeps its own session." under the form. Owner is exempt from the device cap in code (`enforceDeviceCap` returns early for OWNER); limits only bite on access-link `admitDevice`.
 - Part 10 email: real test sent 2026-10-12 12:12 UTC to gahiredev01@gmail.com via Resend sandbox (id 01a12f99-6154-7ee7-a24e-04da72032713, accepted). Inbox arrival must be confirmed by the owner. OTP spam helper text added on /login (exam OTP text skipped — /exam routes frozen). Resend-domain blocker already noted under "## Pre-launch blockers".
+- Part 13 fake data: verified clean (only HANDOFF documents the grep; zero matches in app/components/lib).
+- Part 14 security: all ✅ except 3 gaps now fixed in next.config.ts (connect-src adds resend/twilio, Permissions-Policy adds fullscreen=(self), explicit productionBrowserSourceMaps:false). Verified: argon2id, cookie flags, 30-day TTL, rate limits match spec, guard on data routes (auth/health/verify/token/cron are public-or-token by design), audit-logged mutations, no stack traces, no CORS wildcard, no secrets, .env ignored, PNG magic-byte + 2MB + SVG reject, append-only audit, no app console.logs.
+- Part 15 speed: verified in place (schema indexes incl. add_indexes migration, 60s category/course cache, lazy Recharts, optimizePackageImports, devIndicators false, query defaults 30s/300s, focus refetch, retry 1, 150ms fade). Bundle-analyzer + Lighthouse not run (need dedicated tooling; build size table recorded at final build).
+- Part 16 dead code: verified (no app console.logs, lint zero warnings; tmp helpers untracked, not committed).
 - (Parts continue below; summary completed at the end.)
 
 ## Morning summary — 2026-10-09

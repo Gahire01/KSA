@@ -439,6 +439,10 @@ export default function LoginPage() {
               </Button>
             </form>
 
+            <p className="mt-3 text-xs text-ink-3">
+              Don&apos;t see the code? Check spam, or ask the academy to resend.
+            </p>
+
             <div className="mt-4 flex items-center justify-between gap-3 text-xs">
               {secondsLeft === 0 ? (
                 /* Expired: one obvious way out, with no cooldown in front of it. */
@@ -575,7 +579,7 @@ export default function LoginPage() {
                   Remember me for 30 days
                 </label>
               </div>
-              <p className="-mt-1 text-xs text-ink-3">You can sign in from any device.</p>
+              <p className="-mt-1 text-xs text-ink-3">You can sign in from any device. Each browser keeps its own session.</p>
 
               <Button
                 type="submit"

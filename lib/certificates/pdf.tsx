@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   certifies: { fontFamily: "Times-Italic", fontSize: 10.5, color: palette.ink2, marginTop: 10 },
   name: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 25.5,
+    fontSize: 27,
     color: palette.navy,
     marginTop: 4,
     textAlign: "center",
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   body: { fontFamily: "Times-Italic", fontSize: 10.5, color: palette.ink2, textAlign: "center", marginTop: 10, maxWidth: 560 },
   course: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 19.5,
+    fontSize: 24,
     color: palette.navy,
     textTransform: "uppercase",
     textAlign: "center",

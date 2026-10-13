@@ -77,13 +77,13 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
           />
 
           <p className="mt-3 font-serif text-sm text-ink-2 italic">This is to certify that</p>
-          <p className="mt-1 w-full border-t border-b border-ink-3/50 py-1.5 font-display text-[34px] leading-tight font-semibold tracking-[0.05em] text-[#0F2340] uppercase">
+          <p className="mt-1 w-full border-t border-b border-ink-3/50 py-1.5 font-display text-[36px] leading-tight font-semibold tracking-[0.05em] text-[#0F2340] uppercase">
             {cert.traineeName}
           </p>
           <p className="mx-auto mt-3 max-w-xl font-serif text-sm leading-relaxed text-ink-2 italic">
             Has successfully completed Kigali Safety Academy occupational Health and Safety Course in
           </p>
-          <p className="mt-2 font-display text-[26px] leading-tight font-semibold tracking-wide text-[#0F2340] uppercase">
+          <p className="mt-2 font-display text-[32px] leading-tight font-semibold tracking-wide text-[#0F2340] uppercase">
             {cert.courseName}
           </p>
           {cert.topics.length > 0 ? (

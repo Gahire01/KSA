@@ -80,7 +80,7 @@ export const NAV_SECTIONS: NavSection[] = [
         items: [
           { href: "/exams", label: "All exams", icon: ClipboardCheckIcon },
           { href: "/exams/new", label: "Send exam links", icon: ClipboardCheckIcon },
-          { href: "/questions", label: "Question bank", icon: ClipboardCheckIcon },
+          { href: "/exams", label: "Question bank", icon: ClipboardCheckIcon },
         ],
       },
     ],

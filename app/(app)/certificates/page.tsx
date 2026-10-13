@@ -13,6 +13,7 @@ import {
   ShieldCheckIcon,
 } from "lucide-react";
 
+import { CertificatePreviewDialog } from "@/components/certificate/CertificatePreviewDialog";
 import { ExportMenu } from "@/components/shared/ExportMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
@@ -90,6 +91,7 @@ export default function CertificatesPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const isTrainer = role === "TRAINER";
 
+  const [previewId, setPreviewId] = React.useState<string | null>(null);
   const [filters, setFilters] = React.useState<Filters>(EMPTY);
   const [searchDraft, setSearchDraft] = React.useState("");
   const debouncedSearch = useDebounce(searchDraft, 300);
@@ -265,14 +267,12 @@ export default function CertificatesPage() {
               </a>
             </Button>
             <Button
-              asChild
               variant="ghost"
               size="icon-sm"
-              aria-label={`Open certificate ${row.original.studentNumber}`}
+              aria-label={`Preview certificate ${row.original.studentNumber}`}
+              onClick={() => setPreviewId(row.original.id)}
             >
-              <Link href={`/certificates/${row.original.id}`}>
-                <EyeIcon className="size-4" />
-              </Link>
+              <EyeIcon className="size-4" />
             </Button>
           </div>
         ),
@@ -433,6 +433,12 @@ export default function CertificatesPage() {
           }
         />
       )}
+
+      <CertificatePreviewDialog
+        certificateId={previewId}
+        open={previewId !== null}
+        onOpenChange={(open) => { if (!open) setPreviewId(null); }}
+      />
     </div>
   );
 }

@@ -1,3 +1,25 @@
+## Known Issues — 2026-10-13
+
+### BUG 1 — Hydration mismatch on ThemeToggle
+`next-themes` reads the saved theme from `localStorage` on the client but the server
+renders the default. The `aria-label` diverged on hydration (`Theme: dark` vs
+`Theme: system`). **Fix**: render a neutral `aria-label="Theme switcher"` before
+the `mounted` effect fires; after mount, show the real `Theme: {resolved}`.
+
+### BUG 2 — /questions returns 404
+The question bank lives under `/exams`. The sidebar still linked to `/questions`, which
+does not exist as a page route. **Fix**: changed sidebar href from `/questions` to
+`/exams`. API calls to `/api/questions` are unaffected (those are real API routes).
+
+### BUG 3 — Resend 403 on exam email
+Resend is in sandbox mode (`EMAIL_FROM=onboarding@resend.dev`). Sandbox only permits
+sending to the Resend account owner's own email. Any other recipient returns 403.
+**Fix**: `lib/email/send.ts` now catches a 403 and returns a clear message explaining
+the sandbox restriction and how to fix it. The send-result UI already shows per-trainee
+failure reasons, so the message surfaces automatically.
+
+---
+
 ## Final launch merge — 2026-10-13
 
 `release/ksa-mvp` merged to `main`. All static checks green (tsc + lint).
@@ -722,7 +744,14 @@ returns REVOKED with the reason -> `/pdf` returns 200, `attachment`,
 `application/pdf`, body starting `%PDF` (5060 bytes).
 
 ## Pre-launch blockers
-Verify kigalisafety.dev on Resend before launch: add DKIM/SPF DNS records, then swap EMAIL_FROM.
+
+Resend sandbox blocks all non-owner recipients. To send to real trainees:
+  - Verify kigalisafety.dev at resend.com/domains
+    (add the 3 DNS records: MX, TXT, DKIM)
+  - Change EMAIL_FROM in .env.local AND Vercel to
+      Kigali Safety Academy <onboarding@kigalisafety.dev>
+  - Restart dev server
+  - Re-test
 
 ## Step 4 — access links, referral codes, device limit
 

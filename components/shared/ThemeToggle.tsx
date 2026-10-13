@@ -34,7 +34,7 @@ export function ThemeToggle({ className }: { className?: string }) {
           variant="ghost"
           size="icon"
           className={className}
-          aria-label={`Theme: ${theme ?? "system"}`}
+          aria-label={mounted ? `Theme: ${theme ?? "system"}` : "Theme switcher"}
         >
           <Icon className="size-4" />
         </Button>

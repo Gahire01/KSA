@@ -80,7 +80,14 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
     });
 
     if (!response.ok) {
-      /* Status only — the body can echo back the message content. */
+      if (response.status === 403) {
+        return {
+          ok: false,
+          reason:
+            "Resend sandbox: only the owner's own email can receive messages. " +
+            "Verify a domain at resend.com/domains and set EMAIL_FROM to that domain.",
+        };
+      }
       return { ok: false, reason: `Resend responded ${response.status}` };
     }
 

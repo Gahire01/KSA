@@ -48,100 +48,106 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border-2 border-[#0F2340] bg-card p-2.5 select-none print:hidden sm:p-3"
+      className="relative overflow-hidden rounded-xl border border-[#0F2340] bg-card select-none print:hidden"
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
     >
-      {/* A faint copy of the logo behind everything, exactly as the PDF prints it. */}
-      <Image
-        src="/logo.png"
-        alt=""
-        width={260}
-        height={260}
-        draggable={false}
-        aria-hidden
-        className="pointer-events-none absolute top-1/2 left-1/2 size-[260px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.06]"
-      />
-      <div className="relative flex min-h-[32rem] flex-col items-center border border-orange px-5 pt-6 pb-4 text-center sm:px-12">
-        <Image
-          src="/logo.png"
-          alt="Kigali Safety Academy"
-          width={110}
-          height={110}
-          draggable={false}
-          className="pointer-events-none h-[110px] w-[110px] object-contain"
-          priority={false}
-        />
+      {/* Double navy border: outer 1px + 8px gap + inner 1px */}
+      <div className="p-2">
+        <div className="relative flex min-h-[32rem] flex-col items-center border border-[#0F2340] px-5 pt-6 pb-4 text-center sm:px-12">
+          {/* Watermark */}
+          <Image
+            src="/logo.png"
+            alt=""
+            width={260}
+            height={260}
+            draggable={false}
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-1/2 size-[260px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.06]"
+          />
 
-        <p className="mt-3 font-serif text-sm text-ink-2 italic">This is to certify that</p>
-        <p className="mt-1 w-full border-b border-ink-3/50 pb-1 font-display text-[34px] leading-tight font-semibold text-[#0F2340]">
-          {cert.traineeName}
-        </p>
-        <p className="mx-auto mt-3 max-w-xl font-serif text-sm leading-relaxed text-ink-2 italic">
-          Has successfully completed KSAcademy occupational Health and Safety Course in
-        </p>
-        <p className="mt-2 font-display text-[26px] leading-tight font-semibold tracking-wide text-orange uppercase">
-          {cert.courseName}
-        </p>
-        {cert.topics.length > 0 ? (
-          <p className="mt-4 w-full text-left text-[11px] leading-relaxed text-justify text-ink-2">
-            Topics covered : {cert.topics.join(" , ")}
+          <Image
+            src="/logo.png"
+            alt="Kigali Safety Academy"
+            width={140}
+            height={140}
+            draggable={false}
+            className="pointer-events-none h-[140px] w-[140px] object-contain"
+            priority={false}
+          />
+
+          <p className="mt-3 font-serif text-sm text-ink-2 italic">This is to certify that</p>
+          <p className="mt-1 w-full border-t border-b border-ink-3/50 py-1.5 font-display text-[34px] leading-tight font-semibold tracking-[0.05em] text-[#0F2340] uppercase">
+            {cert.traineeName}
           </p>
-        ) : null}
-
-        <div className="mt-auto grid w-full items-end gap-6 pt-8 sm:grid-cols-[1fr_auto]">
-          {/* Signature: image sits on the line, name directly under it (gap <= 6px). */}
-          <div className="mx-auto w-60 text-left sm:mx-0">
-            <div className="flex h-[60px] items-end justify-center">
-              {cert.signerName === null ? (
-                /* Issued before the signature system: original static image. */
-                <Image
-                  src="/certificate/signature.png"
-                  alt="Signature of the Director"
-                  width={160}
-                  height={120}
-                  draggable={false}
-                  className="pointer-events-none max-h-[60px] w-auto max-w-60 object-contain"
-                  priority={false}
-                />
-              ) : cert.signatureUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- served from our own API, no optimiser needed
-                <img
-                  src={cert.signatureUrl}
-                  alt={`Signature of ${cert.signerName}`}
-                  draggable={false}
-                  className="pointer-events-none max-h-[60px] max-w-60 object-contain"
-                />
-              ) : null}
-            </div>
-            <div className="h-0.5 w-full bg-ink" aria-hidden />
-            <p className="mt-1 font-display text-sm font-semibold text-[#0F2340]">
-              {cert.signerName ?? DIRECTOR_NAME}
+          <p className="mx-auto mt-3 max-w-xl font-serif text-sm leading-relaxed text-ink-2 italic">
+            Has successfully completed Kigali Safety Academy occupational Health and Safety Course in
+          </p>
+          <p className="mt-2 font-display text-[26px] leading-tight font-semibold tracking-wide text-[#0F2340] uppercase">
+            {cert.courseName}
+          </p>
+          {cert.topics.length > 0 ? (
+            <p className="mt-4 w-full text-left text-[11px] leading-relaxed text-justify text-ink-2">
+              Topics covered : {cert.topics.join(" , ")}
             </p>
-            <p className="text-xs text-ink-2">{cert.signerTitle ?? DIRECTOR_TITLE}</p>
+          ) : null}
+
+          <div className="mt-auto grid w-full items-end gap-6 pt-8 sm:grid-cols-[1fr_auto]">
+            <div className="mx-auto w-60 text-left sm:mx-0">
+              <div className="flex h-[60px] items-end justify-center">
+                {cert.signerName === null ? (
+                  <Image
+                    src="/certificate/signature.png"
+                    alt="Signature of the Director"
+                    width={160}
+                    height={120}
+                    draggable={false}
+                    className="pointer-events-none max-h-[60px] w-auto max-w-60 object-contain"
+                    priority={false}
+                  />
+                ) : cert.signatureUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- served from our own API, no optimiser needed
+                  <img
+                    src={cert.signatureUrl}
+                    alt={`Signature of ${cert.signerName}`}
+                    draggable={false}
+                    className="pointer-events-none max-h-[60px] max-w-60 object-contain"
+                  />
+                ) : null}
+              </div>
+              <div className="h-0.5 w-full bg-ink" aria-hidden />
+              <p className="mt-1 font-display text-sm font-semibold text-[#0F2340]">
+                {cert.signerName ?? DIRECTOR_NAME}
+              </p>
+              <p className="text-xs text-ink-2">{cert.signerTitle ?? DIRECTOR_TITLE}</p>
+              <p className="mt-0.5 text-[9px] text-ink-2">Kigali Safety Academy Safety and Health Training</p>
+            </div>
+
+            <div className="flex flex-col items-end gap-3">
+              <dl className="grid w-full grid-cols-3 gap-4 text-center sm:w-80">
+                {facts.map(([value, label]) => (
+                  <div key={label}>
+                    <dd className="border-b border-ink-3/50 pb-0.5 text-[12px] font-semibold text-[#0F2340]">{value}</dd>
+                    <dt className="pt-0.5 text-[10px] text-ink-2">{label}</dt>
+                  </div>
+                ))}
+              </dl>
+              <QRCodeSVG value={verifyUrl || " "} size={80} level="M" marginSize={1} />
+              <p className="text-[7px] text-ink-3">Verify: {verifyUrl}</p>
+            </div>
           </div>
 
-          <div className="flex flex-col items-end gap-3">
-            <dl className="grid w-full grid-cols-3 gap-4 text-center sm:w-80">
-              {facts.map(([value, label]) => (
-                <div key={label}>
-                  <dd className="border-b border-ink-3/50 pb-0.5 text-[12px] font-semibold text-[#0F2340]">{value}</dd>
-                  <dt className="pt-0.5 text-[10px] text-ink-2">{label}</dt>
-                </div>
-              ))}
-            </dl>
-            <QRCodeSVG value={verifyUrl || " "} size={90} level="M" marginSize={1} />
-          </div>
+          <p className="mt-3 w-full text-left font-mono text-[8px] text-ink-3">
+            ★ Certificate ID: {cert.studentNumber}-{cert.contentHash.slice(0, 12).toUpperCase()} ★
+          </p>
         </div>
-
-        <p className="mt-3 w-full text-left font-mono text-[8px] text-ink-3">
-          Certificate ID: {cert.studentNumber}-{cert.contentHash.slice(0, 12).toUpperCase()}
+      </div>
+      {/* Bottom strip */}
+      <div className="bg-[#0F2340] px-4 py-1.5 text-center">
+        <p className="font-mono text-[7px] text-white/80">
+          This certificate has been verified by Kigali Safety Academy · Issued to {cert.traineeName} · Student #{cert.studentNumber}
         </p>
       </div>
-      {/* Outside the frame, like the PDF's footer: it ties a copy to its holder. */}
-      <p className="relative mt-1.5 text-center font-mono text-[7px] text-ink-3">
-        Issued to {cert.traineeName} · Student #{cert.studentNumber}
-      </p>
     </div>
   );
 }

@@ -60,25 +60,23 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica",
     color: palette.ink,
   },
-  /* Navy 2px outer border; the thin orange one sits inside it. */
   frame: {
-    borderWidth: 1.5,
+    borderWidth: 0.75,
     borderColor: palette.navy,
-    padding: 10,
+    padding: 6,
     flex: 1,
   },
   innerFrame: {
     borderWidth: 0.75,
-    borderColor: palette.orange,
+    borderColor: palette.navy,
     flex: 1,
     alignItems: "center",
     paddingTop: 16,
     paddingBottom: 10,
     paddingHorizontal: 36,
   },
-  /* Faint centred logo behind everything, as on the reference sample. */
-  watermark: { position: "absolute", top: 120, left: 280, width: 200, height: 200, opacity: 0.06 },
-  logo: { width: 82, height: 82 },
+  watermark: { position: "absolute", top: 120, left: 260, width: 220, height: 220, opacity: 0.06 },
+  logo: { width: 105, height: 105 },
   certifies: { fontFamily: "Times-Italic", fontSize: 10.5, color: palette.ink2, marginTop: 10 },
   name: {
     fontFamily: "Helvetica-Bold",
@@ -86,8 +84,12 @@ const styles = StyleSheet.create({
     color: palette.navy,
     marginTop: 4,
     textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 1.3,
     width: "100%",
-    paddingBottom: 3,
+    paddingVertical: 4,
+    borderTopWidth: 0.75,
+    borderTopColor: palette.line,
     borderBottomWidth: 0.75,
     borderBottomColor: palette.line,
   },
@@ -95,7 +97,7 @@ const styles = StyleSheet.create({
   course: {
     fontFamily: "Helvetica-Bold",
     fontSize: 19.5,
-    color: palette.orange,
+    color: palette.navy,
     textTransform: "uppercase",
     textAlign: "center",
     marginTop: 8,
@@ -110,14 +112,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 10,
   },
-  /* The 45pt band is the 60px signature height; bottom-aligned so the line sits on
-   * one baseline whether or not an image is present. */
   signatureBlock: { width: 180 },
   signatureBand: { height: 45, width: 180, justifyContent: "flex-end", alignItems: "center" },
   signatureImage: { maxWidth: 180, maxHeight: 45, objectFit: "contain" },
   signatureLine: { width: 180, height: 1.5, backgroundColor: palette.ink },
   signatureName: { fontFamily: "Helvetica-Bold", fontSize: 10.5, color: palette.navy, marginTop: 3, width: 180 },
   signatureTitle: { fontSize: 8.5, color: palette.ink2, marginTop: 1, width: 180 },
+  signatureOrg: { fontSize: 6.75, color: palette.ink2, marginTop: 1, width: 180 },
   right: { alignItems: "flex-end" },
   facts: { flexDirection: "row", width: 240 },
   fact: { flex: 1, alignItems: "center", marginLeft: 12 },
@@ -132,11 +133,19 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.line,
   },
   factLabel: { fontSize: 7.5, color: palette.ink2, marginTop: 2 },
-  qr: { width: 67.5, height: 67.5, marginTop: 8 },
+  qr: { width: 60, height: 60, marginTop: 8 },
+  qrLabel: { fontFamily: "Courier", fontSize: 5.25, color: palette.ink2, marginTop: 2 },
   certId: { fontFamily: "Courier", fontSize: 6, color: "#6B7280", width: "100%", marginTop: 8 },
-  footer: { position: "absolute", bottom: 8, left: 28, right: 28, alignItems: "center" },
-  /* 7px at the x 0.75 scale, monospaced: a quiet line that ties a copy to its holder. */
-  footerText: { fontFamily: "Courier", fontSize: 5.25, color: palette.ink2 },
+  bottomStrip: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: palette.navy,
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  bottomStripText: { fontFamily: "Courier", fontSize: 5.25, color: palette.paper },
 });
 
 function formatDate(date: Date): string {
@@ -221,7 +230,7 @@ export function CertificateDocument({
             <Text style={styles.certifies}>This is to certify that</Text>
             <Text style={styles.name}>{doc.traineeName}</Text>
             <Text style={styles.body}>
-              Has successfully completed KSAcademy occupational Health and Safety Course in
+              Has successfully completed Kigali Safety Academy occupational Health and Safety Course in
             </Text>
             <Text style={styles.course}>{doc.courseName}</Text>
             {doc.topics.length > 0 ? (
@@ -239,6 +248,7 @@ export function CertificateDocument({
                 <View style={styles.signatureLine} />
                 <Text style={styles.signatureName}>{doc.directorName}</Text>
                 <Text style={styles.signatureTitle}>{doc.directorTitle}</Text>
+                <Text style={styles.signatureOrg}>Kigali Safety Academy Safety and Health Training</Text>
               </View>
 
               <View style={styles.right}>
@@ -254,18 +264,19 @@ export function CertificateDocument({
                   // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
                   <Image src={doc.qrSrc} style={styles.qr} />
                 ) : null}
+                <Text style={styles.qrLabel}>Verify: {doc.verifyUrl}</Text>
               </View>
             </View>
 
             <Text style={styles.certId}>
-              Certificate ID: {doc.studentNumber}-{doc.contentHash.slice(0, 12).toUpperCase()}
+              ★ Certificate ID: {doc.studentNumber}-{doc.contentHash.slice(0, 12).toUpperCase()} ★
             </Text>
           </View>
         </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Issued to {doc.traineeName} · Student #{doc.studentNumber}
+        <View style={styles.bottomStrip}>
+          <Text style={styles.bottomStripText}>
+            This certificate has been verified by Kigali Safety Academy · Issued to {doc.traineeName} · Student #{doc.studentNumber}
           </Text>
         </View>
       </Page>

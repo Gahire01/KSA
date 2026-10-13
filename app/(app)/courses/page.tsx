@@ -53,7 +53,8 @@ export default function CoursesPage() {
   const coursesQuery = useCourses({
     search: debounced.trim() || undefined,
     categoryId: categoryIds.length ? categoryIds : undefined,
-    isActive: activeOnly ? true : "all",
+    isActive: activeOnly ? true : undefined,
+    includeInactive: activeOnly ? undefined : true,
     page: 1,
     /* The grid paginates client-side; MAX_PAGE_SIZE caps a single request. */
     pageSize: 100,

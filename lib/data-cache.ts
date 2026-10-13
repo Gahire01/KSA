@@ -26,11 +26,10 @@ export async function getCategoriesCached() {
 }
 
 /**
- * The active-only course list (what every dropdown and the courses page open with),
- * cached for 60 seconds. Searched, filtered, inactive/all or trainer-scoped requests
- * skip the cache and read the database directly, so nobody sees another trainer's
- * courses. Anything that changes a course or its trainee count calls
- * {@link invalidateCourses}.
+ * The active course list (what every dropdown and the courses page open with), cached
+ * for 60 seconds. Searched, filtered, include-inactive or trainer-scoped requests skip
+ * the cache and read the database directly. Anything that changes a course or its
+ * trainee count calls {@link invalidateCourses}.
  */
 export async function getCoursesCached(page: number, pageSize: number) {
   return unstable_cache(

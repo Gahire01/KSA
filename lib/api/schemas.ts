@@ -177,6 +177,12 @@ export const courseListQuerySchema = z
       .enum(["true", "false", "all"])
       .transform((v) => (v === "all" ? ("all" as const) : v === "true"))
       .optional(),
+    /* Lets a management view list everything; without it (and without isActive)
+     * the list is the active catalogue, which is what every dropdown offers. */
+    includeInactive: z
+      .enum(["true", "false"])
+      .transform((v) => v === "true")
+      .optional(),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(50),
   })

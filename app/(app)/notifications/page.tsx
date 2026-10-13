@@ -6,6 +6,7 @@ import { CheckCheckIcon, InboxIcon, RefreshCwIcon, Trash2Icon, XIcon } from "luc
 import { formatDistanceToNow } from "date-fns";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   const [tab, setTab] = React.useState<Tab>("all");
   const [pending, setPending] = React.useState(false);
+  const [confirmClear, setConfirmClear] = React.useState(false);
 
   useNotificationHydration(true);
   useNotificationStream(true);
@@ -121,10 +123,7 @@ export default function NotificationsPage() {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => {
-                clearAll();
-                void api.delete("/notifications", { all: true }).catch(() => {});
-              }}
+              onClick={() => setConfirmClear(true)}
               disabled={items.length === 0}
             >
               <Trash2Icon className="size-3.5" />
@@ -220,6 +219,18 @@ export default function NotificationsPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={confirmClear}
+        onOpenChange={setConfirmClear}
+        title="Clear all notifications?"
+        description="Every notification in this list will be permanently deleted. This cannot be undone."
+        confirmLabel="Clear all"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          clearAll();
+          void api.delete("/notifications", { all: true }).catch(() => {});
+        }}
+      />
     </div>
   );
 }

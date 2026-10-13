@@ -1,3 +1,36 @@
+## Final launch merge — 2026-10-13
+
+`release/ksa-mvp` merged to `main`. All static checks green (tsc + lint).
+
+### Certificate redesign (Part B)
+OSHAcademy-style: double navy border (outer 1px + 8px gap + inner 1px), 140px logo,
+uppercase trainee name with letter-spacing 0.05em and top+bottom rule lines, navy
+course title (was orange), "Kigali Safety Academy" branding (was "KSAcademy"), org
+line under director, verify URL under QR, star-bracketed certificate ID, navy bottom
+validation strip. Both HTML preview and PDF updated in lockstep.
+
+### Parts verified DONE (no changes needed)
+- **Part A** — 120 questions seeded (4 x 30) in `prisma/seed-data/questions/`
+- **Part A.5** — Fisher-Yates shuffle with HMAC-SHA256 keyed on attempt token
+- **Part C** — `/courses/[id]/edit` page + PATCH `/api/courses/[id]` with full validation
+- **Part D** — Full exam flow: briefing, OTP, timed questions, nav, submit, auto-submit
+- **Part E** — WhatsApp via Twilio (plain HTTPS, no SDK), channel selector (email/whatsapp/both)
+- **Part F** — .xlsx import + Excel/PDF exports (CSV buttons replaced)
+- **Part G** — next.config optimized, TanStack Query staleTime, 49 Prisma indexes, animations
+
+### Cleanup (Part H)
+- Removed unused `motion` dependency (not imported anywhere)
+- Removed `tmp-dev.log` / `tmp-dev.err.log` dev artifacts, gitignored `tmp-dev*.log`
+
+### What could NOT be verified here
+- Runtime (no database): `prisma db seed`, `next build`, `next dev`
+- Lighthouse audit: needs running server + browser
+- Browser smoke test: manual exam flow verification needed after deploy
+- PDF custom fonts: spec wanted Space Grotesk/Inter/JetBrains Mono but @react-pdf/renderer
+  font registration with remote URLs is fragile; built-in Helvetica/Times/Courier used
+
+---
+
 ## Session — Launch prep — 2026-10-11
 Launch-prep parts 5–19 (certificate redesign + exam seeding postponed, untouched).
 - Part 5 attendance: already removed (verified — no UI refs, no `attendancePct`, dashboard shows Certificates issued).

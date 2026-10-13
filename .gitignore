@@ -46,6 +46,7 @@ next-env.d.ts
 /lib/generated/prisma
 
 dev-server.log
+tmp-dev*.log
 
 # lighthouse reports
 *_*.report.html

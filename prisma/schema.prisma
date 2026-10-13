@@ -236,6 +236,8 @@ model Trainee {
   deadlineAt    DateTime?
   status        EnrollmentStatus @default(PENDING)
   paymentStatus PaymentStatus    @default(UNPAID)
+  /// The pricing tier label chosen at enrolment, e.g. "Basic", "Standard", "Comprehensive".
+  tierLabel     String?
   notes         String?
   amountPaidRwf Int              @default(0)
   createdAt     DateTime         @default(now())
@@ -250,6 +252,7 @@ model Trainee {
   @@index([status])
   @@index([createdAt])
   @@index([courseId, status])
+  @@index([courseId, tierLabel])
 }
 
 /// An exam question. `isCorrect` never leaves the server â€” see app/api/exams/*.

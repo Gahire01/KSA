@@ -1224,6 +1224,35 @@ RESULT: nothing to fix; logged for the owner's record.
 - /robots.txt, /sitemap.xml, /llms.txt, legal pages + not-found verified in a full pnpm build (green). tsc + lint clean.
 - NOTE: the dangerous PowerShell edit incident recurred (Set-Content BOM/mojibake on 4 legal pages) - caught via git diff, all four restored with git checkout, metadata redone with the Edit tool only.
 
+## Session — 2026-10-13 — Parts C/F completion (pricing tiers + name editing)
+
+### Part C — Pricing tiers everywhere
+- C.1 (tier table on course page): already done in prior session.
+- C.2 (package select on trainee registration): `tierLabel` field added to Trainee model (schema.prisma), zod schema, types, adapters, API create/update routes. Trainee new + edit pages show a conditional Package `<Select>` when the selected course has tiers; selecting a course auto-picks Standard; tier selection updates the amount field.
+- C.3 (package on payment form): `TraineeOption` interface extended with `tierLabel`; summary card shows "Package" row when the chosen trainee has a tier.
+- C.4 (tier on certificate): CertificateSheet + PDF facts arrays include a conditional 4th fact `[tierLabel, "Package"]`. render.ts selects and maps it. Certificate detail page + API route carry it through.
+- C.5 (tier in reports): trainee-roster and payments reports include a "Package" column from `tierLabel`.
+- Schema: `tierLabel String?` on Trainee + `@@index([courseId, tierLabel])`. Migration NOT applied (no DB on this machine).
+
+### Part F — Name editing
+- F.1 (owner/admin profile): PATCH /api/auth/me accepts `{ name }` with zod validation (min 2, max 120). Profile page (/settings/profile) shows a pencil icon next to the name; clicking it opens an inline edit form (Input + Save/Cancel). Updates the auth store on success.
+- F.2 (trainee details): trainee edit page already supports full name editing (was in place).
+- F.3 (trainer name/title): NEW `app/api/trainers/[id]/route.ts` with GET + PATCH (name/email, email uniqueness check, audit log). Trainers list page now shows a pencil icon on each card; clicking opens an inline name editor.
+- F.4 (course name editing): already works via CourseForm — verified.
+
+### Part E.4 — next.config optimizations
+- `productionBrowserSourceMaps: false`, `poweredByHeader: false`, `compress: true` — already in place.
+
+### Verification
+- `tsc --noEmit`: 0 errors
+- `pnpm lint`: 0 errors
+- `pnpm build`: green (exit 0)
+
+### Files changed (21)
+prisma/schema.prisma, lib/api/schemas.ts, lib/api/types.ts, lib/types/index.ts, lib/api/adapters.ts, app/api/trainees/route.ts, app/api/trainees/[id]/route.ts, app/(app)/trainees/new/page.tsx, app/(app)/trainees/[id]/edit/page.tsx, components/certificate/CertificateSheet.tsx, lib/certificates/pdf.tsx, lib/certificates/render.ts, app/api/certificates/[id]/route.ts, app/(app)/certificates/[id]/page.tsx, lib/reports/build.ts, app/api/auth/me/route.ts, app/(app)/settings/profile/page.tsx, app/api/trainers/[id]/route.ts (NEW), app/(app)/trainers/page.tsx, app/(app)/payments/new/page.tsx, next.config.ts.
+
+---
+
 ### Part 9 - UI cleanup (real pages) + clickable contacts (84ee648..)
 - Logo component now accepts href and renders a focus-visible link; public pages (verify, verify/[token], legal pages, not-found) link the logo to /verify. Admin sidebar logo already linked to /dashboard.
 - SiteFooter contact line is now clickable: tel: and mailto: links appear automatically once the owner fills ACADEMY.phone / ACADEMY.email (they stay plain text city-only today, nothing invented). academyContactLine stays for the payment receipt (plain text is right there).

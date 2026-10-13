@@ -27,7 +27,7 @@ const pdfSelect = {
   issuedAt: true,
   contentHash: true,
   verificationToken: true,
-  trainee: { select: { fullName: true } },
+  trainee: { select: { fullName: true, tierLabel: true } },
   course: { select: { name: true } },
 } as const;
 
@@ -84,6 +84,7 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
     signatureSrc: await resolveSignatureSrc(cert.signatureUrlSnapshot, cert.signerNameSnapshot),
     verifyUrl,
     contentHash: cert.contentHash,
+    tierLabel: cert.trainee.tierLabel ?? undefined,
     /* The QR encodes exactly the printed URL: {APP_URL}/verify/{verificationToken},
      * unique per certificate. */
     qrSrc: await QRCode.toDataURL(verifyUrl, { margin: 1, width: 300, errorCorrectionLevel: "M" }),

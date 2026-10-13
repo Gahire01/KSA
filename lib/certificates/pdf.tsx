@@ -41,6 +41,7 @@ export interface CertificateDoc {
   verifyUrl: string;
   /** SHA-256 of the frozen certificate snapshot (Certificate.contentHash). */
   contentHash: string;
+  tierLabel?: string | null;
 }
 
 const palette = {
@@ -193,6 +194,7 @@ export function CertificateDocument({
     [String(doc.studentNumber), "Student #"],
     [formatDate(doc.issuedAt), "Issued"],
     [doc.duration, "Duration"],
+    ...(doc.tierLabel ? [[doc.tierLabel, "Package"] as [string, string]] : []),
   ];
 
   return (

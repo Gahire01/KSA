@@ -106,6 +106,7 @@ export const traineeCreateSchema = z
     countryCode: z.string().trim().min(2, "Select a country.").max(60),
     categoryId: z.string().trim().min(1, "Choose a category."),
     courseId: z.string().trim().min(1, "Choose a course.").max(64).optional().nullable(),
+    tierLabel: z.string().trim().max(30).optional().nullable(),
     deadlineAt: z.coerce.date().optional().nullable(),
     status: z.enum(["PENDING", "ACTIVE", "COMPLETED", "FAILED", "WITHDRAWN"]).default("PENDING"),
     paymentStatus: z.enum(["PAID", "PARTIAL", "UNPAID"]).default("UNPAID"),

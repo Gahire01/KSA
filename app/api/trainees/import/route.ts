@@ -5,7 +5,7 @@ import { apiFail, apiOk, zodMessage } from "@/lib/api/response";
 import { actorOf, audit } from "@/lib/audit";
 import { invalidateCourses } from "@/lib/data-cache";
 import { prisma } from "@/lib/db";
-import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseCsv } from "@/lib/exams/import";
+import { MAX_IMPORT_BYTES, MAX_IMPORT_ROWS, parseCsv, readXlsx } from "@/lib/exams/import";
 import { recordPayment } from "@/lib/payments/ledger";
 import { nextTraineeNo } from "@/lib/trainees/number";
 
@@ -21,10 +21,19 @@ import { nextTraineeNo } from "@/lib/trainees/number";
 
 const bodySchema = z
   .object({
-    text: z.string().max(MAX_IMPORT_BYTES, "That file is too large."),
+    text: z.string().max(MAX_IMPORT_BYTES, "That file is too large.").optional(),
+    /* An .xlsx upload, base64-encoded; decoded and read server-side. */
+    fileBase64: z.string().max(MAX_IMPORT_BYTES * 2, "That file is too large.").optional(),
+    fileName: z.string().max(160).optional(),
     mode: z.enum(["preview", "commit"]),
   })
-  .strict();
+  .strict()
+  .refine(
+    (b) =>
+      (typeof b.text === "string" && b.text.length > 0) ||
+      (typeof b.fileBase64 === "string" && typeof b.fileName === "string"),
+    { message: "Choose a file to import." },
+  );
 
 const REQUIRED = ["name", "email", "course"] as const;
 const PHONE = /^\+?\d[\d\s]{6,}$/;
@@ -47,7 +56,34 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return apiFail(zodMessage(parsed.error), 422);
 
-  const table = parseCsv(parsed.data.text).filter((cells) => cells.some((c) => c.trim() !== ""));
+  /* One text pipeline downstream: an .xlsx is read to rows first, then
+   * serialised back to CSV text for the same validation as a .csv upload. */
+  const toCsvText = (rows: string[][]): string =>
+    rows
+      .map((cells) =>
+        cells.map((c) => (/[",\r\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(","),
+      )
+      .join("\n");
+
+  let csvText: string;
+  if (typeof parsed.data.text === "string" && parsed.data.text.length > 0) {
+    csvText = parsed.data.text;
+  } else {
+    const buf = Buffer.from(parsed.data.fileBase64 as string, "base64");
+    if (buf.length === 0 || buf.length > MAX_IMPORT_BYTES) {
+      return apiFail("That file is too large.", 413);
+    }
+    const isZip = buf.length > 4 && buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04;
+    if (isZip || /\.xlsx$/i.test(parsed.data.fileName as string)) {
+      const rows = isZip ? readXlsx(buf) : null;
+      if (!rows) return apiFail("That spreadsheet could not be read. Save it as an Excel file and try again.", 422);
+      csvText = toCsvText(rows);
+    } else {
+      csvText = buf.toString("utf8");
+    }
+  }
+
+  const table = parseCsv(csvText).filter((cells) => cells.some((c) => c.trim() !== ""));
   if (table.length < 2) return apiFail("The file needs a header row and at least one trainee.", 422);
   if (table.length - 1 > MAX_IMPORT_ROWS) return apiFail(`At most ${MAX_IMPORT_ROWS} rows per import.`, 422);
 

@@ -48,13 +48,15 @@ export default function ImportTraineesPage() {
 
   const [step, setStep] = React.useState<Step>("upload");
   const [fileName, setFileName] = React.useState("");
-  const [text, setText] = React.useState("");
+  /* What the server parses: CSV text, or an .xlsx sent as base64. */
+  type Payload = { text: string } | { fileBase64: string; fileName: string };
+  const [payload, setPayload] = React.useState<Payload | null>(null);
   const [result, setResult] = React.useState<ImportResult | null>(null);
   const [dragging, setDragging] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const preview = useMutation({
-    mutationFn: (csv: string) => api.post<ImportResult>("/trainees/import", { text: csv, mode: "preview" }),
+    mutationFn: (body: Payload) => api.post<ImportResult>("/trainees/import", { ...body, mode: "preview" }),
     onSuccess: (data) => {
       setResult(data);
       setStep("preview");
@@ -63,7 +65,10 @@ export default function ImportTraineesPage() {
   });
 
   const commit = useMutation({
-    mutationFn: () => api.post<ImportResult>("/trainees/import", { text, mode: "commit" }),
+    mutationFn: () => {
+      if (!payload) throw new Error("Choose a file first.");
+      return api.post<ImportResult>("/trainees/import", { ...payload, mode: "commit" });
+    },
     onSuccess: (data) => {
       setResult(data);
       setStep("done");
@@ -76,14 +81,27 @@ export default function ImportTraineesPage() {
 
   const onFile = React.useCallback(
     async (file: File) => {
-      if (!/\.csv$/i.test(file.name)) {
-        toast.error("Choose a .csv file.");
+      const isXlsx = /\.xlsx$/i.test(file.name);
+      const isCsv = /\.csv$/i.test(file.name);
+      if (!isXlsx && !isCsv) {
+        toast.error("Choose an Excel file.");
         return;
       }
-      const content = await file.text();
       setFileName(file.name);
-      setText(content);
-      preview.mutate(content);
+      if (isXlsx) {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        }
+        const body: Payload = { fileBase64: btoa(binary), fileName: file.name };
+        setPayload(body);
+        preview.mutate(body);
+        return;
+      }
+      const body: Payload = { text: await file.text() };
+      setPayload(body);
+      preview.mutate(body);
     },
     [preview],
   );
@@ -107,7 +125,7 @@ export default function ImportTraineesPage() {
             ← Trainees
           </Link>
         }
-        title="Import trainees from CSV"
+        title="Import trainees from Excel"
         subtitle="Upload a spreadsheet, review any problems, then add the valid rows."
       />
 
@@ -145,12 +163,12 @@ export default function ImportTraineesPage() {
               <span aria-hidden className="flex size-12 items-center justify-center rounded-xl bg-card text-ink-2 shadow-sm">
                 <UploadCloudIcon className="size-6" />
               </span>
-              <p className="text-sm font-medium text-ink">Drop your CSV here, or browse</p>
+              <p className="text-sm font-medium text-ink">Drop your Excel file here, or browse</p>
               <p className="text-xs text-ink-2">Maximum file size 5 MB</p>
               <input
                 ref={inputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="sr-only"
                 onChange={(e) => {
                   const file = e.target.files?.[0];

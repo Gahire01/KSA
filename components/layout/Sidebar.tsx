@@ -56,7 +56,7 @@ export const NAV_SECTIONS: NavSection[] = [
       {
         items: [
           { href: "/trainees", label: "All trainees", icon: UsersIcon },
-          { href: "/trainees/new", label: "Add trainee", icon: UsersIcon },
+          { href: "/trainees/new", label: "Register trainee", icon: UsersIcon },
           { href: "/trainees/import", label: "Import", icon: UsersIcon },
         ],
       },

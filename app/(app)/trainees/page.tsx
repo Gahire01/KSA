@@ -129,7 +129,7 @@ export default function TraineesPage() {
     setFilters((f) => (f.search === debouncedSearch ? f : { ...f, search: debouncedSearch }));
   }, [debouncedSearch, hydrated]);
 
-  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT });
+  const coursesQuery = useCourses({ isActive: true, page: 1, pageSize: COURSE_OPTION_LIMIT });
   const categoriesQuery = useCategories();
   const categoryOptions = useCategoryOptions();
 
@@ -366,13 +366,13 @@ export default function TraineesPage() {
             <Button asChild variant="outline" size="sm" className="gap-1.5">
               <Link href="/trainees/import">
                 <UploadIcon className="size-4" />
-                Import CSV
+                Import Excel
               </Link>
             </Button>
             <Button asChild size="sm" className="gap-1.5">
               <Link href="/trainees/new">
                 <PlusIcon className="size-4" />
-                Add trainee
+                Register trainee
               </Link>
             </Button>
           </>

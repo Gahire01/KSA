@@ -126,7 +126,7 @@ export default function TraineeDetailPage() {
         }),
     });
 
-  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT });
+  const coursesQuery = useCourses({ isActive: true, page: 1, pageSize: COURSE_OPTION_LIMIT });
   const courseName = React.useCallback(
     (courseId: string) =>
       coursesQuery.data?.items.find((c) => c.id === courseId)?.name ?? "—",

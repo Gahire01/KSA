@@ -87,7 +87,7 @@ export default function SendExamPage() {
   const coursesQuery = useQuery({
     queryKey: ["courses", "send-options"],
     queryFn: async () => {
-      const page = await api.get<{ items: CourseOption[] }>("/courses", { pageSize: 100 });
+      const page = await api.get<{ items: CourseOption[] }>("/courses", { isActive: true, pageSize: 100 });
       return page.items;
     },
     staleTime: 5 * 60_000,

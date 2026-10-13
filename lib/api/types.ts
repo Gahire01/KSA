@@ -168,7 +168,7 @@ export interface TraineeFilters {
 export interface CourseFilters {
   search?: string;
   categoryId?: string[];
-  isActive?: boolean;
+  isActive?: boolean | "all";
   page?: number;
   pageSize?: number;
 }

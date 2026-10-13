@@ -26,16 +26,19 @@ export async function getCategoriesCached() {
 }
 
 /**
- * The unfiltered course list (what every dropdown and the courses page open with), cached
- * for 60 seconds. Searched, filtered or trainer-scoped requests skip the cache and read
- * the database directly, so nobody sees another trainer's courses. Anything that changes
- * a course or its trainee count calls {@link invalidateCourses}.
+ * The active-only course list (what every dropdown and the courses page open with),
+ * cached for 60 seconds. Searched, filtered, inactive/all or trainer-scoped requests
+ * skip the cache and read the database directly, so nobody sees another trainer's
+ * courses. Anything that changes a course or its trainee count calls
+ * {@link invalidateCourses}.
  */
 export async function getCoursesCached(page: number, pageSize: number) {
   return unstable_cache(
     async () => {
+      const where = { isActive: true };
       const [items, total] = await Promise.all([
         prisma.course.findMany({
+          where,
           orderBy: { createdAt: "asc" },
           skip: (page - 1) * pageSize,
           take: pageSize,
@@ -44,7 +47,7 @@ export async function getCoursesCached(page: number, pageSize: number) {
             _count: { select: { trainees: true } },
           },
         }),
-        prisma.course.count(),
+        prisma.course.count({ where }),
       ]);
       return { items, total };
     },

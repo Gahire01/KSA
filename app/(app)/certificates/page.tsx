@@ -120,7 +120,7 @@ export default function CertificatesPage() {
 
   const coursesQuery = useQuery({
     queryKey: ["courses", "options"],
-    queryFn: () => api.get<{ items: CourseOption[] }>("/courses", { pageSize: 100 }),
+    queryFn: () => api.get<{ items: CourseOption[] }>("/courses", { isActive: true, pageSize: 100 }),
     staleTime: 5 * 60_000,
   });
   const courses = React.useMemo(() => coursesQuery.data?.items ?? [], [coursesQuery.data]);

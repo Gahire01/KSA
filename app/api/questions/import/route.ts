@@ -77,12 +77,12 @@ export async function POST(request: Request) {
     const bytes = Buffer.from(await file.arrayBuffer());
     const isZip = bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
     rows = isZip ? readXlsx(bytes) : parseCsv(decodeText(bytes));
-    if (!rows) return apiFail("That spreadsheet could not be read. Save it as .xlsx or CSV and try again.", 422);
+    if (!rows) return apiFail("That spreadsheet could not be read. Save it as an Excel file and try again.", 422);
   } else if (typeof pasted === "string" && pasted.trim()) {
     if (pasted.length > MAX_IMPORT_BYTES) return apiFail("The pasted text is too large.", 413);
     rows = parseCsv(pasted);
   } else {
-    return apiFail("Paste CSV text or choose a file.", 422);
+    return apiFail("Paste text or choose a file.", 422);
   }
 
   const result = validateRows(rows);

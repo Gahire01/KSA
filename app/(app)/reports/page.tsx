@@ -51,7 +51,7 @@ export default function ReportsPage() {
 
   const coursesQuery = useQuery({
     queryKey: ["courses", "options"],
-    queryFn: async () => (await api.get<{ items: Array<{ id: string; name: string }> }>("/courses", { pageSize: 100 })).items,
+    queryFn: async () => (await api.get<{ items: Array<{ id: string; name: string }> }>("/courses", { isActive: true, pageSize: 100 })).items,
     staleTime: 5 * 60_000,
   });
 

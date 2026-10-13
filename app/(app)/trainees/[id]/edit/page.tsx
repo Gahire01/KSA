@@ -73,7 +73,7 @@ export default function EditTraineePage() {
 
   const { data: trainee, isLoading, isError } = useTrainee(id);
   const categoriesQuery = useCategories();
-  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT });
+  const coursesQuery = useCourses({ isActive: true, page: 1, pageSize: COURSE_OPTION_LIMIT });
   const categories = categoriesQuery.data ?? [];
   const courses = React.useMemo(() => coursesQuery.data?.items ?? [], [coursesQuery.data]);
   const updateMutation = useUpdateTrainee();

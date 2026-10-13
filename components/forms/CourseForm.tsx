@@ -218,7 +218,7 @@ export function CourseForm({ courseId }: { courseId?: string }) {
             <CardHeader className="gap-1">
               <CardTitle className="text-base">Identity</CardTitle>
               <CardDescription>
-                The code is used on certificates and CSV imports.
+                The code is used on certificates and Excel imports.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-3">

@@ -65,7 +65,7 @@ export default function TrainersPage() {
   });
   const coursesQuery = useQuery({
     queryKey: ["courses", "trainer-load"],
-    queryFn: async () => (await api.get<{ items: CourseRow[] }>("/courses", { pageSize: 100 })).items,
+    queryFn: async () => (await api.get<{ items: CourseRow[] }>("/courses", { isActive: true, pageSize: 100 })).items,
     staleTime: 5 * 60_000,
   });
 

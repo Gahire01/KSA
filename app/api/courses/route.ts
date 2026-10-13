@@ -26,7 +26,9 @@ export async function GET(request: Request) {
   const where: Prisma.CourseWhereInput = {
     ...courseWhere(gate.trainerScope),
     ...(categoryIds?.length ? { categoryId: { in: categoryIds } } : {}),
-    ...(typeof isActive === "boolean" ? { isActive } : {}),
+    /* Default to active-only so enrolment dropdowns never offer retired courses.
+     * Pass ?isActive=false for archived, ?isActive=all for everything (courses admin). */
+    ...(isActive === "all" ? {} : { isActive: typeof isActive === "boolean" ? isActive : true }),
     ...(search
       ? {
           OR: [
@@ -37,8 +39,14 @@ export async function GET(request: Request) {
       : {}),
   };
 
-  /* The plain list (no search, no filter, no trainer scope) is cached for 60 seconds. */
-  const plain = !search && !categoryIds?.length && typeof isActive !== "boolean" && gate.trainerScope === null;
+  /* The plain list (no search, no filter, no trainer scope) is cached for 60 seconds.
+   * The cache holds active courses only, so an explicit isActive=true hits it too;
+   * isActive=false/all skip it and read the database directly. */
+  const plain =
+    !search &&
+    !categoryIds?.length &&
+    (isActive === undefined || isActive === true) &&
+    gate.trainerScope === null;
   const [items, total] = plain
     ? await getCoursesCached(page, pageSize).then((r) => [r.items, r.total] as const)
     : await Promise.all([

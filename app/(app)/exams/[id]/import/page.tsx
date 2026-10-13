@@ -58,7 +58,7 @@ export default function ImportQuestionsPage() {
   const params = useParams<{ id: string }>();
   const courseId = params.id;
 
-  const [tab, setTab] = React.useState<"paste" | "csv" | "xlsx">("paste");
+  const [tab, setTab] = React.useState<"paste" | "file">("paste");
   const [text, setText] = React.useState("");
   const [file, setFile] = React.useState<File | null>(null);
   const [result, setResult] = React.useState<Preview | null>(null);
@@ -130,7 +130,7 @@ export default function ImportQuestionsPage() {
     <div className="space-y-6">
       <PageHeader
         title={`Import questions · ${courseQuery.data.name}`}
-        description="Add many questions at once from a CSV or Excel file. You will see a preview before anything is saved."
+        description="Add many questions at once from an Excel file. You will see a preview before anything is saved."
         actions={
           <Button asChild variant="outline" size="sm">
             <Link href={`/exams/${courseId}`}>Back</Link>
@@ -148,7 +148,7 @@ export default function ImportQuestionsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Button type="button" variant="outline" size="sm" onClick={downloadSample}>
-            <DownloadIcon className="size-4" /> Download sample CSV
+            <DownloadIcon className="size-4" /> Download sample Excel
           </Button>
 
           <Tabs
@@ -159,9 +159,8 @@ export default function ImportQuestionsPage() {
             }}
           >
             <TabsList>
-              <TabsTrigger value="paste">Paste CSV</TabsTrigger>
-              <TabsTrigger value="csv">Upload CSV</TabsTrigger>
-              <TabsTrigger value="xlsx">Upload Excel</TabsTrigger>
+              <TabsTrigger value="paste">Paste text</TabsTrigger>
+              <TabsTrigger value="file">Upload Excel</TabsTrigger>
             </TabsList>
             <TabsContent value="paste" className="pt-3">
               <Textarea
@@ -175,23 +174,21 @@ export default function ImportQuestionsPage() {
                 className="font-mono text-xs"
               />
             </TabsContent>
-            {(["csv", "xlsx"] as const).map((kind) => (
-              <TabsContent key={kind} value={kind} className="pt-3">
-                <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-line p-8 text-center text-sm text-ink-2">
-                  <UploadIcon className="size-5" />
-                  {file && tab === kind ? file.name : `Choose a ${kind === "csv" ? ".csv" : ".xlsx"} file (max 5 MB)`}
-                  <input
-                    type="file"
-                    accept={kind === "csv" ? ".csv,text/csv" : ".xlsx"}
-                    className="sr-only"
-                    onChange={(e) => {
-                      setFile(e.target.files?.[0] ?? null);
-                      setResult(null);
-                    }}
-                  />
-                </label>
-              </TabsContent>
-            ))}
+            <TabsContent value="file" className="pt-3">
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-line p-8 text-center text-sm text-ink-2">
+                <UploadIcon className="size-5" />
+                {file ? file.name : "Choose a spreadsheet file (.xlsx or .csv, max 5 MB)"}
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="sr-only"
+                  onChange={(e) => {
+                    setFile(e.target.files?.[0] ?? null);
+                    setResult(null);
+                  }}
+                />
+              </label>
+            </TabsContent>
           </Tabs>
 
           <Button type="button" disabled={!source || preview.isPending} onClick={() => source && preview.mutate(source)}>

@@ -103,7 +103,7 @@ export function CommandPalette() {
     () => [
       {
         id: "act:new-trainee",
-        label: "Add new trainee",
+        label: "Register new trainee",
         group: "Actions",
         icon: UserPlusIcon,
         href: "/trainees/new",
@@ -111,7 +111,7 @@ export function CommandPalette() {
       },
       {
         id: "act:import",
-        label: "Import trainees (CSV)",
+        label: "Import trainees (Excel)",
         group: "Actions",
         icon: UsersIcon,
         href: "/trainees/import",

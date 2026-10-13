@@ -68,7 +68,7 @@ export default function NewTraineePage() {
   const router = useRouter();
 
   const categoriesQuery = useCategories();
-  const coursesQuery = useCourses({ page: 1, pageSize: COURSE_OPTION_LIMIT });
+  const coursesQuery = useCourses({ isActive: true, page: 1, pageSize: COURSE_OPTION_LIMIT });
   const categories = categoriesQuery.data ?? [];
   const courses = coursesQuery.data?.items ?? [];
 
@@ -123,11 +123,11 @@ export default function NewTraineePage() {
             ← Trainees
           </Link>
         }
-        title="Add a trainee"
-        subtitle="Create a single enrolment record. You can import many at once from CSV."
+        title="Register a trainee"
+        subtitle="Create a single enrolment record. You can import many at once from Excel."
         actions={
           <Button asChild variant="outline" size="sm">
-            <Link href="/trainees/import">Import CSV instead</Link>
+            <Link href="/trainees/import">Import Excel instead</Link>
           </Button>
         }
       />

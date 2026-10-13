@@ -172,9 +172,10 @@ export const courseListQuerySchema = z
     search: z.string().trim().max(120).optional(),
     categoryId: csv(z.string().trim().min(1)),
     categoryIds: csv(z.string().trim().min(1)),
+    /* Omitted → active only (enrolment dropdowns). "all" → everything (courses admin). */
     isActive: z
-      .enum(["true", "false"])
-      .transform((v) => v === "true")
+      .enum(["true", "false", "all"])
+      .transform((v) => (v === "all" ? ("all" as const) : v === "true"))
       .optional(),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(50),

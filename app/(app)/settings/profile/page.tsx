@@ -7,6 +7,7 @@ import {
   LoaderIcon,
   LogOutIcon,
   MonitorIcon,
+  PencilIcon,
   ShieldCheckIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -49,6 +51,20 @@ export default function ProfilePage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const isOwner = currentUser?.role === "OWNER";
   const [revokeTarget, setRevokeTarget] = React.useState<string | null>(null);
+  const [editingName, setEditingName] = React.useState(false);
+  const [nameValue, setNameValue] = React.useState(currentUser?.name ?? "");
+
+  const updateName = useMutation({
+    mutationFn: (name: string) => api.patch<{ id: string; email: string; role: string; name: string }>("/auth/me", { name }),
+    onSuccess: (result) => {
+      toast.success("Name updated");
+      setEditingName(false);
+      const store = useAuthStore.getState();
+      store.setSession({ ...currentUser!, name: result.name }, store.mfaPassed);
+      void queryClient.invalidateQueries({ queryKey: ["auth-me"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not update name."),
+  });
 
   const sessionsQuery = useQuery({
     queryKey: ["auth-sessions"],
@@ -96,15 +112,46 @@ export default function ProfilePage() {
             <CardHeader className="gap-1">
               <CardTitle className="text-base">Account</CardTitle>
               <CardDescription>
-                Sign-in details for this account. Ask the owner to change them.
+                Your sign-in details. Click the pencil icon to edit your display name.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex items-center gap-4">
               <AvatarInitials name={currentUser?.name ?? "?"} size="lg" />
-              <div className="min-w-0">
-                <p className="truncate text-base font-medium text-ink">
-                  {currentUser?.name}
-                </p>
+              <div className="min-w-0 flex-1">
+                {editingName ? (
+                  <form
+                    className="flex items-center gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (nameValue.trim().length >= 2) updateName.mutate(nameValue.trim());
+                    }}
+                  >
+                    <Input
+                      value={nameValue}
+                      onChange={(e) => setNameValue(e.target.value)}
+                      className="h-8 max-w-xs text-sm"
+                      autoFocus
+                    />
+                    <Button type="submit" size="sm" disabled={updateName.isPending || nameValue.trim().length < 2}>
+                      {updateName.isPending ? "Saving…" : "Save"}
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingName(false); setNameValue(currentUser?.name ?? ""); }}>
+                      Cancel
+                    </Button>
+                  </form>
+                ) : (
+                  <p className="flex items-center gap-2 truncate text-base font-medium text-ink">
+                    {currentUser?.name}
+                    <button
+                      type="button"
+                      className="inline-flex items-center text-ink-3 transition-colors hover:text-ink"
+                      onClick={() => { setNameValue(currentUser?.name ?? ""); setEditingName(true); }}
+                      aria-label="Edit name"
+                    >
+                      <PencilIcon className="size-3.5" />
+                    </button>
+                  </p>
+                )}
                 <p className="truncate text-sm text-ink-2">{currentUser?.email}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{currentUser?.role}</Badge>

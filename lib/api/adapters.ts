@@ -55,6 +55,7 @@ export function toTrainee(dto: TraineeDTO): Trainee {
     amountPaidRwf: dto.amountPaidRwf,
     totalDueRwf: dto.course?.priceRwf ?? 0,
     courseId: dto.courseId ?? "",
+    tierLabel: dto.tierLabel ?? null,
     enrolledAt: dto.enrolledAt,
     deadline: dto.deadlineAt ?? "",
     examScore: null,
@@ -94,6 +95,7 @@ export interface TraineeFormValues {
   country: string;
   category: string;
   courseId: string;
+  tierLabel: string;
   amountPaidRwf: number;
   notes?: string;
 }
@@ -109,6 +111,7 @@ export function toTraineeInput(
     countryCode: values.country,
     categoryId: categoryIdByName(categories, values.category),
     courseId: values.courseId || null,
+    tierLabel: values.tierLabel || null,
     amountPaidRwf: values.amountPaidRwf,
     notes: values.notes ?? null,
   };

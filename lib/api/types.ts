@@ -55,6 +55,7 @@ export interface TraineeDTO {
   category?: CategoryDTO;
   courseId: string | null;
   course?: TraineeCourseRef | null;
+  tierLabel: string | null;
   enrolledAt: string;
   deadlineAt: string | null;
   status: EnrollmentStatus;
@@ -122,6 +123,7 @@ export interface TraineeInput {
   countryCode: string;
   categoryId: string;
   courseId?: string | null;
+  tierLabel?: string | null;
   deadlineAt?: string | null;
   status?: EnrollmentStatus;
   paymentStatus?: PaymentStatus;

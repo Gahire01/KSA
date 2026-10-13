@@ -82,6 +82,7 @@ interface CertificateDetail {
     traineeNo: string;
     categoryName: string | null;
     email: string;
+    tierLabel: string | null;
   };
   course: { id: string; code: string; name: string; topics: string[] };
 }
@@ -218,6 +219,7 @@ export default function CertificateDetailPage() {
                 signerName: cert.signerNameSnapshot,
                 signerTitle: cert.signerTitleSnapshot,
                 signatureUrl: cert.signatureUrlSnapshot,
+                tierLabel: cert.trainee.tierLabel ?? null,
               }}
             />
           </CardContent>

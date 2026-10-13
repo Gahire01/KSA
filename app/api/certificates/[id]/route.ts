@@ -34,7 +34,7 @@ const detailSelect = {
   revokedReason: true,
   createdAt: true,
   trainee: {
-    select: { id: true, fullName: true, traineeNo: true, categoryName: true, email: true },
+    select: { id: true, fullName: true, traineeNo: true, categoryName: true, email: true, tierLabel: true },
   },
   course: { select: { id: true, code: true, name: true, topics: true } },
 } as const;

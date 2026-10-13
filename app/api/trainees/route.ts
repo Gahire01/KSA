@@ -144,6 +144,7 @@ export async function POST(request: Request) {
             countryCode: data.countryCode,
             categoryId: data.categoryId,
             courseId,
+            tierLabel: data.tierLabel ?? null,
             deadlineAt: data.deadlineAt ?? null,
             status: data.status,
             notes: data.notes ?? null,

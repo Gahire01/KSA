@@ -39,6 +39,7 @@ interface TraineeOption {
   traineeNo: string;
   email: string;
   amountPaidRwf: number;
+  tierLabel?: string | null;
   paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
   course: { id: string; name: string; priceRwf: number } | null;
 }
@@ -285,6 +286,7 @@ export default function RecordPaymentPage() {
                 <SummaryRow label="Trainee" value={chosen?.fullName ?? "—"} />
                 <SummaryRow label="Trainee no." value={chosen?.traineeNo ?? "—"} mono />
                 <SummaryRow label="Course" value={chosen?.course?.name ?? "—"} />
+                {chosen?.tierLabel ? <SummaryRow label="Package" value={chosen.tierLabel} /> : null}
                 <SummaryRow label="Course fee" value={chosen?.course ? formatRwf(chosen.course.priceRwf) : "—"} />
                 <SummaryRow label="Method" value={METHODS.find((m) => m.value === method)?.label ?? "—"} />
                 <SummaryRow label="Amount" value={formatRwf(amount)} strong />

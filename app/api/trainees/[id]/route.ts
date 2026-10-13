@@ -78,6 +78,7 @@ export async function PATCH(request: Request, { params }: Params) {
           ...(data.countryCode !== undefined ? { countryCode: data.countryCode } : {}),
           ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
           ...(data.courseId !== undefined ? { courseId: data.courseId ?? null } : {}),
+          ...(data.tierLabel !== undefined ? { tierLabel: data.tierLabel ?? null } : {}),
           ...(data.deadlineAt !== undefined ? { deadlineAt: data.deadlineAt ?? null } : {}),
           ...(data.status !== undefined ? { status: data.status } : {}),
           ...(data.notes !== undefined ? { notes: data.notes ?? null } : {}),

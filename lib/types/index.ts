@@ -87,6 +87,7 @@ export interface Trainee {
   amountPaidRwf: number;
   totalDueRwf: number;
   courseId: string;
+  tierLabel: string | null;
   enrolledAt: string;
   deadline: string;
   examScore: number | null;

@@ -35,6 +35,7 @@ export interface CertificateSheetData {
   signerName: string | null;
   signerTitle: string | null;
   signatureUrl: string | null;
+  tierLabel: string | null;
 }
 
 export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetData; verifyUrl: string }) {
@@ -42,6 +43,7 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
     [String(cert.studentNumber), "Student #"],
     [formatDate(cert.issuedAt, "dd.MM.yyyy"), "Issued"],
     [cert.duration, "Duration"],
+    ...(cert.tierLabel ? [[cert.tierLabel, "Package"] as [string, string]] : []),
   ];
 
   return (

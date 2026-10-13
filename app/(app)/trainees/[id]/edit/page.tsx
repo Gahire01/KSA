@@ -41,6 +41,7 @@ import {
   useTrainee,
   useUpdateTrainee,
 } from "@/lib/api/hooks";
+import { formatRwf } from "@/lib/utils/format";
 import { COUNTRIES, type Category } from "@/lib/types";
 
 /* Courses for the select dropdown; bounded by the API's MAX_PAGE_SIZE. */
@@ -56,6 +57,7 @@ const schema = z.object({
   country: z.string().min(1, "Select a country."),
   category: z.string().min(1, "Select a category."),
   courseId: z.string().min(1, "Select a course."),
+  tierLabel: z.string(),
   status: z.enum(["PENDING", "ACTIVE", "COMPLETED", "FAILED", "WITHDRAWN"]),
   /* Text, so the field is digits only and empty means 0. */
   amountPaidRwf: z.string().regex(/^\d{0,9}$/, "Use digits only."),
@@ -76,7 +78,25 @@ export default function EditTraineePage() {
   const courses = React.useMemo(() => coursesQuery.data?.items ?? [], [coursesQuery.data]);
   const updateMutation = useUpdateTrainee();
 
-  const form = useForm<Values>({ resolver: zodResolver(schema) });
+  const form = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      country: "",
+      category: "",
+      courseId: "",
+      tierLabel: "",
+      status: "PENDING",
+      amountPaidRwf: "",
+      notes: "",
+    },
+  });
+
+  const courseId = form.watch("courseId");
+  const selectedCourse = courses.find((c) => c.id === courseId);
+  const tiers = selectedCourse?.priceTiers ?? [];
 
   /* Seed the form once the real record arrives. */
   const seededRef = React.useRef(false);
@@ -91,6 +111,7 @@ export default function EditTraineePage() {
       country: trainee.country,
       category: trainee.category,
       courseId: trainee.courseId || courses[0]?.id || "",
+      tierLabel: trainee.tierLabel ?? "",
       /* SUSPENDED exists in the UI type but not in the Phase 1 database. */
       status: trainee.status as Values["status"],
       amountPaidRwf: trainee.amountPaidRwf > 0 ? String(trainee.amountPaidRwf) : "",
@@ -269,7 +290,20 @@ export default function EditTraineePage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Course</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(next) => {
+                        field.onChange(next);
+                        const course = courses.find((c) => c.id === next);
+                        const nextTiers = course?.priceTiers ?? [];
+                        if (nextTiers.length > 0) {
+                          const std = nextTiers.find((t) => t.label === "Standard") ?? nextTiers[0];
+                          form.setValue("tierLabel", std.label);
+                        } else {
+                          form.setValue("tierLabel", "");
+                        }
+                      }}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a course" />
@@ -278,7 +312,7 @@ export default function EditTraineePage() {
                       <SelectContent>
                         {courses.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
-                            {c.name}
+                            {c.name} — {formatRwf(c.priceRwf)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -287,6 +321,32 @@ export default function EditTraineePage() {
                   </FormItem>
                 )}
               />
+              {tiers.length > 0 && (
+                <FormField
+                  control={form.control}
+                  name="tierLabel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Package</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a package" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {tiers.map((t) => (
+                            <SelectItem key={t.label} value={t.label}>
+                              {t.label} — {formatRwf(t.amountRwf)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage>{form.formState.errors.tierLabel?.message}</FormMessage>
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="status"

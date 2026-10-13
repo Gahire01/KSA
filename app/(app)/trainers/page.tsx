@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { BookOpenIcon, MailIcon, UsersIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpenIcon, CheckIcon, MailIcon, PencilIcon, UsersIcon, XIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
 import { useDebounce } from "@/lib/hooks/use-debounce";
@@ -39,8 +41,22 @@ interface CourseRow {
 }
 
 export default function TrainersPage() {
+  const queryClient = useQueryClient();
   const [searchDraft, setSearchDraft] = React.useState("");
   const search = useDebounce(searchDraft, 200);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editName, setEditName] = React.useState("");
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      api.patch<{ id: string; name: string }>(`/trainers/${id}`, { name }),
+    onSuccess: () => {
+      toast.success("Trainer name updated");
+      setEditingId(null);
+      void queryClient.invalidateQueries({ queryKey: ["trainers"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not update the name."),
+  });
 
   const trainersQuery = useQuery({
     queryKey: ["trainers"],
@@ -115,7 +131,40 @@ export default function TrainersPage() {
                   <div className="flex items-start gap-3">
                     <AvatarInitials name={display} />
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="text-base">{display}</CardTitle>
+                      {editingId === t.id ? (
+                        <form
+                          className="flex items-center gap-1.5"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (editName.trim().length >= 2) renameMutation.mutate({ id: t.id, name: editName.trim() });
+                          }}
+                        >
+                          <Input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="h-7 text-sm"
+                            autoFocus
+                          />
+                          <Button type="submit" size="icon-sm" variant="ghost" disabled={renameMutation.isPending || editName.trim().length < 2}>
+                            <CheckIcon className="size-3.5" />
+                          </Button>
+                          <Button type="button" size="icon-sm" variant="ghost" onClick={() => setEditingId(null)}>
+                            <XIcon className="size-3.5" />
+                          </Button>
+                        </form>
+                      ) : (
+                        <CardTitle className="flex items-center gap-1.5 text-base">
+                          {display}
+                          <button
+                            type="button"
+                            className="inline-flex items-center text-ink-3 transition-colors hover:text-ink"
+                            onClick={() => { setEditName(t.name ?? ""); setEditingId(t.id); }}
+                            aria-label={`Edit ${display}`}
+                          >
+                            <PencilIcon className="size-3.5" />
+                          </button>
+                        </CardTitle>
+                      )}
                       <CardDescription className="mt-0.5 flex items-center gap-1.5">
                         <MailIcon className="size-3.5" />
                         {t.email}

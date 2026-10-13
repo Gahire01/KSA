@@ -45,6 +45,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["exceljs"],
   typedRoutes: false,
   devIndicators: false,
+  productionBrowserSourceMaps: false,
+  poweredByHeader: false,
+  compress: true,
   /* The certificate PDF reads the logo and the legacy signature straight off disk. Next's
    * file tracing only follows imports, so without this a serverless deploy would drop
    * those files and every PDF would silently print without them. */

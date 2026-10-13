@@ -53,6 +53,7 @@ const schema = z.object({
   country: z.string().min(1, "Select a country."),
   category: z.string().min(1, "Select a category."),
   courseId: z.string().min(1, "Select a course."),
+  tierLabel: z.string(),
   /* Kept as text so the field can start empty; digits only, and empty means 0. */
   amountPaidRwf: z.string().regex(/^\d{0,9}$/, "Use digits only."),
   notes: z.string().max(500, "Keep notes under 500 characters.").optional(),
@@ -81,6 +82,7 @@ export default function NewTraineePage() {
       country: "Rwanda",
       category: "",
       courseId: "",
+      tierLabel: "",
       amountPaidRwf: "",
       notes: "",
       consent: false,
@@ -88,8 +90,12 @@ export default function NewTraineePage() {
   });
 
   const courseId = form.watch("courseId");
+  const tierLabel = form.watch("tierLabel");
   const amount = form.watch("amountPaidRwf");
-  const price = courses.find((c) => c.id === courseId)?.priceRwf ?? 0;
+  const selectedCourse = courses.find((c) => c.id === courseId);
+  const tiers = selectedCourse?.priceTiers ?? [];
+  const tierPrice = tiers.find((t) => t.label === tierLabel)?.amountRwf;
+  const price = tierPrice ?? selectedCourse?.priceRwf ?? 0;
   const balance = Math.max(0, price - Number(amount || 0));
 
   const createMutation = useCreateTrainee();
@@ -249,11 +255,19 @@ export default function NewTraineePage() {
                       value={field.value}
                       onValueChange={(next) => {
                         field.onChange(next);
-                        /* The amount paid offers the course's standard price, and stays editable:
-                         * a trainee may have paid any package. Never overwrites what was typed. */
-                        const standard = courses.find((c) => c.id === next)?.priceRwf ?? 0;
-                        if (!form.getValues("amountPaidRwf") && standard > 0) {
-                          form.setValue("amountPaidRwf", String(standard));
+                        const course = courses.find((c) => c.id === next);
+                        const courseTiers = course?.priceTiers ?? [];
+                        if (courseTiers.length > 0) {
+                          const std = courseTiers.find((t) => t.label === "Standard") ?? courseTiers[0];
+                          form.setValue("tierLabel", std.label);
+                          if (!form.getValues("amountPaidRwf")) {
+                            form.setValue("amountPaidRwf", String(std.amountRwf));
+                          }
+                        } else {
+                          form.setValue("tierLabel", "");
+                          if (!form.getValues("amountPaidRwf") && (course?.priceRwf ?? 0) > 0) {
+                            form.setValue("amountPaidRwf", String(course?.priceRwf ?? 0));
+                          }
                         }
                       }}
                     >
@@ -274,6 +288,39 @@ export default function NewTraineePage() {
                   </FormItem>
                 )}
               />
+              {tiers.length > 0 && (
+                <FormField
+                  control={form.control}
+                  name="tierLabel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Package</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={(next) => {
+                          field.onChange(next);
+                          const tp = tiers.find((t) => t.label === next)?.amountRwf;
+                          if (tp !== undefined) form.setValue("amountPaidRwf", String(tp));
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a package" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {tiers.map((t) => (
+                            <SelectItem key={t.label} value={t.label}>
+                              {t.label} — {formatRwf(t.amountRwf)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage>{form.formState.errors.tierLabel?.message}</FormMessage>
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="amountPaidRwf"

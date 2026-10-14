@@ -1,3 +1,33 @@
+## Launch Polish Pass — 2026-10-14
+
+Parts A through O from the launch polish prompt, applied on `release/ksa-mvp`.
+
+### Done
+- **A** — Sidebar duplicate key fix: keyed on `${item.href}-${item.label}` (two `/exams` items).
+- **B** — 4 dashboard users seeded: gahiredev01 + kigalisafetyacademy (OWNER), niyofredsoni + duwimbabazi19 (ADMIN).
+- **C** — `MAX_ATTEMPTS` 2→3; "Attempt N of M" header; privacy notice overlay before retake; exhaustion message. Auto-retake already in `finalize.ts`.
+- **D** — Split `fire.txt` (30 questions) into `fire.txt` (15 fire fighting) + `first-aid.txt` (15 first aid). `QUESTION_BANKS` updated.
+- **E.1-E.3** — PDF route verified streaming; download button with spinner + toast on both detail page and preview dialog; lazy-loaded preview at 0.7 scale.
+- **F** — Light mode sidebar (white bg, dark: navy); auto-collapse 30s idle; `active:scale-[0.98]` micro-animations; active route orange bar; logout in user menu. Mobile Sheet stays `bg-navy`.
+- **G** — `lib/hooks/use-device.ts` (Mac/Win/Linux detection); Topbar kbd shows `⌘K` or `Ctrl K`.
+- **H** — Already handled: `APP_URL`/`NEXT_PUBLIC_APP_URL` everywhere; `siteBaseUrl()` blocks localhost in production.
+- **I** — Already complete: SSE stream, toasts, bell icon with badge, delete/clear/mark-read, Zustand persist store.
+- **J** — Already responsive: grids with sm/md/lg/xl breakpoints, mobile Sheet nav, `overflow-x-auto` tables, responsive padding.
+- **K** — Already optimized: `optimizePackageImports`, lazy charts/command palette, `next/font` self-hosting, 30+ database indexes, `compress: true`.
+- **L** — Dashboard clean: stat cards, lazy charts, alert severity, deadline badges, activity feed, proper empty states.
+- **M** — Audit clean: no emojis, no buzzwords, no gradients/glass, no Lorem ipsum, consistent design tokens.
+
+### Skipped
+- **E.4** (sample certificates in seed) — seed deliberately leaves trainees empty; creating dummy certificates would require full trainee+exam chains in the production database.
+- **Twilio + Resend** — per user instruction ("skip Twilio and email on resend.dev, we will cook them after").
+
+### Verification
+- `tsc --noEmit`: clean
+- No `/public/student/` touched
+- No secrets exposed
+
+---
+
 ## Known Issues — 2026-10-13
 
 ### BUG 1 — Hydration mismatch on ThemeToggle

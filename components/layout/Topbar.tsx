@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { buildBreadcrumbs } from "@/components/layout/breadcrumbs";
 import { useUiStore } from "@/lib/stores/ui-store";
+import { useDevice } from "@/lib/hooks/use-device";
 
 export function Topbar({
   onOpenMobileNav,
@@ -31,6 +32,8 @@ export function Topbar({
   const openCommand = useUiStore((s) => s.setCommandPaletteOpen);
 
   const crumbs = React.useMemo(() => buildBreadcrumbs(pathname), [pathname]);
+  const { isMac } = useDevice();
+  const shortcutHint = isMac ? "⌘K" : "Ctrl K";
 
   return (
     <header
@@ -104,7 +107,7 @@ export function Topbar({
         <SearchIcon className="size-4" />
         <span className="flex-1 text-left">Search…</span>
         <kbd className="rounded border border-line bg-card px-1.5 py-0.5 font-mono text-[10px] text-ink-2">
-          ⌘K
+          {shortcutHint}
         </kbd>
       </button>
 

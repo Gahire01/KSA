@@ -36,8 +36,12 @@ if (!connectionString) {
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
-const OWNER_EMAIL = "gahiredev01@gmail.com";
-const OWNER_NAME = "Academy Owner";
+const DASHBOARD_USERS = [
+  { email: "gahiredev01@gmail.com", name: "Academy Owner", role: "OWNER" as const },
+  { email: "kigalisafetyacademy@gmail.com", name: "Kigali Safety Academy", role: "OWNER" as const },
+  { email: "niyofredsoni@gmail.com", name: "Fredson Niyoniringiye", role: "ADMIN" as const },
+  { email: "duwimbabazi19@gmail.com", name: "Duwimbabazi", role: "ADMIN" as const },
+] as const;
 
 async function seedQuestions(courseId: string, code: string): Promise<{ added: number; total: number }> {
   const bank = loadQuestionBank(code);
@@ -88,44 +92,43 @@ async function main() {
 
   const passwordHash = await hashPassword(password);
 
-  const owner = await prisma.user.upsert({
-    where: { email: OWNER_EMAIL },
-    update: {
-      name: OWNER_NAME,
-      passwordHash,
-      role: "OWNER",
-      isActive: true,
-      /* TOTP is not part of sign-in anymore (the second factor is an emailed
-       * code from /login), so the owner never gets an authenticator secret. */
-      totpEnabled: false,
-      totpSecret: null,
-      /* Re-seeding also unwinds any lockout left over from failed sign-ins. */
-      failedLogins: 0,
-      lockedAt: null,
-    },
-    create: {
-      email: OWNER_EMAIL,
-      name: OWNER_NAME,
-      passwordHash,
-      role: "OWNER",
-      isActive: true,
-      totpEnabled: false,
-    },
-  });
+  let ownerId: string | undefined;
 
-  console.log(`  owner  ${owner.email} (password from SEED_OWNER_PASSWORD)`);
+  for (const u of DASHBOARD_USERS) {
+    const user = await prisma.user.upsert({
+      where: { email: u.email },
+      update: {
+        name: u.name,
+        passwordHash,
+        role: u.role,
+        isActive: true,
+        totpEnabled: false,
+        totpSecret: null,
+        failedLogins: 0,
+        lockedAt: null,
+      },
+      create: {
+        email: u.email,
+        name: u.name,
+        passwordHash,
+        role: u.role,
+        isActive: true,
+        totpEnabled: false,
+      },
+    });
 
-  /* No recovery codes here either: they are issued — and shown exactly once — by
-   * POST /api/auth/mfa/confirm, which nothing calls until TOTP returns. */
-  await prisma.recoveryCode.deleteMany({ where: { userId: owner.id } });
+    if (!ownerId && u.role === "OWNER") ownerId = user.id;
+    console.log(`  ${u.role.toLowerCase().padEnd(5)}  ${user.email} (password from SEED_OWNER_PASSWORD)`);
 
-  /* A reseed is a fresh start: codes outstanding from an earlier attempt are
-   * killed rather than left to expire, which also drops their attempt counter
-   * and resend cooldowns. */
-  const clearedOtps = await prisma.loginOtp.deleteMany({ where: { userId: owner.id } });
-  if (clearedOtps.count > 0) {
-    console.log(`  cleared ${clearedOtps.count} outstanding sign-in code(s)`);
+    await prisma.recoveryCode.deleteMany({ where: { userId: user.id } });
+
+    const clearedOtps = await prisma.loginOtp.deleteMany({ where: { userId: user.id } });
+    if (clearedOtps.count > 0) {
+      console.log(`  cleared ${clearedOtps.count} outstanding sign-in code(s) for ${user.email}`);
+    }
   }
+
+  const owner = await prisma.user.findUniqueOrThrow({ where: { email: DASHBOARD_USERS[0].email } });
 
   const categoryByName = new Map<string, string>();
   for (const name of new Set(COURSES.map((c) => c.category))) {

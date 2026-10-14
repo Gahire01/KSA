@@ -11,6 +11,7 @@ import {
   DownloadIcon,
   FileTextIcon,
   HashIcon,
+  LoaderIcon,
   ShieldCheckIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -99,6 +100,29 @@ export default function CertificateDetailPage() {
   const [revokeOpen, setRevokeOpen] = React.useState(false);
   const [revokeReason, setRevokeReason] = React.useState<string>(REVOKE_REASONS[0]);
   const [revokeNotes, setRevokeNotes] = React.useState("");
+  const [downloading, setDownloading] = React.useState(false);
+
+  const handleDownload = React.useCallback(async (certId: string, studentNumber: number) => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/certificates/${certId}/pdf`);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${studentNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Certificate downloaded");
+    } catch {
+      toast.error("Couldn't generate PDF — please try again");
+    } finally {
+      setDownloading(false);
+    }
+  }, []);
 
   const [origin, setOrigin] = React.useState("");
   /* The configured public address first, so the QR on screen is the one that gets printed
@@ -181,11 +205,19 @@ export default function CertificateDetailPage() {
         }
         actions={
           <>
-            <Button asChild variant="outline" size="sm" className="gap-1.5 print:hidden">
-              <a href={`/api/certificates/${cert.id}/pdf`} download>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 print:hidden"
+              disabled={downloading}
+              onClick={() => void handleDownload(cert.id, cert.studentNumber)}
+            >
+              {downloading ? (
+                <LoaderIcon className="size-4 animate-spin" />
+              ) : (
                 <DownloadIcon className="size-4" />
-                Download PDF
-              </a>
+              )}
+              {downloading ? "Generating PDF…" : "Download PDF"}
             </Button>
             {canRevoke && !isVoided ? (
               <Button

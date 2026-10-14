@@ -67,6 +67,7 @@ export interface RunnerResult {
   exhausted: boolean;
   /** Set when the sitting was ended by leaving the exam window twice. */
   reason?: "tab_leave" | null;
+  nextAttempt?: { emailed: boolean } | null;
   certificate: {
     id: string;
     studentNumber: number;
@@ -262,7 +263,7 @@ export function ExamRunner({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink">{paper.courseName}</p>
             <p className="truncate text-xs text-ink-2">
-              Question {index + 1} of {questions.length} · {answered} answered
+              Attempt {paper.attemptNumber} of {paper.maxAttempts} · Question {index + 1} of {questions.length} · {answered} answered
               {blurCount > 0 ? ` · Window left: ${blurCount}` : ""}
             </p>
           </div>
@@ -481,6 +482,8 @@ export function ExamSubmitted({
   submittedAt: string;
 }) {
   const passed = result.passed;
+  const [privacyAgreed, setPrivacyAgreed] = React.useState(false);
+  const [retakeConfirmed, setRetakeConfirmed] = React.useState(false);
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 px-4 py-12">
@@ -506,7 +509,7 @@ export function ExamSubmitted({
                   : "Not passed this time"}
             </h1>
             <p className="mt-1 text-sm text-ink-2">
-              {courseName} · submitted {formatDateTime(submittedAt)}
+              {courseName} · Attempt {result.attemptNumber} of {result.maxAttempts} · submitted {formatDateTime(submittedAt)}
             </p>
           </div>
 
@@ -531,15 +534,44 @@ export function ExamSubmitted({
               </p>
             </div>
           ) : result.exhausted ? (
-            <p className="rounded-lg bg-red-bg px-4 py-3 text-sm text-red">
-              You have used all {result.maxAttempts} attempts for this course. Speak to
-              the academy about re-enrolling.
-            </p>
+            <div className="w-full rounded-lg bg-red-bg px-4 py-3 text-sm text-red">
+              You have used all {result.maxAttempts} attempts. Contact the academy for assistance.
+            </div>
+          ) : retakeConfirmed ? (
+            <div className="w-full rounded-lg bg-green-bg px-4 py-3 text-sm text-green">
+              A new exam link has been sent to your email. Check your inbox to start your next attempt.
+            </div>
           ) : (
-            <p className="rounded-lg bg-amber-bg px-4 py-3 text-sm text-amber">
-              You have {result.attemptsRemaining} attempt{result.attemptsRemaining === 1 ? "" : "s"} left. Ask
-              your trainer to send the next paper. Answers are saved to your record either way.
-            </p>
+            <div className="w-full space-y-3 rounded-xl border border-line bg-card p-4 text-left">
+              <p className="text-sm font-medium text-ink">
+                You have {result.attemptsRemaining} attempt{result.attemptsRemaining === 1 ? "" : "s"} remaining.
+              </p>
+              <div className="rounded-lg bg-paper p-3 text-xs text-ink-2 space-y-1">
+                <p className="font-medium text-ink">By retaking this exam, I confirm:</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  <li>I am attempting the exam without external help</li>
+                  <li>I have not copied or shared the questions</li>
+                  <li>I understand that repeated focus-loss events will be flagged</li>
+                </ul>
+              </div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacyAgreed}
+                  onChange={(e) => setPrivacyAgreed(e.target.checked)}
+                  className="mt-0.5 size-4 rounded border-line accent-orange"
+                />
+                <span className="text-sm text-ink">I agree</span>
+              </label>
+              <Button
+                size="sm"
+                disabled={!privacyAgreed}
+                className="w-full"
+                onClick={() => setRetakeConfirmed(true)}
+              >
+                Start new attempt
+              </Button>
+            </div>
           )}
 
           <div className="mt-2 flex flex-wrap justify-center gap-2">

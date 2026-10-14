@@ -191,7 +191,7 @@ export function SidebarNav({
     const active = isActivePath(pathname, item.href);
     const Icon = item.icon;
     return (
-      <li key={item.href}>
+      <li key={`${item.href}-${item.label}`}>
         <Link
           href={item.href}
           onClick={onNavigate}
@@ -200,7 +200,10 @@ export function SidebarNav({
           className={cn(
             "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150",
             "focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none",
-            active ? "bg-orange/18 text-white" : "text-white/65 hover:bg-white/8 hover:text-white",
+            "active:scale-[0.98]",
+            active
+              ? "bg-orange/12 text-ink dark:bg-orange/18 dark:text-white"
+              : "text-ink-2 hover:bg-ink/5 hover:text-ink dark:text-white/65 dark:hover:bg-white/8 dark:hover:text-white",
             collapsed && "justify-center px-0",
           )}
         >
@@ -215,7 +218,7 @@ export function SidebarNav({
           {collapsed ? (
             <span className="sr-only">{item.label}</span>
           ) : (
-            <span className="truncate">{item.label}</span>
+            <span className="truncate transition-opacity duration-150">{item.label}</span>
           )}
         </Link>
       </li>
@@ -226,11 +229,11 @@ export function SidebarNav({
     <nav
       data-app="sidebar"
       aria-label="Main"
-      className={cn("flex h-full flex-col bg-navy text-sidebar-foreground", className)}
+      className={cn("flex h-full flex-col bg-white text-ink dark:bg-navy dark:text-sidebar-foreground", className)}
     >
       <div
         className={cn(
-          "flex h-16 shrink-0 items-center border-b border-white/10 px-4",
+          "flex h-16 shrink-0 items-center border-b border-line dark:border-white/10 px-4",
           collapsed && "justify-center px-0",
         )}
       >
@@ -240,7 +243,7 @@ export function SidebarNav({
           className="rounded-lg focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none"
           aria-label="Kigali Safety Academy — go to dashboard"
         >
-          <Logo showWordmark={!collapsed} size={32} wordmarkClassName="text-white" />
+          <Logo showWordmark={!collapsed} size={32} wordmarkClassName="text-ink dark:text-white" />
         </Link>
       </div>
 
@@ -260,14 +263,14 @@ export function SidebarNav({
           return (
             <div key={section.title} className="mb-3 last:mb-0">
               {collapsed ? (
-                <div className="mx-auto mb-2 h-px w-6 bg-white/10" aria-hidden />
+                <div className="mx-auto mb-2 h-px w-6 bg-line dark:bg-white/10" aria-hidden />
               ) : accordion ? (
                 <button
                   type="button"
                   onClick={() => toggleGroup(section.title, open)}
                   aria-expanded={open}
                   aria-controls={panelId}
-                  className="flex w-full items-center justify-between px-4 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-white/40 uppercase hover:text-white/70 focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none"
+                  className="flex w-full items-center justify-between px-4 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-ink-2/60 uppercase hover:text-ink dark:text-white/40 dark:hover:text-white/70 focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none"
                 >
                   {section.title}
                   <ChevronDownIcon
@@ -275,7 +278,7 @@ export function SidebarNav({
                   />
                 </button>
               ) : (
-                <p className="px-4 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-white/40 uppercase">
+                <p className="px-4 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-ink-2/60 uppercase dark:text-white/40">
                   {section.title}
                 </p>
               )}
@@ -290,13 +293,13 @@ export function SidebarNav({
       </div>
 
       {!collapsed && (
-        <p className="shrink-0 px-4 pb-2 text-center text-[11px] text-white/35">
+        <p className="shrink-0 px-4 pb-2 text-center text-[11px] text-ink-2/40 dark:text-white/35">
           Built by Gahire Abdilillah
         </p>
       )}
       <div
         className={cn(
-          "shrink-0 border-t border-white/10 p-2",
+          "shrink-0 border-t border-line dark:border-white/10 p-2",
           collapsed && "flex justify-center",
         )}
       >

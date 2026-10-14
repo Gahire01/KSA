@@ -6,8 +6,8 @@
 /** 50 passes, 49 fails. */
 export const PASS_MARK_PCT = 50;
 
-/** Attempt 1 fails -> attempt 2 is issued automatically. The owner may grant more. */
-export const MAX_ATTEMPTS = 2;
+/** Trainee may retake up to 3 times total (self-service, no admin action needed). */
+export const MAX_ATTEMPTS = 3;
 
 /** Every course gets the same one-hour paper. */
 export const EXAM_DURATION_MIN = 60;

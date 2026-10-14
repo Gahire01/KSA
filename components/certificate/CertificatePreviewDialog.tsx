@@ -2,10 +2,15 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
-import { DownloadIcon, ExternalLinkIcon } from "lucide-react";
+import { DownloadIcon, ExternalLinkIcon, LoaderIcon } from "lucide-react";
+import { toast } from "sonner";
 
-import { CertificateSheet } from "@/components/certificate/CertificateSheet";
+const CertificateSheet = dynamic(
+  () => import("@/components/certificate/CertificateSheet").then((m) => m.CertificateSheet),
+  { ssr: false, loading: () => <div className="h-[28rem] w-full animate-pulse rounded-xl bg-muted" /> },
+);
 import {
   Dialog,
   DialogContent,
@@ -55,6 +60,8 @@ export function CertificatePreviewDialog({
     [],
   );
 
+  const [downloading, setDownloading] = React.useState(false);
+
   const { data: cert, isLoading } = useQuery({
     queryKey: ["certificate", certificateId],
     queryFn: () => api.get<CertificateDetail>(`/certificates/${certificateId}`),
@@ -63,6 +70,29 @@ export function CertificatePreviewDialog({
   });
 
   const verifyUrl = origin && cert ? `${origin}/verify/${cert.verificationToken}` : "";
+
+  const handleDownload = React.useCallback(async () => {
+    if (!cert) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/certificates/${cert.id}/pdf`);
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${cert.studentNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Certificate downloaded");
+    } catch {
+      toast.error("Couldn't generate PDF — please try again");
+    } finally {
+      setDownloading(false);
+    }
+  }, [cert]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,31 +111,43 @@ export function CertificatePreviewDialog({
             <Skeleton className="h-[28rem] w-full rounded-xl" />
           </div>
         ) : (
-          <CertificateSheet
-            verifyUrl={verifyUrl}
-            cert={{
-              studentNumber: cert.studentNumber,
-              traineeName: cert.trainee.fullName,
-              courseName: cert.course.name,
-              topics: cert.topicsSnapshot,
-              duration: cert.durationSnapshot,
-              issuedAt: cert.issuedAt,
-              contentHash: cert.contentHash,
-              signerName: cert.signerNameSnapshot,
-              signerTitle: cert.signerTitleSnapshot,
-              signatureUrl: cert.signatureUrlSnapshot,
-              tierLabel: cert.trainee.tierLabel ?? null,
-            }}
-          />
+          <div className="overflow-auto">
+            <div className="origin-top-left scale-[0.7]" style={{ width: "142.86%" }}>
+              <CertificateSheet
+                verifyUrl={verifyUrl}
+                cert={{
+                  studentNumber: cert.studentNumber,
+                  traineeName: cert.trainee.fullName,
+                  courseName: cert.course.name,
+                  topics: cert.topicsSnapshot,
+                  duration: cert.durationSnapshot,
+                  issuedAt: cert.issuedAt,
+                  contentHash: cert.contentHash,
+                  signerName: cert.signerNameSnapshot,
+                  signerTitle: cert.signerTitleSnapshot,
+                  signatureUrl: cert.signatureUrlSnapshot,
+                  tierLabel: cert.trainee.tierLabel ?? null,
+                }}
+              />
+            </div>
+          </div>
         )}
 
         {cert ? (
           <DialogFooter>
-            <Button asChild variant="outline" size="sm" className="gap-1.5">
-              <a href={`/api/certificates/${cert.id}/pdf`} download>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={downloading}
+              onClick={() => void handleDownload()}
+            >
+              {downloading ? (
+                <LoaderIcon className="size-4 animate-spin" />
+              ) : (
                 <DownloadIcon className="size-4" />
-                Download PDF
-              </a>
+              )}
+              {downloading ? "Generating PDF…" : "Download PDF"}
             </Button>
             <Button asChild size="sm" className="gap-1.5">
               <Link href={`/certificates/${cert.id}`}>

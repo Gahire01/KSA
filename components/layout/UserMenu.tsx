@@ -41,7 +41,7 @@ export function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
         <button
           type="button"
           className={cn(
-            "flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors duration-150 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none",
+            "flex w-full items-center gap-2.5 rounded-lg p-2 text-left transition-colors duration-150 hover:bg-ink/5 dark:hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none active:scale-[0.98]",
             collapsed && "justify-center",
           )}
           aria-label={`Account menu for ${currentUser.name}`}
@@ -49,14 +49,14 @@ export function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
           <AvatarInitials
             name={currentUser.name}
             size="sm"
-            className="ring-1 ring-white/20"
+            className="ring-1 ring-line dark:ring-white/20"
           />
           {collapsed ? null : (
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-white">
+              <span className="block truncate text-sm font-medium text-ink dark:text-white">
                 {currentUser.name}
               </span>
-              <span className="block truncate text-[11px] text-white/50">
+              <span className="block truncate text-[11px] text-ink-2 dark:text-white/50">
                 {ROLE_LABEL[role]}
               </span>
             </span>

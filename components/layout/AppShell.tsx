@@ -33,6 +33,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useNotificationHydration(true);
   useNotificationStream(true);
 
+  /* Auto-collapse sidebar after 30s of no mouse/keyboard activity on it. */
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const sidebar = document.querySelector("[data-app='sidebar']")?.closest("aside");
+    if (!sidebar) return;
+
+    const reset = () => {
+      if (timer) clearTimeout(timer);
+      if (collapsed) useUiStore.getState().setSidebarCollapsed(false);
+      timer = setTimeout(() => {
+        useUiStore.getState().setSidebarCollapsed(true);
+      }, 30_000);
+    };
+
+    sidebar.addEventListener("mousemove", reset);
+    sidebar.addEventListener("keydown", reset);
+    timer = setTimeout(() => {
+      useUiStore.getState().setSidebarCollapsed(true);
+    }, 30_000);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      sidebar.removeEventListener("mousemove", reset);
+      sidebar.removeEventListener("keydown", reset);
+    };
+  }, [collapsed]);
+
   /* ⌘K / Ctrl+K opens the palette, "/" is reserved by page search fields. */
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

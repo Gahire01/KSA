@@ -23,12 +23,11 @@ export interface SeedQuestion {
   correctIndex: 0 | 1 | 2 | 3;
 }
 
-/** Which bank feeds which course. FIRST has none yet: the client sends its own set later. */
 export const QUESTION_BANKS: Record<string, { file: string; expected: number } | undefined> = {
   CONSTRUCT: { file: "construct.txt", expected: 30 },
   OSH: { file: "osh.txt", expected: 30 },
-  /* The client bundled fire fighting (15) and first aid (15) in one file. */
-  FIRE: { file: "fire.txt", expected: 30 },
+  FIRE: { file: "fire.txt", expected: 15 },
+  FIRST: { file: "first-aid.txt", expected: 15 },
   RIGGER: { file: "rigger.txt", expected: 30 },
 };
 

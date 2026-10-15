@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { guard } from "@/lib/api/guard";
 import { apiFail } from "@/lib/api/response";
 import { viaCourse } from "@/lib/auth/scope";

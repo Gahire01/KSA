@@ -62,7 +62,7 @@ export function CertificatePreviewDialog({
 
   const [downloading, setDownloading] = React.useState(false);
 
-  const { data: cert, isLoading } = useQuery({
+  const { data: cert, isLoading, isError, error } = useQuery({
     queryKey: ["certificate", certificateId],
     queryFn: () => api.get<CertificateDetail>(`/certificates/${certificateId}`),
     enabled: open && Boolean(certificateId),
@@ -75,8 +75,11 @@ export function CertificatePreviewDialog({
     if (!cert) return;
     setDownloading(true);
     try {
-      const res = await fetch(`/api/certificates/${cert.id}/pdf`);
-      if (!res.ok) throw new Error("Download failed");
+      const res = await fetch(`/api/certificates/${cert.id}/pdf`, { credentials: "include" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error ?? "Download failed");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -106,7 +109,16 @@ export function CertificatePreviewDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading || !cert ? (
+        {isError ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <p className="text-sm text-red">
+              {(error as Error)?.message ?? "Could not load certificate"}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </div>
+        ) : isLoading || !cert ? (
           <div className="space-y-4">
             <Skeleton className="h-[28rem] w-full rounded-xl" />
           </div>

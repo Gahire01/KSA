@@ -51,3 +51,10 @@ Nothing here blocked the build. Each item says what was done in the meantime.
 12. **FIX 7 — Export already built.** ExportMenu + `/api/reports/[type]` route + Excel (ExcelJS) and PDF
     (@react-pdf/renderer) generators all exist and are wired to `/trainees`, `/payments`, `/certificates`,
     `/exams`, and `/audit-log`. No code change needed.
+
+13. **"Image copied" toast — not found.** Grepped every `.tsx`/`.ts` file for `Image copied`,
+    `navigator.clipboard.write` (image blob), and `contextmenu` handlers in `components/certificate/*`.
+    No image-copy code exists anywhere. The only clipboard usage is `CopyButton.tsx` which copies
+    text (verification links). The `onContextMenu` in `CertificateSheet.tsx` just prevents right-click
+    with no toast. If the user saw an "Image copied" toast, it was likely from a browser extension
+    or Chrome's built-in long-press behavior on mobile, not from KSA code.

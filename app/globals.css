@@ -13,8 +13,8 @@
   --navy-2: #1b3a63;
   --orange: #e85d25;
   --orange-d: #b7430f;
-  --orange-strong: #c64a19;
-  --orange-stronger: #aa3c10;
+  --orange-strong: #E85D25;
+  --orange-stronger: #B7430F;
 
   /* Surfaces */
   --paper: #f4f2ec;
@@ -24,6 +24,7 @@
   /* Ink */
   --ink: #151515;
   --ink-2: #5b5b55;
+  --ink-3: #8a8a82;
 
   /* Status */
   --green: #1f7a4d;
@@ -73,6 +74,7 @@
   /* Ink inverted */
   --ink: #e9ebef;
   --ink-2: #9aa7b8;
+  --ink-3: #5a6778;
 
   /* Status */
   --green: #4ade9a;
@@ -111,10 +113,13 @@
   --color-orange: var(--orange);
   --color-orange-brand: var(--orange);
   --color-orange-d: var(--orange-d);
+  --color-orange-strong: var(--orange-strong);
+  --color-orange-stronger: var(--orange-stronger);
   --color-paper: var(--paper);
   --color-line: var(--line);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
   --color-green: var(--green);
   --color-green-bg: var(--green-bg);
   --color-amber: var(--amber);

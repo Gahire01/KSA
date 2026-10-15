@@ -105,8 +105,11 @@ export default function CertificateDetailPage() {
   const handleDownload = React.useCallback(async (certId: string, studentNumber: number) => {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/certificates/${certId}/pdf`);
-      if (!res.ok) throw new Error("Download failed");
+      const res = await fetch(`/api/certificates/${certId}/pdf`, { credentials: "include" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error ?? "Download failed");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

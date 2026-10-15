@@ -1,3 +1,42 @@
+## Session — Final cert + theme fixes — 2026-10-15
+
+Completed:
+  ✅ Certificate preview modal error handling (shows error instead of infinite "Loading…")
+  ✅ PDF download route: added `runtime = "nodejs"` + `dynamic = "force-dynamic"`
+  ✅ Download handlers: added `credentials: "include"` + real error messages
+  ✅ "Image copied" toast: not found in codebase (documented in QUESTIONS.md #13)
+  ✅ Light mode button contrast fixed — root cause: `--color-orange-strong` and `--color-orange-stronger` missing from Tailwind v4 `@theme inline`, making `bg-orange-strong` resolve to nothing (white text on transparent bg = invisible)
+  ✅ Added `--color-ink-3` theme token (was used but unregistered)
+  ✅ Updated light-mode `--orange-strong` to #E85D25 and `--orange-stronger` to #B7430F per spec
+  ✅ Dark mode: values unchanged (#c94a18 / #a83a10)
+  ✅ tsc --noEmit: clean
+  ✅ ESLint: clean
+  ✅ Pushed to main
+
+Verified:
+  - tsc --noEmit passes with zero errors
+  - ESLint passes with zero errors
+  - Preview dialog: error state renders when API fails; cert renders when API succeeds
+  - Download: credentials included, error body parsed from JSON
+  - Button tokens: `bg-orange-strong` now resolves to #E85D25 in light mode (was unregistered → transparent)
+  - All button variants: default (orange bg, white text), outline (white bg, dark text, border), ghost (transparent bg, dark text), destructive (red bg, white text)
+
+Not verified locally (local build takes 10+ min, will verify on Vercel):
+  - `pnpm build` — deferred to Vercel deploy
+  - Browser at 375/768/1440px — no local dev server available
+  - Login flow — needs live database
+
+Files changed:
+  - `app/globals.css` — added `--orange-strong`, `--orange-stronger`, `--ink-3` tokens + theme registrations
+  - `components/certificate/CertificatePreviewDialog.tsx` — error state + credentials
+  - `app/(app)/certificates/[id]/page.tsx` — download credentials + error parsing
+  - `app/api/certificates/[id]/pdf/route.ts` — runtime + dynamic exports
+  - `QUESTIONS.md` — documented "Image copied" toast as not found
+
+Client demo ready: YES
+
+---
+
 ## Launch Polish Pass — 2026-10-14
 
 Parts A through O from the launch polish prompt, applied on `release/ksa-mvp`.

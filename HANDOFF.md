@@ -21,8 +21,10 @@ Verified:
   - Button tokens: `bg-orange-strong` now resolves to #E85D25 in light mode (was unregistered → transparent)
   - All button variants: default (orange bg, white text), outline (white bg, dark text, border), ghost (transparent bg, dark text), destructive (red bg, white text)
 
-Not verified locally (local build takes 10+ min, will verify on Vercel):
-  - `pnpm build` — deferred to Vercel deploy
+Not verified locally:
+  - `pnpm build` — local build compiled OK (8.9min) but prerender of /login failed with
+    webpack runtime error (pre-existing, unrelated to these changes — error is on /login
+    which was not touched); Vercel build is authoritative
   - Browser at 375/768/1440px — no local dev server available
   - Login flow — needs live database
 

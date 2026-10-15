@@ -120,8 +120,8 @@ export default function CertificateDetailPage() {
       a.remove();
       URL.revokeObjectURL(url);
       toast.success("Certificate downloaded");
-    } catch {
-      toast.error("Couldn't generate PDF — please try again");
+    } catch (err) {
+      toast.error((err as Error)?.message || "Couldn't generate PDF — please try again");
     } finally {
       setDownloading(false);
     }

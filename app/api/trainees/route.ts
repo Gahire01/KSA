@@ -6,6 +6,8 @@ import { viaCourse } from "@/lib/auth/scope";
 import { invalidateCourses } from "@/lib/data-cache";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { sendEmail } from "@/lib/email/send";
+import { registrationConfirmationEmail } from "@/lib/email/templates";
 import { emit, ownerAndTrainerIds, ownerIds } from "@/lib/notifications/emit";
 import { recordPayment } from "@/lib/payments/ledger";
 import { nextTraineeNo } from "@/lib/trainees/number";
@@ -179,7 +181,30 @@ export async function POST(request: Request) {
         body: `${trainee.fullName} (${trainee.traineeNo}) was enrolled${trainee.course ? ` in ${trainee.course.name}` : ""}.`,
       });
 
-      return apiOk(trainee, 201);
+      let emailWarning: string | undefined;
+      const email = trainee.email?.trim();
+      if (email && email !== "" && !email.startsWith("placeholder")) {
+        try {
+          const firstName = trainee.fullName.split(" ")[0] ?? trainee.fullName;
+          const message = registrationConfirmationEmail({
+            firstName,
+            courseName: trainee.course?.name ?? "your course",
+            traineeCode: trainee.traineeNo,
+            registeredOn: new Date(),
+            tierLabel: trainee.tierLabel,
+          });
+          const result = await sendEmail({ to: email, ...message });
+          if (!result.ok) {
+            console.error("[trainee-create] confirmation email failed:", result.reason);
+            emailWarning = "Trainee saved but confirmation email failed";
+          }
+        } catch (err) {
+          console.error("[trainee-create] confirmation email error:", err);
+          emailWarning = "Trainee saved but confirmation email failed";
+        }
+      }
+
+      return apiOk({ ...trainee, ...(emailWarning ? { warning: emailWarning } : {}) }, 201);
     } catch (error) {
       const isTraineeNoClash =
         typeof error === "object" &&

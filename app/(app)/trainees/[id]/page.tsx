@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { CopyButton } from "@/components/shared/CopyButton";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -246,13 +247,20 @@ export default function TraineeDetailPage() {
                 <div className="flex items-center gap-2">
                   <MailIcon className="size-3.5 shrink-0 text-ink-3" aria-hidden />
                   <dt className="sr-only">Email</dt>
-                  <dd className="min-w-0">
-                    <a
-                      href={`mailto:${trainee.email}`}
-                      className="block truncate text-ink underline decoration-line underline-offset-2 transition-colors hover:decoration-orange"
-                    >
-                      {trainee.email}
-                    </a>
+                  <dd className="flex min-w-0 items-center gap-1">
+                    {trainee.email ? (
+                      <>
+                        <a
+                          href={`mailto:${trainee.email}`}
+                          className="block truncate text-ink underline decoration-line underline-offset-2 transition-colors hover:decoration-orange"
+                        >
+                          {trainee.email}
+                        </a>
+                        <CopyButton value={trainee.email} label="email" variant="inline" size={13} />
+                      </>
+                    ) : (
+                      <span className="text-ink-3">—</span>
+                    )}
                   </dd>
                 </div>
                 <div className="flex items-center gap-2">

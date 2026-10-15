@@ -12,6 +12,7 @@ import {
   WalletIcon,
 } from "lucide-react";
 
+import { CopyButton } from "@/components/shared/CopyButton";
 import { ExportMenu } from "@/components/shared/ExportMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
@@ -73,6 +74,7 @@ interface Filters {
   paymentStatuses: PaymentStatus[];
   countries: Country[];
   range: DateRange;
+  missingEmail: boolean;
 }
 
 const EMPTY: Filters = {
@@ -83,6 +85,7 @@ const EMPTY: Filters = {
   paymentStatuses: [],
   countries: [],
   range: {},
+  missingEmail: false,
 };
 
 export default function TraineesPage() {
@@ -183,7 +186,10 @@ export default function TraineesPage() {
     enabled: !noVisibleRows,
   });
 
-  const rows = noVisibleRows ? [] : (data?.items ?? []);
+  const rawRows = noVisibleRows ? [] : (data?.items ?? []);
+  const rows = filters.missingEmail
+    ? rawRows.filter((t) => !t.email || !t.email.trim())
+    : rawRows;
 
   const courseName = React.useCallback(
     (id: string) => courses.find((c) => c.id === id)?.name ?? "—",
@@ -207,6 +213,21 @@ export default function TraineesPage() {
             </div>
           </div>
         ),
+      },
+      {
+        id: "email",
+        header: "Email",
+        accessorFn: (t) => t.email,
+        cell: ({ row }) => {
+          const email = row.original.email?.trim();
+          if (!email) return <span className="text-ink-3">—</span>;
+          return (
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-sm text-ink">{email}</span>
+              <CopyButton value={email} label="email" variant="inline" size={12} />
+            </div>
+          );
+        },
       },
       {
         id: "course",
@@ -338,6 +359,14 @@ export default function TraineesPage() {
         onRemove: () => setFilters((f) => ({ ...f, range: {} })),
       });
     }
+    if (filters.missingEmail) {
+      out.push({
+        id: "missing-email",
+        label: "Email",
+        value: "Missing",
+        onRemove: () => setFilters((f) => ({ ...f, missingEmail: false })),
+      });
+    }
     return out;
   }, [filters, courseName]);
 
@@ -464,6 +493,15 @@ export default function TraineesPage() {
                 onChange={(range) => setFilters((f) => ({ ...f, range }))}
                 label="Enrolled between"
               />
+              <Button
+                variant={filters.missingEmail ? "default" : "outline"}
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={() => setFilters((f) => ({ ...f, missingEmail: !f.missingEmail }))}
+              >
+                <MailIcon className="size-3.5" />
+                Missing email
+              </Button>
             </div>
           </div>
 

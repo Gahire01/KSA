@@ -151,8 +151,25 @@ export function sectionItems(section: NavSection): NavItem[] {
 }
 
 export function isActivePath(pathname: string, href: string): boolean {
-  if (href === "/dashboard") return pathname === "/dashboard";
-  return pathname === href || pathname.startsWith(`${href}/`);
+  if (pathname === href) return true;
+  if (href === "/dashboard") return false;
+
+  const SUB_ROUTES: Record<string, string[]> = {
+    "/trainees": ["/trainees/new", "/trainees/import"],
+    "/courses": ["/courses/new"],
+    "/exams": ["/exams/new"],
+    "/certificates": ["/certificates/issue"],
+    "/payments": ["/payments/new"],
+    "/settings": ["/settings/signature", "/settings/profile", "/settings/access", "/settings/referrals"],
+  };
+
+  const subs = SUB_ROUTES[href];
+  if (subs) {
+    if (subs.some((s) => pathname === s || pathname.startsWith(`${s}/`))) return false;
+    return pathname.startsWith(`${href}/`);
+  }
+
+  return false;
 }
 
 const STORAGE_KEY = "ksa:sidebar:groups";

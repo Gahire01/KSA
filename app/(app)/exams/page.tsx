@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ClockIcon, FileQuestionIcon, SendIcon } from "lucide-react";
 
+import { ExportMenu } from "@/components/shared/ExportMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -240,12 +241,15 @@ export default function ExamsPage() {
         title="Exams"
         subtitle="Each course is one exam. Manage its questions, send it to trainees and review every sitting."
         actions={
-          <Button asChild size="sm" className="gap-1.5">
-            <Link href="/exams/new">
-              <SendIcon className="size-4" />
-              Send an exam
-            </Link>
-          </Button>
+          <>
+            <ExportMenu type="exam-results" />
+            <Button asChild size="sm" className="gap-1.5">
+              <Link href="/exams/new">
+                <SendIcon className="size-4" />
+                Send an exam
+              </Link>
+            </Button>
+          </>
         }
       />
 

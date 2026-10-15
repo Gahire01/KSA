@@ -346,3 +346,58 @@ The academy has reopened your exam for <strong>${escapeHtml(input.courseName)}</
 
   return { subject, html: shell(inner), text };
 }
+
+export interface RegistrationConfirmationInput {
+  firstName: string;
+  courseName: string;
+  traineeCode: string;
+  registeredOn: Date;
+  tierLabel?: string | null;
+}
+
+export function registrationConfirmationEmail(input: RegistrationConfirmationInput): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const subject = "You're registered at Kigali Safety Academy";
+  const date = formatDdMmYyyy(input.registeredOn);
+
+  const tierLine = input.tierLabel
+    ? `<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">Package <strong style="color:${NAVY};">${escapeHtml(input.tierLabel)}</strong></p>`
+    : "";
+
+  const inner = `
+<p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:${INK_2};">Registration confirmed</p>
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.25;color:${NAVY};">Hello ${escapeHtml(input.firstName)},</h1>
+<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:${INK};">
+You&rsquo;ve been successfully registered at Kigali Safety Academy for the <strong style="color:${NAVY};">${escapeHtml(input.courseName)}</strong> course.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};border-radius:10px;border-left:4px solid ${ORANGE};padding:14px 16px;margin:0 0 22px;">
+<tr><td>
+<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">Registered on <strong style="color:${NAVY};">${date}</strong></p>
+<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">Your Trainee ID <strong style="color:${NAVY};font-size:16px;">${escapeHtml(input.traineeCode)}</strong></p>
+${tierLine}
+</td></tr>
+</table>
+<p style="margin:0;font-size:14px;line-height:1.6;color:${INK_2};">
+You will receive your exam link by email when your batch begins. Contact the academy if you have any questions.
+</p>`;
+
+  const text = [
+    `Hello ${input.firstName},`,
+    ``,
+    `You've been successfully registered at Kigali Safety Academy for the ${input.courseName} course.`,
+    `Registered on: ${date}`,
+    `Your Trainee ID: ${input.traineeCode}`,
+    ...(input.tierLabel ? [`Your Package: ${input.tierLabel}`] : []),
+    ``,
+    `You will receive your exam link by email when your batch begins. Contact the academy if you have questions.`,
+  ].join("\n");
+
+  return {
+    subject,
+    html: shell(inner, { footer: BRAND_FOOTER }),
+    text,
+  };
+}

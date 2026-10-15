@@ -10,6 +10,8 @@ import {
   PencilIcon,
   ShieldCheckIcon,
 } from "lucide-react";
+
+import { CopyButton } from "@/components/shared/CopyButton";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -152,7 +154,10 @@ export default function ProfilePage() {
                     </button>
                   </p>
                 )}
-                <p className="truncate text-sm text-ink-2">{currentUser?.email}</p>
+                <p className="flex items-center gap-1 truncate text-sm text-ink-2">
+                  {currentUser?.email}
+                  {currentUser?.email ? <CopyButton value={currentUser.email} label="email" variant="inline" size={13} /> : null}
+                </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{currentUser?.role}</Badge>
                   <span className="inline-flex items-center gap-1 text-xs text-ink-3">

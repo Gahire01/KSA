@@ -38,3 +38,16 @@ Nothing here blocked the build. Each item says what was done in the meantime.
 9. **Prices for trainees enrolled before the tiers.** Payment status now treats the cheapest package as "paid in
    full" (someone who paid Basic has bought Basic). *Question:* is that the rule you want, or should "paid in
    full" mean the Standard price?
+
+10. **FIX 2 — 401 on /api/dashboard.** Already correct in code: `credentials: "include"` is set globally in
+    `lib/api/client.ts`, and `guard()` reads the right session cookie. The 401 only happens when there is no
+    active session (user not logged in). If it persists after login, check for a port mismatch or cookie-blocking.
+    No code change needed.
+
+11. **FIX 3 — 500 on /api/auth/login.** Already handled: the route wraps the OTP email in try/catch and returns
+    a user-facing error. A 500 only occurs when `RESEND_API_KEY` is missing or Resend rejects the send.
+    **Env requirement:** set `RESEND_API_KEY` (and optionally `EMAIL_FROM`) in `.env.local`.
+
+12. **FIX 7 — Export already built.** ExportMenu + `/api/reports/[type]` route + Excel (ExcelJS) and PDF
+    (@react-pdf/renderer) generators all exist and are wired to `/trainees`, `/payments`, `/certificates`,
+    `/exams`, and `/audit-log`. No code change needed.

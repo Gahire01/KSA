@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 
 import { cn } from "@/lib/utils/cn";
@@ -45,8 +47,14 @@ export function PageHeader({
 }
 
 export function TodaySubtitle({ prefix = "" }: { prefix?: string }) {
+  const [isoDate, setIsoDate] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setIsoDate(new Date().toISOString());
+  }, []);
+
   return (
-    <span title={new Date().toISOString()}>
+    <span title={isoDate ?? undefined}>
       {prefix}
       {formatDateLong(new Date())}
     </span>

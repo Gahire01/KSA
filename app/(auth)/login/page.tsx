@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRightIcon, MailIcon } from "lucide-react";
+import { ArrowRightIcon, EyeIcon, EyeOffIcon, MailIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -55,6 +55,7 @@ export default function LoginPage() {
   const [lockoutIn, setLockoutIn] = React.useState(0);
   /** "Remember me": 30 days when ticked (the default), 12 hours when not. */
   const [remember, setRemember] = React.useState(true);
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const boxRefs = React.useRef<Array<HTMLInputElement | null>>([]);
   const joined = otp.join("");
@@ -547,13 +548,24 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
-                        autoComplete="current-password"
-                        placeholder="••••••••••"
-                        aria-invalid={Boolean(form.formState.errors.password)}
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="current-password"
+                          placeholder="••••••••••"
+                          aria-invalid={Boolean(form.formState.errors.password)}
+                          className="pr-10"
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-2 transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-orange focus-visible:outline-none rounded"
+                        >
+                          {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage>{form.formState.errors.password?.message}</FormMessage>
                   </FormItem>

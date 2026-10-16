@@ -87,7 +87,7 @@ export function CommandPalette() {
         sectionItems(section)
           .filter((item) => !item.roles || item.roles.includes(role))
           .map((item) => ({
-            id: `nav:${item.href}`,
+            id: `nav:${item.href}-${item.label}`,
             label: item.label,
             hint: section.title,
             href: item.href,

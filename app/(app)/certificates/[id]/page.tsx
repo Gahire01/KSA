@@ -107,14 +107,21 @@ export default function CertificateDetailPage() {
     try {
       const res = await fetch(`/api/certificates/${certId}/pdf`, { credentials: "include" });
       if (!res.ok) {
-        const body = await res.json().catch(() => null) as { error?: string } | null;
-        throw new Error(body?.error ?? "Download failed");
+        const text = await res.text().catch(() => "");
+        let message = text || `Request failed (${res.status})`;
+        try {
+          const body = JSON.parse(text) as { error?: string };
+          if (body?.error) message = body.error;
+        } catch {
+          /* non-JSON error body (plain text) — use it as-is */
+        }
+        throw new Error(message);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${studentNumber}.pdf`;
+      a.download = `KSA-CERT-${studentNumber}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();

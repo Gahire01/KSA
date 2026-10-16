@@ -99,6 +99,6 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
    * the Content-Disposition header. */
   return {
     buffer: Buffer.from(buffer),
-    filename: `${cert.studentNumber}.pdf`,
+    filename: `KSA-CERT-${cert.studentNumber}.pdf`,
   };
 }

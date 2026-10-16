@@ -46,9 +46,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       },
     });
   } catch (error) {
-    /* Never surface a renderer stack trace or a font path to the caller. */
-    return apiFail("The certificate PDF could not be generated.", 500, {
-      logError: error,
+    return new Response(error instanceof Error ? error.message : "The certificate PDF could not be generated.", {
+      status: 500,
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
     });
   }
 }

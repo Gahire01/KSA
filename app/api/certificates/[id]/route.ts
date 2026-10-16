@@ -34,7 +34,14 @@ const detailSelect = {
   revokedReason: true,
   createdAt: true,
   trainee: {
-    select: { id: true, fullName: true, traineeNo: true, categoryName: true, email: true, tierLabel: true },
+    select: {
+      id: true,
+      fullName: true,
+      traineeNo: true,
+      email: true,
+      tierLabel: true,
+      category: { select: { name: true } },
+    },
   },
   course: { select: { id: true, code: true, name: true, topics: true } },
 } as const;
@@ -52,5 +59,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
   if (!cert) return apiFail("That certificate does not exist.", 404);
 
-  return apiOk({ ...cert, status: certificateStatus(cert) });
+  const { category, ...traineeRest } = cert.trainee;
+  return apiOk({
+    ...cert,
+    trainee: { ...traineeRest, categoryName: category?.name ?? null },
+    status: certificateStatus(cert),
+  });
 }

@@ -56,7 +56,7 @@ export function TodaySubtitle({ prefix = "" }: { prefix?: string }) {
   return (
     <span title={isoDate ?? undefined}>
       {prefix}
-      {formatDateLong(new Date())}
+      {isoDate ? formatDateLong(isoDate) : "Today"}
     </span>
   );
 }

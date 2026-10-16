@@ -1392,3 +1392,24 @@ prisma/schema.prisma, lib/api/schemas.ts, lib/api/types.ts, lib/types/index.ts, 
 - Remaining UI/checklist items were already satisfied on real pages: toasts for success/error, mobile menu (Topbar + sheet), breakcrumbs, tabular numbers, no horizontal overflow in tables (scroll containers), DataTable header sticky, print styles on certificates/reports.
 - The many mock-backed admin pages (dashboard, payments, reports, audit-log, trainers, settings lists, CommandPalette...) still render fake people/data via lib/mock - scope recorded in STRETCH below.
 - tsc + lint green.
+
+## Session - 2026-10-16 - Certificate downloads and UI fixes
+
+- Preserved all pre-existing working-tree changes. No commit or push.
+- Trainee category: existing detail route already selects `category.name` and maps `categoryName`; repository search found no remaining invalid Prisma Trainee categoryName reads.
+- PDF: kept the existing Node runtime, dynamic route, binary response and PDF headers. Renderer failures now return the actual error message as plain text with status 500. Replaced the register's direct download anchor with authenticated blob fetching, a named object-URL download, disabled/loading state and success/error toasts. Existing detail/preview download handlers were preserved.
+- Duplicate navigation key: Sidebar already uses href + label. The remaining `nav:/exams` collision was in CommandPalette; its ID now includes the label, with routes unchanged.
+- Hydration: TodaySubtitle already set its title in an effect; visible date now uses that same mounted value, with a stable Today placeholder for SSR and initial hydration.
+- Button contrast: existing primary/destructive/light text tokens matched the request. Added a button hover token (#F4F2EC light; existing muted color dark), applied it to outline/ghost, retained the light outline border and explicit transparent ghost background. Dark colors remain unchanged.
+
+### Verification
+
+- TypeScript and ESLint passed after each new fix, with no errors or lint warnings. The initial two unused imports are now used by the register download button. Environment reports Node 26.2.0 against the project's Node 24.x engine requirement.
+- /certificates loads: PASS (one certificate in this account).
+- Revoked preview: PASS, certificate 263 opens with its content and no unreadable-response error; detail API HTTP 200, no Prisma error in observed dev output.
+- Valid preview: NOT TESTED; register has zero valid certificates. No certificate status or data was changed to manufacture a fixture.
+- Download: PASS from preview and register; register visibly shows Generating PDF while disabled. PDF endpoint HTTP 200. Downloads contains KSA-CERT-263.pdf (315800 bytes), no pdf.txt. pypdf opens it as one page; Poppler renders the certificate successfully and the rendered page was visually inspected.
+- Duplicate key: PASS; fresh dashboard and open command palette show both exam entries without warnings.
+- Hydration: PASS; dashboard reload first shows Today, then mounted date/title, with no console warnings/errors.
+- Light buttons: PASS on dashboard (Register trainee) and certificates; certificate controls also visually checked in dark mode. Shared cva/tokens apply across pages, but every individual application route was not exhaustively inspected. Theme left light for review.
+- Browser session/server restarted during verification; signed-in session recovered. No temporary renderer logs remain.

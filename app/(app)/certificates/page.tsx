@@ -10,8 +10,10 @@ import {
   BadgeCheckIcon,
   DownloadIcon,
   EyeIcon,
+  LoaderIcon,
   ShieldCheckIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { CertificatePreviewDialog } from "@/components/certificate/CertificatePreviewDialog";
 import { ExportMenu } from "@/components/shared/ExportMenu";
@@ -84,6 +86,44 @@ interface Filters {
 
 const EMPTY: Filters = { search: "", statuses: [], courseIds: [], range: {} };
 const FETCH_SIZE = 50;
+
+function CertificateDownloadButton({ certificate }: { certificate: CertificateRow }) {
+  const [downloading, setDownloading] = React.useState(false);
+
+  async function download() {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/certificates/${certificate.id}/pdf`, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `KSA-CERT-${certificate.studentNumber}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success("Certificate downloaded");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Couldn't generate PDF");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size={downloading ? "sm" : "icon-sm"}
+      disabled={downloading}
+      aria-label={`Download PDF for certificate ${certificate.studentNumber}`}
+      onClick={download}
+    >
+      {downloading ? <><LoaderIcon className="size-4 animate-spin" />Generating PDF…</> : <DownloadIcon className="size-4" />}
+    </Button>
+  );
+}
 
 export default function CertificatesPage() {
   const router = useRouter();
@@ -256,16 +296,7 @@ export default function CertificatesPage() {
         enableHiding: false,
         cell: ({ row }) => (
           <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            <Button
-              asChild
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Download PDF for certificate ${row.original.studentNumber}`}
-            >
-              <a href={`/api/certificates/${row.original.id}/pdf`} download>
-                <DownloadIcon className="size-4" />
-              </a>
-            </Button>
+            <CertificateDownloadButton certificate={row.original} />
             <Button
               variant="ghost"
               size="icon-sm"

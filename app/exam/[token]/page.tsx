@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 
+import { ClockIcon, RefreshCwIcon, ShieldAlertIcon } from "lucide-react";
+
 import { Logo } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -51,6 +53,13 @@ export default function ExamPage() {
   const [blockedMessage, setBlockedMessage] = React.useState<string>(LINK_USED_MESSAGE);
   const [reloadKey, setReloadKey] = React.useState(0);
   const [briefed, setBriefed] = React.useState(false);
+  const [briefingDismissed, setBriefingDismissed] = React.useState(false);
+  const [briefingInfo, setBriefingInfo] = React.useState<{
+    traineeName: string;
+    courseName: string;
+    examDurationMin: number;
+    maxAttempts: number;
+  } | null>(null);
 
   /* One tab per exam: a second tab on the same paper is blocked, not the first. */
   const tabState = useSingleTab(token, phase === "paper");
@@ -66,6 +75,7 @@ export default function ExamPage() {
       .then((loaded) => {
         if (cancelled) return;
         setPaper(loaded);
+        setBriefingDismissed(true);
         setPhase("paper");
       })
       .catch((loadError: unknown) => {
@@ -147,6 +157,12 @@ export default function ExamPage() {
           `/exams/attempts/${encodeURIComponent(token)}/next`,
         );
 
+        setBriefingInfo({
+          traineeName: verified.traineeName,
+          courseName: verified.courseName,
+          examDurationMin: verified.examDurationMin,
+          maxAttempts: loaded.maxAttempts,
+        });
         setPaper(loaded);
         setPhase("paper");
         toast.success("Code accepted", {
@@ -285,6 +301,44 @@ export default function ExamPage() {
         <div className="mx-auto max-w-3xl space-y-4 px-4 py-10">
           <Skeleton className="h-8 w-56" />
           <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      );
+    }
+    /* Post-OTP personalised briefing: appears after code is accepted but before
+     * the exam runner mounts. Shows the trainee's name, course, and rules. */
+    if (briefingInfo && !briefingDismissed) {
+      return (
+        <div className="mx-auto max-w-xl space-y-6 px-4 py-16">
+          <div className="text-center">
+            <Logo />
+            <h1 className="mt-4 font-display text-2xl font-semibold text-ink">
+              Welcome, {briefingInfo.traineeName}!
+            </h1>
+            <p className="mt-2 text-base text-ink-2">
+              You are about to start the <strong className="text-ink">{briefingInfo.courseName}</strong> exam. Best of luck!
+            </p>
+          </div>
+          <ul className="space-y-3 text-left text-sm text-ink">
+            <li className="flex items-start gap-3 rounded-xl border border-line bg-card px-4 py-3">
+              <ClockIcon className="mt-0.5 size-5 shrink-0 text-orange" />
+              <span>You have <strong>{briefingInfo.examDurationMin} minutes</strong> to complete this exam.</span>
+            </li>
+            <li className="flex items-start gap-3 rounded-xl border border-line bg-card px-4 py-3">
+              <RefreshCwIcon className="mt-0.5 size-5 shrink-0 text-orange" />
+              <span>You have up to <strong>{briefingInfo.maxAttempts} attempts</strong> to pass.</span>
+            </li>
+            <li className="flex items-start gap-3 rounded-xl border border-line bg-card px-4 py-3">
+              <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-orange" />
+              <span>This exam is monitored. Switching tabs, right-clicking, or copying text is disabled and will be flagged.</span>
+            </li>
+          </ul>
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={() => setBriefingDismissed(true)}
+          >
+            I understand, start my exam
+          </Button>
         </div>
       );
     }

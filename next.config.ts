@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   /* ExcelJS drags in an old rimraf that the bundler cannot resolve under pnpm's strict layout;
    * left external, Node resolves its own dependencies at runtime. */
-  serverExternalPackages: ["exceljs"],
+  serverExternalPackages: ["exceljs", "pdf-lib"],
   typedRoutes: false,
   devIndicators: false,
   productionBrowserSourceMaps: false,
@@ -54,7 +54,7 @@ const nextConfig: NextConfig = {
    * file tracing only follows imports, so without this a serverless deploy would drop
    * those files and every PDF would silently print without them. */
   outputFileTracingIncludes: {
-    "/api/certificates/[id]/pdf": ["./public/logo.png", "./public/certificate/signature.png"],
+    "/api/certificates/[id]/pdf": ["./public/logo.png", "./public/certificate/signature.png", "./public/templates/*.pdf"],
     "/api/reports/[type]": ["./public/logo.png"],
   },
   experimental: {

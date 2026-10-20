@@ -123,6 +123,7 @@ export function ExamRunner({
   const answered = questions.filter((q) => answers[q.id]).length;
   const progressPct = questions.length ? (answered / questions.length) * 100 : 0;
   const lowTime = secondsLeft <= 300;
+  const criticalTime = secondsLeft <= 60 && secondsLeft > 0;
 
   const sendSave = React.useCallback(
     async (change: { questionId: string; optionId: string }) => {
@@ -185,6 +186,28 @@ export function ExamRunner({
     }, 30_000);
     return () => window.clearInterval(id);
   }, [token]);
+
+  /* Timer warnings: fire once at each threshold. */
+  const warned = React.useRef<Set<number>>(new Set());
+  React.useEffect(() => {
+    const thresholds = [
+      { at: 600, label: "10 minutes remaining", style: "default" as const },
+      { at: 300, label: "5 minutes remaining", style: "warning" as const },
+      { at: 60, label: "1 minute remaining!", style: "error" as const },
+    ];
+    for (const t of thresholds) {
+      if (secondsLeft <= t.at && secondsLeft > 0 && !warned.current.has(t.at)) {
+        warned.current.add(t.at);
+        if (t.style === "error") {
+          toast.error(t.label, { duration: 8000 });
+        } else if (t.style === "warning") {
+          toast.warning(t.label, { duration: 6000 });
+        } else {
+          toast.info(t.label, { duration: 5000 });
+        }
+      }
+    }
+  }, [secondsLeft]);
 
   /* Timer. On expiry the paper submits itself, exactly once: `autoSubmitted` keeps
    * the zero-second tick from firing a second submit while the first is in flight. */
@@ -270,9 +293,11 @@ export function ExamRunner({
           <div className="flex items-center gap-3">
             <span
               className={
-                lowTime
-                  ? "flex items-center gap-1.5 rounded-lg bg-red-bg px-3 py-1.5 font-mono text-sm font-semibold text-red"
-                  : "flex items-center gap-1.5 rounded-lg bg-paper px-3 py-1.5 font-mono text-sm font-semibold text-ink"
+                criticalTime
+                  ? "flex items-center gap-1.5 rounded-lg bg-red-bg px-3 py-1.5 font-mono text-sm font-semibold text-red animate-pulse"
+                  : lowTime
+                    ? "flex items-center gap-1.5 rounded-lg bg-red-bg px-3 py-1.5 font-mono text-sm font-semibold text-red"
+                    : "flex items-center gap-1.5 rounded-lg bg-paper px-3 py-1.5 font-mono text-sm font-semibold text-ink"
               }
               aria-live="off"
             >

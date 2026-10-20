@@ -81,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh bg-paper">
       <aside
         className={cn(
-          "no-print sticky top-0 hidden h-dvh shrink-0 overflow-hidden transition-[width] duration-200 ease-out lg:block",
+          "no-print sticky top-0 hidden h-dvh shrink-0 overflow-hidden border-r border-line transition-[width] duration-200 ease-out lg:block",
           collapsed ? "w-16" : "w-64",
         )}
       >
@@ -91,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent
           side="left"
-          className="w-72 border-r border-line bg-navy p-0 lg:hidden"
+          className="w-72 border-r border-line bg-white p-0 dark:bg-navy lg:hidden"
           aria-label="Navigation"
         >
           <SheetTitle className="sr-only">Main navigation</SheetTitle>

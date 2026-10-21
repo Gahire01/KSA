@@ -7,7 +7,7 @@
  * and given explicit dimensions so a blocked image leaves the layout intact.
  */
 
-import { appUrl, sendEmail } from "@/lib/email/send";
+import { sendEmail } from "@/lib/email/send";
 import { ACADEMY, isPlaceholder } from "@/lib/academy/constants";
 import { COMMON_FOOTER } from "@/lib/email/footer";
 
@@ -58,7 +58,7 @@ ${preheader}
 <tr><td style="border-bottom:1px solid ${LINE};">
 <table width="100%" cellpadding="0" cellspacing="0">
 <tr><td align="center" style="padding: 24px 0 8px;">
-<img src="${escapeHtml(appUrl("/logo.png"))}" alt="Kigali Safety Academy"
+<img src="https://ksa-teal.vercel.app/logo.png" alt="Kigali Safety Academy"
 width="120" style="display:block;width:120px;height:auto;">
 </td></tr>
 <tr><td align="center" style="padding-bottom:16px;
@@ -360,7 +360,7 @@ export function registrationConfirmationEmail(input: RegistrationConfirmationInp
   html: string;
   text: string;
 } {
-  const subject = "You're registered at Kigali Safety Academy";
+  const subject = "Welcome to Kigali Safety Academy";
   const date = formatDdMmYyyy(input.registeredOn);
 
   const tierLine = input.tierLabel
@@ -368,10 +368,10 @@ export function registrationConfirmationEmail(input: RegistrationConfirmationInp
     : "";
 
   const inner = `
-<p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:${INK_2};">Registration confirmed</p>
-<h1 style="margin:0 0 16px;font-size:22px;line-height:1.25;color:${NAVY};">Hello ${escapeHtml(input.firstName)},</h1>
+<p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:${INK_2};">Welcome</p>
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.25;color:${NAVY};">Hi ${escapeHtml(input.firstName)},</h1>
 <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:${INK};">
-You&rsquo;ve been successfully registered at Kigali Safety Academy for the <strong style="color:${NAVY};">${escapeHtml(input.courseName)}</strong> course.
+You have been successfully registered for <strong style="color:${NAVY};">${escapeHtml(input.courseName)}</strong>.
 </p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};border-radius:10px;border-left:4px solid ${ORANGE};padding:14px 16px;margin:0 0 22px;">
 <tr><td>
@@ -381,18 +381,18 @@ ${tierLine}
 </td></tr>
 </table>
 <p style="margin:0;font-size:14px;line-height:1.6;color:${INK_2};">
-You will receive your exam link by email when your batch begins. Contact the academy if you have any questions.
+We will send your exam link soon. Best regards, KSA.
 </p>`;
 
   const text = [
-    `Hello ${input.firstName},`,
+    `Hi ${input.firstName},`,
     ``,
-    `You've been successfully registered at Kigali Safety Academy for the ${input.courseName} course.`,
+    `You have been successfully registered for ${input.courseName}.`,
+    `Your Trainee ID is ${input.traineeCode}.`,
     `Registered on: ${date}`,
-    `Your Trainee ID: ${input.traineeCode}`,
-    ...(input.tierLabel ? [`Your Package: ${input.tierLabel}`] : []),
+    ...(input.tierLabel ? [`Package: ${input.tierLabel}`] : []),
     ``,
-    `You will receive your exam link by email when your batch begins. Contact the academy if you have questions.`,
+    `We will send your exam link soon. Best regards, KSA.`,
   ].join("\n");
 
   return {

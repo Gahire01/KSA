@@ -10,6 +10,7 @@ import {
   BadgeCheckIcon,
   DownloadIcon,
   EyeIcon,
+  FileTextIcon,
   LoaderIcon,
   ShieldCheckIcon,
 } from "lucide-react";
@@ -392,6 +393,37 @@ export default function CertificatesPage() {
           href="/certificates?status=REVOKED"
         />
       </div>
+
+      {(role === "OWNER" || role === "ADMIN") && (
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-center gap-2">
+              <FileTextIcon className="size-4 text-orange" />
+              <h2 className="text-sm font-semibold text-ink">Certificate Templates</h2>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              {[
+                "CONSTRUCT SAFETY MANAGEMENT HSE",
+                "Fire Fighting",
+                "First Aid",
+                "Occupational Health",
+                "Riger",
+              ].map((name) => (
+                <a
+                  key={name}
+                  href={`/templates/${name}.pdf`}
+                  download
+                  className="flex items-center gap-2 rounded-lg border border-line bg-paper px-3 py-2 text-xs font-medium text-ink transition-colors hover:bg-muted"
+                >
+                  <FileTextIcon className="size-3.5 shrink-0 text-red" />
+                  <span className="min-w-0 truncate">{name}</span>
+                  <DownloadIcon className="ml-auto size-3.5 shrink-0 text-ink-3" />
+                </a>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="space-y-3 p-4">

@@ -4,6 +4,7 @@ import React from "react";
 
 import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/issue";
 import { CertificateDocument, type CertificateDoc } from "@/lib/certificates/pdf";
+import { resolveTemplate, overlayTemplate } from "@/lib/certificates/template-overlay";
 import { appUrl } from "@/lib/email/send";
 import { prisma } from "@/lib/db";
 
@@ -28,7 +29,7 @@ const pdfSelect = {
   contentHash: true,
   verificationToken: true,
   trainee: { select: { fullName: true, tierLabel: true } },
-  course: { select: { name: true } },
+  course: { select: { name: true, code: true } },
 } as const;
 
 /**
@@ -69,7 +70,37 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
   if (!cert) return null;
 
   const verifyUrl = appUrl(`/verify/${cert.verificationToken}`);
+  const signatureSrc = await resolveSignatureSrc(cert.signatureUrlSnapshot, cert.signerNameSnapshot);
+  const directorName = cert.signerNameSnapshot ?? DIRECTOR_NAME;
 
+  /* Try the PDF template overlay first: if a matching template exists on disk,
+   * stamp the dynamic fields onto it with pdf-lib. This produces certificates
+   * that look exactly like the owner's designed PDFs. */
+  const templateFile = resolveTemplate(cert.course.code, cert.course.name);
+
+  if (templateFile) {
+    try {
+      const overlaid = await overlayTemplate(templateFile, {
+        courseCode: cert.course.code,
+        courseName: cert.course.name,
+        traineeName: cert.trainee.fullName,
+        issuedAt: cert.issuedAt,
+        verifyUrl,
+        signatureSrc: signatureSrc ?? null,
+        directorName,
+        studentNumber: cert.studentNumber,
+      });
+
+      return {
+        buffer: overlaid.buffer,
+        filename: `KSA-CERT-${cert.studentNumber}.pdf`,
+      };
+    } catch (err) {
+      console.error("[certificates] template overlay failed, falling back to React-PDF", err);
+    }
+  }
+
+  /* Fallback: the original React-PDF renderer for courses without a template. */
   const doc: CertificateDoc = {
     studentNumber: cert.studentNumber,
     traineeName: cert.trainee.fullName,
@@ -77,26 +108,19 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
     topics: cert.topicsSnapshot,
     duration: cert.durationSnapshot,
     issuedAt: cert.issuedAt,
-    /* Certificates issued before the signature system carry no snapshot; they
-     * keep the Director name and static image they were originally printed with. */
-    directorName: cert.signerNameSnapshot ?? DIRECTOR_NAME,
+    directorName,
     directorTitle: cert.signerTitleSnapshot ?? DIRECTOR_TITLE,
-    signatureSrc: await resolveSignatureSrc(cert.signatureUrlSnapshot, cert.signerNameSnapshot),
+    signatureSrc,
     verifyUrl,
     contentHash: cert.contentHash,
     tierLabel: cert.trainee.tierLabel ?? undefined,
-    /* The QR encodes exactly the printed URL: {APP_URL}/verify/{verificationToken},
-     * unique per certificate. */
     qrSrc: await QRCode.toDataURL(verifyUrl, { margin: 1, width: 300, errorCorrectionLevel: "M" }),
   };
 
-  /* react-pdf wants a React element, not the component function itself. */
   const buffer = await renderToBuffer(
     React.createElement(CertificateDocument, { doc }),
   );
 
-  /* The student number alone: numeric, so nothing a name could inject reaches
-   * the Content-Disposition header. */
   return {
     buffer: Buffer.from(buffer),
     filename: `KSA-CERT-${cert.studentNumber}.pdf`,

@@ -17,10 +17,10 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { CopyButton } from "@/components/shared/CopyButton";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ConfirmDialog } from "@/components/shared/LazyConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import dynamic from "next/dynamic";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,6 +28,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { api } from "@/lib/api/client";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
+
+const DevicesDialog = dynamic(() => import("@/components/shared/DevicesDialog"), { ssr: false });
 
 /**
  * /access — who can get in, and on how many devices.
@@ -662,15 +664,11 @@ export default function AccessControlPage() {
         .
       </p>
 
-      <Dialog open={Boolean(devicesLink)} onOpenChange={(open) => !open && setDevicesLink(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Devices on this link</DialogTitle>
-            <DialogDescription>
+      {devicesLink && <DevicesDialog onOpenChange={(open) => !open && setDevicesLink(null)}
+        description={<>
               {devicesLink?.label ?? devicesLink?.referralCode}: {linkDevicesQuery.data?.activeCount ?? "…"} of{" "}
               {devicesLink?.maxDevices} in use. Removing one frees its place and signs it out.
-            </DialogDescription>
-          </DialogHeader>
+        </>}>
           {linkDevicesQuery.isLoading ? (
             <Skeleton className="h-20 w-full" />
           ) : (linkDevicesQuery.data?.items.length ?? 0) === 0 ? (
@@ -704,8 +702,7 @@ export default function AccessControlPage() {
               ))}
             </ul>
           )}
-        </DialogContent>
-      </Dialog>
+      </DevicesDialog>}
 
       <ConfirmDialog
         open={Boolean(revokeTarget)}

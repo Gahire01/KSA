@@ -18,7 +18,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   /* Same-origin API and SSE, plus the delivery providers the server calls on the
    * user's behalf (status callbacks surface in the UI). */
-  "connect-src 'self' https://api.resend.com https://lookups.twilio.com https://api.twilio.com",
+  "connect-src 'self' https://lookups.twilio.com https://api.twilio.com",
   "form-action 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",

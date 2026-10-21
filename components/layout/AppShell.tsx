@@ -28,6 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
+  const commandPaletteOpen = useUiStore((s) => s.commandPaletteOpen);
   const pushRecentPage = useUiStore((s) => s.pushRecentPage);
 
   useNotificationHydration(true);
@@ -118,7 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </footer>
       </div>
 
-      <CommandPalette />
+      {commandPaletteOpen && <CommandPalette />}
     </div>
   );
 }

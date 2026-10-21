@@ -142,7 +142,7 @@ export function useCourses(filters?: CourseFilters) {
       const page = await api.get<Paginated<CourseDTO>>("/courses", filters as Record<string, unknown>);
       return { ...page, items: toCourses(page.items) };
     },
-    staleTime: 30_000,
+    staleTime: 5 * 60_000,
   });
 }
 

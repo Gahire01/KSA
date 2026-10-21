@@ -14,8 +14,8 @@ import { z } from "zod";
 const base = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters"),
-  RESEND_API_KEY: z.string().min(1, "RESEND_API_KEY is required"),
-  EMAIL_FROM: z.string().min(3, "EMAIL_FROM is required"),
+  GMAIL_USER: z.string().email("GMAIL_USER must be an email address"),
+  GMAIL_APP_PASSWORD: z.string().min(1, "GMAIL_APP_PASSWORD is required"),
   APP_URL: z.string().url().optional(),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
   CRON_SECRET: z.string().min(16).optional(),

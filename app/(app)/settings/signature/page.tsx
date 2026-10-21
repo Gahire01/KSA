@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderIcon, LockIcon, Redo2Icon, Trash2Icon, Undo2Icon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -284,8 +285,7 @@ export default function SignatureSettingsPage() {
             <Skeleton className="h-16 w-64" />
           ) : active ? (
             <div className="flex flex-wrap items-center gap-4">
-              {/* eslint-disable-next-line @next/next/no-img-element -- own API, no optimiser */}
-              <img src={active.imageUrl} alt="Active signature" className="max-h-[60px] max-w-[180px] object-contain" />
+              <Image src={active.imageUrl} alt="Active signature" width={180} height={60} unoptimized className="max-h-[60px] max-w-[180px] object-contain" />
               <div>
                 <p className="font-medium">{active.signerName}</p>
                 <p className="text-sm text-ink-2">{active.signerTitle}</p>
@@ -348,8 +348,7 @@ export default function SignatureSettingsPage() {
               </label>
               {uploadPreview ? (
                 <div className="rounded-lg border border-line bg-white p-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
-                  <img src={uploadPreview} alt="Upload preview" className="max-h-[60px] max-w-[180px] object-contain" />
+                  <Image src={uploadPreview} alt="Upload preview" width={180} height={60} unoptimized className="max-h-[60px] max-w-[180px] object-contain" />
                 </div>
               ) : null}
             </TabsContent>
@@ -377,8 +376,7 @@ export default function SignatureSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4 rounded-lg border border-line bg-white p-3">
-              {/* eslint-disable-next-line @next/next/no-img-element -- own API, no optimiser */}
-              <img src={draft.imageUrl} alt="Draft signature" className="max-h-[60px] max-w-[180px] object-contain" />
+              <Image src={draft.imageUrl} alt="Draft signature" width={180} height={60} unoptimized className="max-h-[60px] max-w-[180px] object-contain" />
               <div className="text-sm">
                 <p className="font-medium">{draft.signerName}</p>
                 <p className="text-ink-2">{draft.signerTitle}</p>

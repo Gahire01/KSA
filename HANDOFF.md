@@ -1393,6 +1393,16 @@ prisma/schema.prisma, lib/api/schemas.ts, lib/api/types.ts, lib/types/index.ts, 
 - The many mock-backed admin pages (dashboard, payments, reports, audit-log, trainers, settings lists, CommandPalette...) still render fake people/data via lib/mock - scope recorded in STRETCH below.
 - tsc + lint green.
 
+## Launch update - 2026-10-21 - Gmail SMTP and performance
+
+- Replaced the HTTP email transport with Nodemailer using Gmail SMTP over TLS on port 465. Templates and the send-result contract are preserved; sender and reply-to use GMAIL_USER. Credentials are GMAIL_USER and GMAIL_APP_PASSWORD. No previous email SDK dependency was installed.
+- Centralized public link generation using NEXT_PUBLIC_APP_URL, APP_URL, and the production fallback https://ksa-rw.vercel.app. Certificate QR links and email logo links use this origin.
+- Deferred certificate previews, confirmation/device dialogs, and command palette mounting. Added an authenticated-route loading skeleton. Dashboard charts and package import optimization were already configured.
+- Courses/categories use five-minute client freshness; window-focus refetch is disabled. Existing server catalog caches already revalidate after 60 seconds. Required trainee indexes and unique certificate/exam-token indexes already exist, so no database migration is necessary.
+- Logo reduced from 252099 to 14217 bytes; 512px icon from 60217 to 12060 bytes. Signature images now have explicit Next Image dimensions. Fonts already use display swap.
+- TypeScript and ESLint passed after each code batch. Two regression tests cover SMTP transport/error handling and public URL selection.
+- Launch blockers: a live SMTP connection check reached Gmail but returned EAUTH with the configured local credentials (no email sent). Correct the Gmail app password/account configuration and verify delivery before launch. The pre-deployment production browser check returned a 500 error at /dashboard; production behavior and speed need verification after deployment. No claim of measured production speed improvement is made.
+
 ## Session - 2026-10-16 - Certificate downloads and UI fixes
 
 - Preserved all pre-existing working-tree changes. No commit or push.

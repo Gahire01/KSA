@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api/client";
+import { appUrl } from "@/lib/app-url";
 import type { CertificateStatus } from "@/lib/types";
 
 interface CertificateDetail {
@@ -56,7 +57,7 @@ export function CertificatePreviewDialog({
 }) {
   const [origin, setOrigin] = React.useState("");
   React.useEffect(
-    () => setOrigin((process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin).replace(/\/+$/, "")),
+    () => setOrigin(appUrl()),
     [],
   );
 

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -16,7 +17,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { CertificatePreviewDialog } from "@/components/certificate/CertificatePreviewDialog";
 import { ExportMenu } from "@/components/shared/ExportMenu";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SearchInput } from "@/components/shared/SearchInput";
@@ -35,6 +35,11 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { api } from "@/lib/api/client";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import type { CertificateStatus } from "@/lib/types";
+
+const CertificatePreviewDialog = dynamic(
+  () => import("@/components/certificate/CertificatePreviewDialog").then((m) => m.CertificatePreviewDialog),
+  { ssr: false },
+);
 
 /**
  * /certificates — the register.
@@ -497,11 +502,11 @@ export default function CertificatesPage() {
         />
       )}
 
-      <CertificatePreviewDialog
+      {previewId !== null && <CertificatePreviewDialog
         certificateId={previewId}
         open={previewId !== null}
         onOpenChange={(open) => { if (!open) setPreviewId(null); }}
-      />
+      />}
     </div>
   );
 }

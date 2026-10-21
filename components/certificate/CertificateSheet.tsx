@@ -106,10 +106,12 @@ export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetDa
                     priority={false}
                   />
                 ) : cert.signatureUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- served from our own API, no optimiser needed
-                  <img
+                  <Image
                     src={cert.signatureUrl}
                     alt={`Signature of ${cert.signerName}`}
+                    width={240}
+                    height={60}
+                    unoptimized
                     draggable={false}
                     className="pointer-events-none max-h-[60px] max-w-60 object-contain"
                   />

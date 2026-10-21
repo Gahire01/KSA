@@ -7,16 +7,19 @@ import * as React from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 function makeQueryClient() {
-  return new QueryClient({
+  const client = new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 30_000,
         gcTime: 5 * 60_000,
-        refetchOnWindowFocus: true,
+        refetchOnWindowFocus: false,
         retry: 1,
       },
     },
   });
+  client.setQueryDefaults(["courses"], { staleTime: 5 * 60_000 });
+  client.setQueryDefaults(["categories"], { staleTime: 5 * 60_000 });
+  return client;
 }
 
 let browserQueryClient: QueryClient | undefined;

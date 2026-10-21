@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,13 +17,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { CertificateSheet } from "@/components/certificate/CertificateSheet";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { AvatarInitials } from "@/components/shared/AvatarInitials";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { CopyButton } from "@/components/shared/CopyButton";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ConfirmDialog } from "@/components/shared/LazyConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -30,9 +30,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api/client";
+import { appUrl } from "@/lib/app-url";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 import type { CertificateStatus } from "@/lib/types";
+
+const CertificateSheet = dynamic(
+  () => import("@/components/certificate/CertificateSheet").then((m) => m.CertificateSheet),
+  { ssr: false, loading: () => <Skeleton className="h-[28rem] w-full" /> },
+);
 
 /**
  * /certificates/:id — one certificate, with the printed sheet previewed in place.
@@ -138,7 +144,7 @@ export default function CertificateDetailPage() {
   /* The configured public address first, so the QR on screen is the one that gets printed
    * (the PDF uses it too); the browser's own origin only as a fallback in development. */
   React.useEffect(
-    () => setOrigin((process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin).replace(/\/+$/, "")),
+    () => setOrigin(appUrl()),
     [],
   );
 

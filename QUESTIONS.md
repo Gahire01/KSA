@@ -12,12 +12,10 @@ Nothing here blocked the build. Each item says what was done in the meantime.
    postal address, phone, email and registration number. They show that marker on receipts, emails and the
    public footer rather than an invented value. Send the real ones and they go in one file.
 
-3. **Reply-To address.** Emails now carry a Reply-To of `EMAIL_REPLY_TO` if set, otherwise the owner account's
-   email. *Question:* is the owner's own address the right one, or should replies go to a shared mailbox?
+3. **Reply-To address.** Emails use `GMAIL_USER` for both sender and replies (kigalisafetyacademy@gmail.com).
 
-4. **Resend domain.** `EMAIL_FROM` must be on a domain verified in Resend (the brief names `kigalisafety.dev`).
-   Until it is verified, mail to addresses other than the Resend account holder's will be refused or land in
-   spam. This cannot be checked from the build environment.
+4. **Gmail SMTP.** Configure `GMAIL_USER` and `GMAIL_APP_PASSWORD` in development and Vercel.
+   The transport uses smtp.gmail.com on port 465 with TLS.
 
 5. **Tab-leave when an attempt is left.** The second time a trainee leaves the exam window, that attempt is
    marked FAILED whatever the score, and, if they still have an attempt left, attempt 2 is issued as usual.
@@ -45,8 +43,8 @@ Nothing here blocked the build. Each item says what was done in the meantime.
     No code change needed.
 
 11. **FIX 3 — 500 on /api/auth/login.** Already handled: the route wraps the OTP email in try/catch and returns
-    a user-facing error. A 500 only occurs when `RESEND_API_KEY` is missing or Resend rejects the send.
-    **Env requirement:** set `RESEND_API_KEY` (and optionally `EMAIL_FROM`) in `.env.local`.
+    a user-facing error if Gmail SMTP is unavailable or rejects the send.
+    **Env requirement:** set `GMAIL_USER` and `GMAIL_APP_PASSWORD` in `.env.local`.
 
 12. **FIX 7 — Export already built.** ExportMenu + `/api/reports/[type]` route + Excel (ExcelJS) and PDF
     (@react-pdf/renderer) generators all exist and are wired to `/trainees`, `/payments`, `/certificates`,

@@ -6,7 +6,7 @@ import { CheckCheckIcon, InboxIcon, RefreshCwIcon, Trash2Icon, XIcon } from "luc
 import { formatDistanceToNow } from "date-fns";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { ConfirmDialog } from "@/components/shared/LazyConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

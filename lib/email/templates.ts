@@ -8,6 +8,7 @@
  */
 
 import { sendEmail } from "@/lib/email/send";
+import { appUrl } from "@/lib/app-url";
 import { ACADEMY, isPlaceholder } from "@/lib/academy/constants";
 import { COMMON_FOOTER } from "@/lib/email/footer";
 
@@ -58,7 +59,7 @@ ${preheader}
 <tr><td style="border-bottom:1px solid ${LINE};">
 <table width="100%" cellpadding="0" cellspacing="0">
 <tr><td align="center" style="padding: 24px 0 8px;">
-<img src="https://ksa-teal.vercel.app/logo.png" alt="Kigali Safety Academy"
+<img src="${escapeHtml(appUrl("/logo.png"))}" alt="Kigali Safety Academy"
 width="120" style="display:block;width:120px;height:auto;">
 </td></tr>
 <tr><td align="center" style="padding-bottom:16px;
@@ -267,12 +268,12 @@ Enter this code on the sign-in page to finish signing in.
 }
 
 /**
- * Mails a sign-in code and throws when Resend does not accept it.
+ * Mails a sign-in code and throws when Gmail SMTP does not accept it.
  *
  * Throws rather than returning a status because a code that was not sent must
  * not be treated as one that was: the login endpoint deletes the row and
  * answers 500, so there is never a code sitting in the database that nobody
- * received. The error message carries Resend's status only — `sendEmail` never
+ * received. The error message carries a safe transport reason only — `sendEmail` never
  * returns the payload, so nothing thrown here can contain the code.
  */
 export async function sendLoginOtpEmail(input: LoginOtpEmailInput): Promise<void> {
@@ -286,7 +287,7 @@ export async function sendLoginOtpEmail(input: LoginOtpEmailInput): Promise<void
   });
 
   if (!result.ok) {
-    throw new Error(`Resend did not accept the sign-in code email (${result.reason ?? "unknown reason"})`);
+    throw new Error(`Gmail SMTP did not accept the sign-in code email (${result.reason ?? "unknown reason"})`);
   }
 }
 

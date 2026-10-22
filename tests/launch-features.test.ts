@@ -36,8 +36,8 @@ test("code emails keep all six digits contiguous for copying and avoid staff app
   const messages = [examLinkEmail(exam), otpCodeOnlyEmail(exam), loginOtpEmail({ code: "123456", expiryMinutes: 10, recipientEmail: "test@example.com" })];
   for (const message of messages) {
     assert.match(message.html, />123456<\//);
-    assert.match(message.html, /font-size:3[246]px/);
-    assert.match(message.html, /Select and copy the code above/);
+    assert.match(message.html, /font-size:32px/);
+    assert.match(message.html, /user-select:all/);
     assert.doesNotMatch(message.html, />1 2 3 4 5 6<\//);
     assert.doesNotMatch(message.html, /href=["'][^"']*\/(login|dashboard)/);
   }

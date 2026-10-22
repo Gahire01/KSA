@@ -38,6 +38,7 @@ export type NotificationType =
   | "deadline.approaching"
   | "certificate.issued"
   | "certificate.revoked"
+  | "certificate.restored"
   | "exam.link.expiring"
   | "system";
 

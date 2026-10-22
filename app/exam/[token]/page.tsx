@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { ClockIcon, RefreshCwIcon, ShieldAlertIcon } from "lucide-react";
+import { ClockIcon, ShieldAlertIcon } from "lucide-react";
+import { motion } from "framer-motion";
 
 import { Logo } from "@/components/shared/Logo";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,20 @@ import { toast } from "sonner";
  */
 
 const COUNTDOWN_SECONDS = 30 * 60;
+
+/** The same rules, in both languages. Duration and attempts come from the course, not a fixed "1 hour". */
+function briefingCopy(info: { traineeName: string; examDurationMin: number; maxAttempts: number }) {
+  const { examDurationMin: min, maxAttempts: tries } = info;
+  const hours = min % 60 === 0 ? min / 60 : null;
+  const durationEn = hours === null ? `${min} minutes` : hours === 1 ? "1 hour" : `${hours} hours`;
+  const durationRw = hours === null ? `iminota ${min}` : hours === 1 ? "isaha imwe" : `amasaha ${hours}`;
+  const triesEn = tries === 1 ? "1 attempt" : `${tries} attempts`;
+
+  return {
+    en: `Welcome, ${info.traineeName}! You have ${durationEn} and ${triesEn}. This exam is strictly monitored. Switching tabs, copying, or right-clicking will be flagged.`,
+    rw: `Murakaza neza, ${info.traineeName}! Ufite ${durationRw} n'amahirwe ${tries}. Iki kizamini kugenzurwa cyane. Guhindura tab, gukopa, cyangwa gukanda iburyo bizamenyekana.`,
+  };
+}
 
 type Phase = "checking" | "otp" | "paper" | "submitted" | "blocked" | "stalled" | "ended";
 
@@ -309,41 +324,48 @@ export default function ExamPage() {
       );
     }
     /* Post-OTP personalised briefing: appears after code is accepted but before
-     * the exam runner mounts. Shows the trainee's name, course, and rules. */
+     * the exam runner mounts. The rules are given in English and Kinyarwanda so
+     * nobody sits the exam without having understood them. */
     if (briefingInfo && !briefingDismissed) {
+      const copy = briefingCopy(briefingInfo);
       return (
-        <div className="mx-auto max-w-xl space-y-6 px-4 py-16">
+        <motion.div
+          className="mx-auto max-w-xl space-y-5 px-4 py-12"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+        >
           <div className="text-center">
             <Logo />
-            <h1 className="mt-4 font-display text-2xl font-semibold text-ink">
-              Welcome, {briefingInfo.traineeName}!
-            </h1>
-            <p className="mt-2 text-base text-ink-2">
-              You are about to start the <strong className="text-ink">{briefingInfo.courseName}</strong> exam. Best of luck!
+            <p className="mt-3 text-sm text-ink-2">
+              <strong className="text-ink">{briefingInfo.courseName}</strong>
             </p>
           </div>
-          <ul className="space-y-3 text-left text-sm text-ink">
-            <li className="flex items-start gap-3 rounded-xl border border-line bg-card px-4 py-3">
-              <ClockIcon className="mt-0.5 size-5 shrink-0 text-orange" />
-              <span>You have <strong>{briefingInfo.examDurationMin} minutes</strong> to complete this exam.</span>
-            </li>
-            <li className="flex items-start gap-3 rounded-xl border border-line bg-card px-4 py-3">
-              <RefreshCwIcon className="mt-0.5 size-5 shrink-0 text-orange" />
-              <span>You have up to <strong>{briefingInfo.maxAttempts} attempts</strong> to pass.</span>
-            </li>
-            <li className="flex items-start gap-3 rounded-xl border border-line bg-card px-4 py-3">
-              <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-orange" />
-              <span>This exam is monitored. Switching tabs, right-clicking, or copying text is disabled and will be flagged.</span>
-            </li>
-          </ul>
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={() => setBriefingDismissed(true)}
-          >
-            I understand, start my exam
+
+          {[
+            { lang: "en", label: "English", Icon: ClockIcon, text: copy.en },
+            { lang: "rw", label: "Kinyarwanda", Icon: ShieldAlertIcon, text: copy.rw },
+          ].map((item, i) => (
+            <motion.section
+              key={item.lang}
+              lang={item.lang}
+              className="rounded-xl border border-line bg-card px-4 py-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: "easeOut", delay: 0.12 + i * 0.12 }}
+            >
+              <p className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold tracking-wider text-orange uppercase">
+                <item.Icon className="size-4" aria-hidden />
+                {item.label}
+              </p>
+              <p className="text-[15px] leading-relaxed text-ink">{item.text}</p>
+            </motion.section>
+          ))}
+
+          <Button className="w-full" size="lg" onClick={() => setBriefingDismissed(true)}>
+            I understand, start my exam / Ndabyumvise, tangira ikizamini
           </Button>
-        </div>
+        </motion.div>
       );
     }
     return <ExamRunner token={token} paper={paper} onSubmitted={onSubmitted} />;

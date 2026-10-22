@@ -27,6 +27,7 @@ const KNOWN_TYPES = new Set<string>([
   "deadline.approaching",
   "certificate.issued",
   "certificate.revoked",
+  "certificate.restored",
   "exam.link.expiring",
   "system",
 ]);

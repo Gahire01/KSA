@@ -3,6 +3,9 @@
  * dynamic fields (trainee name, date, QR code, signature) onto it
  * using pdf-lib.
  *
+ * Every position comes from template-layout.ts, which the on-screen preview
+ * (components/certificate/CertificateTemplate.tsx) reads too, so the two cannot drift.
+ *
  * Falls back gracefully when a template is missing — the caller should
  * use the React-PDF renderer in that case.
  */
@@ -12,50 +15,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import QRCode from "qrcode";
 
-/**
- * Maps a course code (uppercased, trimmed) to the filename under
- * `public/templates/`. The academy's five launch templates are mapped
- * here; new courses without a template fall back to the React-PDF path.
- */
-const TEMPLATE_MAP: Record<string, string> = {
-  "CONSTRUCT-HSE": "CONSTRUCT SAFETY MANAGEMENT HSE.pdf",
-  "FIRE-FIGHTING": "Fire Fighting.pdf",
-  "FIRST-AID": "First Aid.pdf",
-  "OCC-HEALTH": "Occupational Health.pdf",
-  "RIGER": "Riger.pdf",
-};
-
-/**
- * Attempts a fuzzy match when the exact code isn't in the map.
- * Matches the first template whose filename (minus extension, lowered)
- * appears within the course name (lowered).
- */
-function fuzzyTemplateLookup(courseName: string): string | null {
-  const lower = courseName.toLowerCase();
-  for (const [, filename] of Object.entries(TEMPLATE_MAP)) {
-    const stem = filename.replace(/\.pdf$/i, "").toLowerCase();
-    if (lower.includes(stem) || stem.includes(lower.replace(/\s+/g, " ").trim())) {
-      return filename;
-    }
-  }
-  // Keyword-based fallback
-  if (lower.includes("construct") || lower.includes("hse") || lower.includes("safety management")) {
-    return TEMPLATE_MAP["CONSTRUCT-HSE"]!;
-  }
-  if (lower.includes("fire") || lower.includes("fighting")) {
-    return TEMPLATE_MAP["FIRE-FIGHTING"]!;
-  }
-  if (lower.includes("first aid")) {
-    return TEMPLATE_MAP["FIRST-AID"]!;
-  }
-  if (lower.includes("occupational") || lower.includes("occ")) {
-    return TEMPLATE_MAP["OCC-HEALTH"]!;
-  }
-  if (lower.includes("rig")) {
-    return TEMPLATE_MAP["RIGER"]!;
-  }
-  return null;
-}
+import { templateFilenameFor, templateGeometry } from "@/lib/certificates/template-layout";
 
 export interface OverlayInput {
   courseCode: string;
@@ -83,13 +43,8 @@ function templatePath(filename: string): string {
  * template exists on disk.
  */
 export function resolveTemplate(courseCode: string, courseName: string): string | null {
-  const direct = TEMPLATE_MAP[courseCode.toUpperCase().trim()];
-  if (direct && existsSync(templatePath(direct))) return direct;
-
-  const fuzzy = fuzzyTemplateLookup(courseName);
-  if (fuzzy && existsSync(templatePath(fuzzy))) return fuzzy;
-
-  return null;
+  const filename = templateFilenameFor(courseCode, courseName);
+  return filename && existsSync(templatePath(filename)) ? filename : null;
 }
 
 function formatDate(date: Date): string {
@@ -109,6 +64,7 @@ export async function overlayTemplate(
   const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const black = rgb(0, 0, 0);
   const white = rgb(1, 1, 1);
+  const g = templateGeometry(width, height);
 
   const fittedText = (text: string, x: number, y: number, maxWidth: number, size: number, strong = false) => {
     const font = strong ? bold : regular;
@@ -119,12 +75,15 @@ export async function overlayTemplate(
   // All five supplied templates use the same 842.16 x 612 layout. The name
   // band is ABOVE the completion sentence, not at 52% of the page height.
   // Mask the entire placeholder band even when the new name is very short.
-  page.drawRectangle({ x: width * 0.18, y: height * 0.62, width: width * 0.64, height: height * 0.065, color: white });
+  page.drawRectangle({ ...g.nameMask, color: white });
   const name = input.traineeName.trim().toUpperCase();
-  const nameSize = Math.min(25, 25 * (width * 0.62) / Math.max(1, bold.widthOfTextAtSize(name, 25)));
+  const nameSize = Math.min(
+    g.name.size,
+    g.name.size * g.name.maxWidth / Math.max(1, bold.widthOfTextAtSize(name, g.name.size)),
+  );
   page.drawText(name, {
     x: (width - bold.widthOfTextAtSize(name, nameSize)) / 2,
-    y: height * 0.64,
+    y: g.name.baselineY,
     size: nameSize,
     font: bold,
     color: black,
@@ -134,11 +93,11 @@ export async function overlayTemplate(
 
   // Remove the sample footer, including its QR and certificate ID, before
   // drawing a single, aligned footer within the original border.
-  page.drawRectangle({ x: width * 0.075, y: height * 0.035, width: width * 0.885, height: height * 0.19, color: white });
+  page.drawRectangle({ ...g.footerMask, color: white });
 
-  const signatureX = width * 0.113;
-  const signatureWidth = width * 0.183;
-  const footerLineY = height * 0.17;
+  const signatureX = g.signature.x;
+  const signatureWidth = g.signature.width;
+  const footerLineY = g.signature.lineY;
   const legacySignaturePath = join(process.cwd(), "public", "certificate", "signature.png");
   const signatureBytes = input.signatureSrc === undefined && existsSync(legacySignaturePath)
     ? readFileSync(legacySignaturePath)
@@ -147,36 +106,38 @@ export async function overlayTemplate(
       : null;
   if (signatureBytes) {
     const signature = await pdfDoc.embedPng(signatureBytes);
-    // PDF units are points: 150 CSS pixels = 112.5 points at 96 dpi.
-    const scale = Math.min(112.5 / signature.width, (height * 0.07) / signature.height);
+    const scale = Math.min(g.signature.maxImageWidth / signature.width, g.signature.maxImageHeight / signature.height);
     const w = signature.width * scale;
     const h = signature.height * scale;
-    page.drawImage(signature, { x: signatureX + (signatureWidth - w) / 2, y: footerLineY + 5, width: w, height: h });
+    page.drawImage(signature, {
+      x: signatureX + (signatureWidth - w) / 2,
+      y: footerLineY + g.signature.imageGap,
+      width: w,
+      height: h,
+    });
   }
   page.drawLine({ start: { x: signatureX, y: footerLineY }, end: { x: signatureX + signatureWidth, y: footerLineY }, thickness: 1, color: black });
   const centeredText = (text: string, x: number, y: number, maxWidth: number, size: number) => {
     const fittedSize = Math.min(size, size * maxWidth / Math.max(1, regular.widthOfTextAtSize(text, size)));
     fittedText(text, x + (maxWidth - regular.widthOfTextAtSize(text, fittedSize)) / 2, y, maxWidth, fittedSize);
   };
-  centeredText(input.directorName, signatureX, footerLineY - 14, signatureWidth, 13);
-  centeredText(input.directorTitle ?? "Director", signatureX, footerLineY - 30, signatureWidth, 13);
+  centeredText(input.directorName, signatureX, footerLineY - 14, signatureWidth, g.signature.nameSize);
+  centeredText(input.directorTitle ?? "Director", signatureX, footerLineY - 30, signatureWidth, g.signature.titleSize);
 
-  const columnWidth = width * 0.096;
-  const fields = [
-    { label: "Trainee No.", value: String(input.studentNumber), x: width * 0.325 },
-    { label: "Issue Date", value: formatDate(input.issuedAt), x: width * 0.46 },
-    { label: "Duration", value: input.duration, x: width * 0.608 },
-  ];
-  for (const field of fields) {
+  const columnWidth = g.fieldColumnWidth;
+  const values: Record<string, string> = {
+    "Trainee No.": String(input.studentNumber),
+    "Issue Date": formatDate(input.issuedAt),
+    Duration: input.duration,
+  };
+  for (const field of g.fields) {
     page.drawLine({ start: { x: field.x, y: footerLineY }, end: { x: field.x + columnWidth, y: footerLineY }, thickness: 1, color: black });
-    centeredText(field.value, field.x, footerLineY + 8, columnWidth, 11);
-    centeredText(field.label, field.x, footerLineY - 14, columnWidth, 13);
+    centeredText(values[field.label]!, field.x, footerLineY + 8, columnWidth, g.fieldValueSize);
+    centeredText(field.label, field.x, footerLineY - 14, columnWidth, g.fieldLabelSize);
   }
 
   const qrBytes = await QRCode.toBuffer(input.verifyUrl, { margin: 2, width: 300, errorCorrectionLevel: "M" });
   const qrImage = await pdfDoc.embedPng(qrBytes);
-  const qrSize = height * 0.105;
-  const qrX = width * 0.842;
-  page.drawImage(qrImage, { x: qrX, y: height * 0.095, width: qrSize, height: qrSize });
+  page.drawImage(qrImage, { x: g.qr.x, y: g.qr.y, width: g.qr.size, height: g.qr.size });
   return { buffer: Buffer.from(await pdfDoc.save()) };
 }

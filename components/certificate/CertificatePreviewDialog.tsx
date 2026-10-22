@@ -43,7 +43,7 @@ interface CertificateDetail {
     fullName: string;
     tierLabel: string | null;
   };
-  course: { name: string };
+  course: { code: string; name: string };
 }
 
 export function CertificatePreviewDialog({
@@ -138,6 +138,7 @@ export function CertificatePreviewDialog({
                 cert={{
                   studentNumber: cert.studentNumber,
                   traineeName: cert.trainee.fullName,
+                  courseCode: cert.course.code,
                   courseName: cert.course.name,
                   topics: cert.topicsSnapshot,
                   duration: cert.durationSnapshot,

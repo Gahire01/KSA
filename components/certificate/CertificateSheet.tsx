@@ -3,7 +3,9 @@
 import Image from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 
+import { CertificateTemplate, previewBackground } from "@/components/certificate/CertificateTemplate";
 import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/signer";
+import { templateFilenameFor } from "@/lib/certificates/template-layout";
 import { formatDate } from "@/lib/utils/format";
 
 /**
@@ -17,12 +19,18 @@ import { formatDate } from "@/lib/utils/format";
  * thin certificate-ID line runs along the bottom. Navy 2px border, thin orange one inside,
  * a faint logo watermark behind. There is no revoked, expiry or "scan" wording on it.
  *
+ * Courses with a designed template print on that artwork (lib/certificates/template-overlay.ts),
+ * so they preview through CertificateTemplate, which stamps the same fields at the same
+ * positions. This sheet is the preview for the React-PDF fallback only.
+ *
  * Anti-copy (honest scope): right-click and text selection are off and the images
  * cannot be dragged out. That deters casual saving; a screenshot cannot be stopped,
  * so the only download offered is the session-gated PDF.
  */
 
 export interface CertificateSheetData {
+  /** Picks the template the PDF prints on; without it the React-PDF layout is shown. */
+  courseCode?: string;
   studentNumber: number;
   traineeName: string;
   courseName: string;
@@ -39,6 +47,9 @@ export interface CertificateSheetData {
 }
 
 export function CertificateSheet({ cert, verifyUrl }: { cert: CertificateSheetData; verifyUrl: string }) {
+  const background = previewBackground(templateFilenameFor(cert.courseCode ?? "", cert.courseName));
+  if (background) return <CertificateTemplate cert={cert} verifyUrl={verifyUrl} background={background} />;
+
   const facts: Array<[string, string]> = [
     [String(cert.studentNumber), "Student #"],
     [formatDate(cert.issuedAt, "dd.MM.yyyy"), "Issued"],

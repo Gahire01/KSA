@@ -73,17 +73,24 @@ function shuffleWith(rnd: () => number, items: readonly string[]): string[] {
   return out;
 }
 
-/** The real thing: shuffles both questions and their options. */
+/** How many questions one sitting serves from the bank. */
+export const EXAM_QUESTION_COUNT = 15;
+
+/**
+ * The real thing: shuffles the whole bank, keeps the first `limit` questions and
+ * shuffles each one's options. A bank smaller than `limit` is served whole.
+ */
 export function buildExamManifest(
   courseId: string,
   questions: ManifestInputQuestion[],
   token: string,
+  limit: number = EXAM_QUESTION_COUNT,
 ): ExamManifest {
   const rnd = csprngFromToken(token);
   const ordered = shuffleWith(
     rnd,
     questions.map((q) => q.id),
-  );
+  ).slice(0, Math.max(1, limit));
   const byId = new Map(questions.map((q) => [q.id, q]));
 
   return {

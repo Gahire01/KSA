@@ -12,6 +12,7 @@ import { issueAttempt } from "@/lib/exams/issue-attempt";
 import { isPass } from "@/lib/exams/rules";
 import { clearExamSessionCookie } from "@/lib/exams/session-cookie";
 import { emit, ownerAndTrainerIds } from "@/lib/notifications/emit";
+import { notifyOwnersExamSubmitted } from "@/lib/notifications/exam-alerts";
 
 /**
  * Grades and closes one sitting. Shared by the trainee's own submit and by the
@@ -251,6 +252,22 @@ export async function finalizeAttempt(
       console.error(`[exam] next attempt not issued for trainee ${attempt.traineeId}: ${next.reason}`);
     }
   }
+
+  /* One owner email per graded sitting. It replaces the generic "exam.failed" email
+   * (see EMAIL_TYPES in emit.ts), so a failing trainee does not trigger two. */
+  notifyOwnersExamSubmitted({
+    traineeName: attempt.trainee.fullName,
+    courseName: attempt.course.name,
+    scorePct,
+    passed,
+    submittedAt: now,
+    note:
+      nextAttempt?.emailed === false
+        ? "The automatic next-attempt email could not be sent. Send it by hand from the Exams page."
+        : exhausted
+          ? `All ${attempt.course.maxAttempts} attempts are used.`
+          : null,
+  });
 
   const audience = await ownerAndTrainerIds(attempt.courseId);
   const who = attempt.trainee.fullName;

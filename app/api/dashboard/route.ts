@@ -29,6 +29,7 @@ const ACTION_TEXT: Record<string, string> = {
   "exam.send": "sent an exam",
   "exam.attempt.grant": "granted another attempt",
   "certificate.revoke": "revoked a certificate",
+  "certificate.unrevoke": "restored a revoked certificate",
   "payment.record": "recorded a payment",
   "payment.refund": "recorded a refund",
   "question.create": "added a question",

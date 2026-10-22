@@ -31,6 +31,7 @@ const TYPE_TONE: Record<NotificationType, string> = {
   "deadline.approaching": "bg-amber-bg text-amber",
   "certificate.issued": "bg-green-bg text-green",
   "certificate.revoked": "bg-red-bg text-red",
+  "certificate.restored": "bg-green-bg text-green",
   "exam.link.expiring": "bg-amber-bg text-amber",
   system: "bg-muted text-ink-2",
 };

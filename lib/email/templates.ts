@@ -92,6 +92,19 @@ export function spacedOtp(otp: string): string {
   return otp.split("").join(" ");
 }
 
+/**
+ * The one-time code as a single large block. `user-select: all` makes a click or
+ * triple-click select the whole code in one go; there is deliberately no script
+ * (navigator.clipboard is blocked in mail clients). The digits stay contiguous
+ * inside one element so a copy never picks up spaces.
+ */
+function otpCodeBlock(code: string): string {
+  return `<div style="margin:0 0 8px;text-align:center;">
+<div style="display:inline-block;padding:14px 20px;background:${PAPER};border:1px dashed ${LINE};border-radius:10px;font-family:'Courier New',Courier,monospace;font-size:32px;line-height:1.2;font-weight:bold;letter-spacing:8px;color:${NAVY};user-select:all;-webkit-user-select:all;-moz-user-select:all;-ms-user-select:all;">${escapeHtml(code)}</div>
+</div>
+<p style="margin:0;text-align:center;font-size:12px;color:${INK_2};">Triple-click the code to select it, then copy.</p>`;
+}
+
 export interface ExamLinkEmailInput {
   traineeName: string;
   courseName: string;
@@ -120,9 +133,8 @@ Open the link below, then enter this six-digit code to start. The code proves th
 </p>
 
 <p style="margin:0 0 6px;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:${INK_2};">Your access code</p>
-<p style="margin:0 0 6px;font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:${NAVY};">${escapeHtml(input.otp)}</p>
-<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">(Select and copy the code above)</p>
-<p style="margin:0 0 22px;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMin} minutes.</p>
+${otpCodeBlock(input.otp)}
+<p style="margin:12px 0 22px;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMin} minutes.</p>
 
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
 <tr><td style="background:${ORANGE};border-radius:10px;">
@@ -248,8 +260,7 @@ export function loginOtpEmail(input: LoginOtpEmailInput): {
 Enter this code on the sign-in page to finish signing in.
 </p>
 
-<div style="margin:0 0 8px;text-align:center;font-size:36px;letter-spacing:12px;font-family:'Courier New',Courier,monospace;font-weight:700;color:${NAVY};">${escapeHtml(input.code)}</div>
-<p style="margin:0;text-align:center;font-size:12px;color:${INK_2};">(Select and copy the code above)</p>
+${otpCodeBlock(input.code)}
 
 <p style="margin:22px 0 6px;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMinutes} minutes.</p>
 <p style="margin:0;font-size:14px;color:${INK_2};">If you didn&rsquo;t request this, ignore this email.</p>`;
@@ -337,9 +348,8 @@ export function otpCodeOnlyEmail(input: OtpCodeOnlyEmailInput): {
 The academy has reopened your exam for <strong>${escapeHtml(input.courseName)}</strong>. Open the exam link you were sent earlier and enter this new six-digit code. The time already used on your paper still counts.
 </p>
 <p style="margin:0 0 6px;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:${INK_2};">Your access code</p>
-<p style="margin:0 0 6px;font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:${NAVY};">${escapeHtml(input.otp)}</p>
-<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">(Select and copy the code above)</p>
-<p style="margin:0;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMin} minutes.</p>`;
+${otpCodeBlock(input.otp)}
+<p style="margin:12px 0 0;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMin} minutes.</p>`;
 
   const text = [
     `Hello ${input.traineeName},`,
@@ -402,6 +412,104 @@ We will send your exam link soon. Best regards, KSA.
 
   return {
     subject,
+    html: shell(inner, { footer: BRAND_FOOTER }),
+    text,
+  };
+}
+
+/** "22 Oct 2026, 14:35 CAT" — Rwanda local time, whatever the server's zone is. */
+export function formatKigaliTime(date: Date): string {
+  const d = Number.isNaN(date.getTime()) ? new Date() : date;
+  const text = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Kigali",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+  return `${text} CAT`;
+}
+
+function detailRows(rows: Array<[string, string]>): string {
+  return rows
+    .map(
+      ([label, value]) =>
+        `<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">${escapeHtml(label)} <strong style="color:${NAVY};font-size:14px;">${escapeHtml(value)}</strong></p>`,
+    )
+    .join("\n");
+}
+
+export interface ExamStartedEmailInput {
+  traineeName: string;
+  courseName: string;
+  startedAt: Date;
+}
+
+/** To the owner when a trainee opens their paper. No links: this is an FYI. */
+export function examStartedEmail(input: ExamStartedEmailInput): { subject: string; html: string; text: string } {
+  const when = formatKigaliTime(input.startedAt);
+  const inner = `
+<p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:${INK_2};">Exam started</p>
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.25;color:${NAVY};">${escapeHtml(input.traineeName)} has started an exam</h1>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};border-radius:10px;border-left:4px solid ${ORANGE};padding:14px 16px;margin:0 0 8px;">
+<tr><td>
+${detailRows([["Trainee", input.traineeName], ["Course", input.courseName], ["Started", when]])}
+</td></tr>
+</table>`;
+  const text = [
+    `${input.traineeName} has started an exam.`,
+    `Course: ${input.courseName}`,
+    `Started: ${when}`,
+  ].join("\n");
+  return {
+    subject: `Exam started: ${input.traineeName} - ${input.courseName}`,
+    html: shell(inner, { footer: BRAND_FOOTER }),
+    text,
+  };
+}
+
+export interface ExamSubmittedEmailInput {
+  traineeName: string;
+  courseName: string;
+  scorePct: number;
+  passed: boolean;
+  submittedAt: Date;
+  /** Extra line for the owner, e.g. when the automatic next-attempt email failed. */
+  note?: string | null;
+}
+
+/** To the owner when a trainee's paper is graded. No links: this is an FYI. */
+export function examSubmittedEmail(input: ExamSubmittedEmailInput): { subject: string; html: string; text: string } {
+  const when = formatKigaliTime(input.submittedAt);
+  const result = input.passed ? "Passed" : "Not passed";
+  const resultColour = input.passed ? "#15803D" : "#B91C1C";
+  const inner = `
+<p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:${INK_2};">Exam submitted</p>
+<h1 style="margin:0 0 16px;font-size:22px;line-height:1.25;color:${NAVY};">${escapeHtml(input.traineeName)} submitted an exam</h1>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};border-radius:10px;border-left:4px solid ${ORANGE};padding:14px 16px;margin:0 0 8px;">
+<tr><td>
+${detailRows([["Trainee", input.traineeName], ["Course", input.courseName], ["Score", `${input.scorePct}%`]])}
+<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">Result <strong style="color:${resultColour};font-size:14px;">${result}</strong></p>
+${detailRows([["Submitted", when]])}
+</td></tr>
+</table>${
+    input.note
+      ? `
+<p style="margin:12px 0 0;font-size:13px;line-height:1.6;color:${INK_2};">${escapeHtml(input.note)}</p>`
+      : ""
+  }`;
+  const text = [
+    `${input.traineeName} submitted an exam.`,
+    `Course: ${input.courseName}`,
+    `Score: ${input.scorePct}%`,
+    `Result: ${result}`,
+    `Submitted: ${when}`,
+    ...(input.note ? ["", input.note] : []),
+  ].join("\n");
+  return {
+    subject: `Exam ${input.passed ? "passed" : "not passed"}: ${input.traineeName} - ${input.scorePct}%`,
     html: shell(inner, { footer: BRAND_FOOTER }),
     text,
   };

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { AlertCircleIcon, LoaderIcon, MailIcon } from "lucide-react";
+import { motion, useAnimationControls, useReducedMotion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +20,36 @@ import { cn } from "@/lib/utils/cn";
  */
 
 export const OTP_LENGTH = 6;
+
+/**
+ * One digit box. Each time its digit is set or replaced it gives a short scale bounce, so a
+ * keystroke (or each box a paste fills) visibly "lands". Skipped for people who ask their
+ * system for reduced motion.
+ */
+function OtpBox({
+  digit,
+  inputRef,
+  ...props
+}: Omit<React.ComponentProps<typeof motion.input>, "ref"> & {
+  digit: string;
+  inputRef: (el: HTMLInputElement | null) => void;
+}) {
+  const controls = useAnimationControls();
+  const reduceMotion = useReducedMotion();
+  const previous = React.useRef(digit);
+
+  React.useEffect(() => {
+    const changed = previous.current !== digit;
+    previous.current = digit;
+    if (!changed || !digit || reduceMotion) return;
+    void controls.start({
+      scale: [1, 1.18, 0.96, 1],
+      transition: { duration: 0.32, ease: "easeOut", times: [0, 0.35, 0.7, 1] },
+    });
+  }, [digit, controls, reduceMotion]);
+
+  return <motion.input ref={inputRef} value={digit} animate={controls} {...props} />;
+}
 
 export function OtpInput({
   onSubmit,
@@ -171,12 +202,12 @@ export function OtpInput({
           aria-label={`${OTP_LENGTH}-digit code`}
         >
           {digits.map((digit, index) => (
-            <input
+            <OtpBox
               key={index}
-              ref={(el) => {
+              digit={digit}
+              inputRef={(el) => {
                 refs.current[index] = el;
               }}
-              value={digit}
               onChange={handleChange(index)}
               onPaste={(event) => {
                 event.preventDefault();

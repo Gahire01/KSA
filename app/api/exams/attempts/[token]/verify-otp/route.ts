@@ -14,6 +14,7 @@ import { loadAttemptByToken, manifestOf, requestIp, requestUserAgent } from "@/l
 import { readExamSession, setExamSessionCookie } from "@/lib/exams/session-cookie";
 import { LINK_EXPIRED_MESSAGE, LINK_USED_MESSAGE, OTP_EXPIRED_MESSAGE, linkState } from "@/lib/exams/link";
 import { OTP_MAX_ATTEMPTS } from "@/lib/exams/token";
+import { notifyOwnersExamStarted } from "@/lib/notifications/exam-alerts";
 
 /**
  * POST /api/exams/attempts/:token/verify-otp
@@ -142,6 +143,15 @@ export async function POST(request: Request, context: { params: Promise<{ token:
   if (redeemed.count !== 1) return apiFail(LINK_USED_MESSAGE, 410);
 
   await setExamSessionCookie(token, attempt.id);
+
+  /* Only the first open counts as "started": a staff-reset re-open keeps its original start time. */
+  if (!attempt.startedAt) {
+    notifyOwnersExamStarted({
+      traineeName: attempt.trainee.fullName,
+      courseName: attempt.course.name,
+      startedAt,
+    });
+  }
 
   /* Deliberately narrow: no otpHash, no otpAttempts, no isCorrect, no tokenHash. */
   return NextResponse.json({

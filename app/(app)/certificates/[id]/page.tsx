@@ -13,6 +13,7 @@ import {
   FileTextIcon,
   HashIcon,
   LoaderIcon,
+  RotateCcwIcon,
   ShieldCheckIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -104,6 +105,7 @@ export default function CertificateDetailPage() {
   const canRevoke = role === "OWNER";
 
   const [revokeOpen, setRevokeOpen] = React.useState(false);
+  const [restoreOpen, setRestoreOpen] = React.useState(false);
   const [revokeReason, setRevokeReason] = React.useState<string>(REVOKE_REASONS[0]);
   const [revokeNotes, setRevokeNotes] = React.useState("");
   const [downloading, setDownloading] = React.useState(false);
@@ -176,6 +178,19 @@ export default function CertificateDetailPage() {
     onError: (error: Error) => toast.error(error.message || "Could not revoke this certificate."),
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: () => api.post<CertificateDetail>(`/certificates/${id}/unrevoke`, {}),
+    onSuccess: () => {
+      toast.success("Certificate restored", {
+        description: "The public verification page shows it as valid again.",
+      });
+      setRestoreOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["certificate", id] });
+      void queryClient.invalidateQueries({ queryKey: ["certificates"] });
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not restore this certificate."),
+  });
+
   if (certQuery.isLoading) {
     return (
       <div className="space-y-4">
@@ -202,7 +217,7 @@ export default function CertificateDetailPage() {
   const isVoided = cert.status === "REVOKED";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-24 sm:pb-0">
       <PageHeader
         breadcrumbSlot={
           <Link
@@ -235,6 +250,17 @@ export default function CertificateDetailPage() {
               )}
               {downloading ? "Generating PDF…" : "Download PDF"}
             </Button>
+            {canRevoke && isVoided ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 print:hidden"
+                onClick={() => setRestoreOpen(true)}
+              >
+                <RotateCcwIcon className="size-4" />
+                Restore
+              </Button>
+            ) : null}
             {canRevoke && !isVoided ? (
               <Button
                 variant="outline"
@@ -259,6 +285,7 @@ export default function CertificateDetailPage() {
               cert={{
                 studentNumber: cert.studentNumber,
                 traineeName: cert.trainee.fullName,
+                courseCode: cert.course.code,
                 courseName: cert.course.name,
                 topics: cert.topicsSnapshot,
                 duration: cert.durationSnapshot,
@@ -361,10 +388,23 @@ export default function CertificateDetailPage() {
                 />
               </dl>
               {isVoided ? (
-                <p className="mt-3 rounded-lg bg-red-bg px-3 py-2 text-xs text-red">
-                  Revoked {cert.revokedAt ? formatDateTime(cert.revokedAt) : ""}. Employers
-                  checking this certificate will see the revocation.
-                </p>
+                <div className="mt-3 space-y-2">
+                  <p className="rounded-lg bg-red-bg px-3 py-2 text-xs text-red">
+                    Revoked {cert.revokedAt ? formatDateTime(cert.revokedAt) : ""}. Employers
+                    checking this certificate will see the revocation.
+                  </p>
+                  {canRevoke ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-1.5"
+                      onClick={() => setRestoreOpen(true)}
+                    >
+                      <RotateCcwIcon className="size-4" />
+                      Restore this certificate
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
             </CardContent>
           </Card>
@@ -388,6 +428,36 @@ export default function CertificateDetailPage() {
           }
         }}
       />
+
+      <ConfirmDialog
+        open={restoreOpen}
+        onOpenChange={setRestoreOpen}
+        title="Restore this certificate?"
+        description="This clears the revocation. The public verification page will show the certificate as valid again. The revocation stays in the audit log."
+        confirmLabel="Restore certificate"
+        onConfirm={async () => {
+          try {
+            await restoreMutation.mutateAsync();
+          } catch {
+            /* handled in onError */
+          }
+        }}
+      />
+
+      {/* Phones: the download is the main thing staff do here, so it is pinned and full-width. */}
+      {!revokeOpen ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg backdrop-blur print:hidden sm:hidden">
+          <Button
+            size="lg"
+            className="h-12 w-full gap-2 text-base"
+            disabled={downloading}
+            onClick={() => void handleDownload(cert.id, cert.studentNumber)}
+          >
+            {downloading ? <LoaderIcon className="size-5 animate-spin" /> : <DownloadIcon className="size-5" />}
+            {downloading ? "Generating PDF…" : "Download Certificate"}
+          </Button>
+        </div>
+      ) : null}
 
       {revokeOpen ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card p-4 shadow-lg print:hidden sm:inset-auto sm:bottom-6 sm:right-6 sm:w-96 sm:rounded-xl sm:border">

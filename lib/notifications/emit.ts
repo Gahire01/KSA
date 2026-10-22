@@ -1,6 +1,6 @@
 ﻿import { prisma } from "@/lib/db";
 import { publish, type NotificationEvent } from "@/lib/notifications/broadcaster";
-import { sendEmail, appUrl } from "@/lib/email/send";
+import { sendEmail } from "@/lib/email/send";
 import { shell, BRAND_FOOTER } from "@/lib/email/templates";
 
 /**
@@ -13,7 +13,6 @@ import { shell, BRAND_FOOTER } from "@/lib/email/templates";
 
 /** Only these types also produce an email, per the client's launch spec. */
 const EMAIL_TYPES: ReadonlySet<string> = new Set([
-  "exam.failed",
   "certificate.issued",
   "deadline.approaching",
 ]);
@@ -95,12 +94,8 @@ export async function emit(type: string, options: EmitOptions): Promise<void> {
       const sent = await sendEmail({
         to: target.email ?? user.email,
         subject: `${options.title} - Kigali Safety Academy`,
-        html: notificationEmailHtml({
-          title: options.title,
-          body: row.body,
-          link,
-        }),
-        text: `${options.title}\n\n${row.body}${link ? `\n\n${appUrl(link)}` : ""}`,
+        html: notificationEmailHtml({ title: options.title, body: row.body }),
+        text: `${options.title}\n\n${row.body}`,
       });
 
       if (sent.ok) {
@@ -136,24 +131,14 @@ export async function ownerAndTrainerIds(courseId: string): Promise<string[]> {
   return [...ids];
 }
 
-function notificationEmailHtml(input: {
-  title: string;
-  body: string;
-  link: string | null;
-}): string {
-  const button = input.link
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;"><tr><td style="background:#E8590C;border-radius:10px;">
-<a href="${escapeAttr(appUrl(input.link))}" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Open</a>
-</td></tr></table>`
-    : "";
-
+/** No dashboard link: trainees and owners read these as plain updates, not a way back into the app. */
+function notificationEmailHtml(input: { title: string; body: string }): string {
   /* Shared shell (logo header + brand footer) so notification mails match the
    * exam-access and certificate mails instead of a bare text header. */
   return shell(
     `<p style="margin:0 0 8px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5A6675;">Update</p>
 <h1 style="margin:0 0 14px;font-size:20px;line-height:1.3;color:#0F2340;">${escapeAttr(input.title)}</h1>
-<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1B2430;">${escapeAttr(input.body)}</p>
-${button}`,
+<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#1B2430;">${escapeAttr(input.body)}</p>`,
     { footer: BRAND_FOOTER },
   );
 }

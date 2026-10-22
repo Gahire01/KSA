@@ -40,8 +40,23 @@ export function TraineeCertificateDownload({ certificate, examToken }: {
       setBusy(false);
     }
   }
-  return <Button size="lg" disabled={busy} onClick={download}>
-    {busy ? <LoaderIcon className="size-4 animate-spin" /> : <DownloadIcon className="size-4" />}
-    {busy ? "Generating PDF…" : "Download Certificate"}
-  </Button>;
+  const label = busy ? "Generating PDF…" : "Download Certificate";
+  const icon = busy ? <LoaderIcon className="size-5 animate-spin" /> : <DownloadIcon className="size-5" />;
+  return (
+    <>
+      {/* Tablets and desktops: the button sits in the card. */}
+      <Button size="lg" disabled={busy} onClick={download} className="hidden gap-2 sm:inline-flex">
+        {icon}
+        {label}
+      </Button>
+      {/* Phones: pinned to the bottom edge so the one thing the trainee came for is always in reach. */}
+      <div className="h-20 w-full sm:hidden" aria-hidden />
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg backdrop-blur sm:hidden">
+        <Button size="lg" disabled={busy} onClick={download} className="h-12 w-full gap-2 text-base">
+          {icon}
+          {label}
+        </Button>
+      </div>
+    </>
+  );
 }

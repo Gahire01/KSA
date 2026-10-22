@@ -68,7 +68,6 @@ export interface OverlayInput {
   directorTitle?: string;
   studentNumber: number;
   duration: string;
-  packageLabel?: string | null;
 }
 
 export interface OverlayResult {
@@ -125,7 +124,7 @@ export async function overlayTemplate(
   const nameSize = Math.min(25, 25 * (width * 0.62) / Math.max(1, bold.widthOfTextAtSize(name, 25)));
   page.drawText(name, {
     x: (width - bold.widthOfTextAtSize(name, nameSize)) / 2,
-    y: height * 0.638,
+    y: height * 0.64,
     size: nameSize,
     font: bold,
     color: black,
@@ -137,8 +136,9 @@ export async function overlayTemplate(
   // drawing a single, aligned footer within the original border.
   page.drawRectangle({ x: width * 0.075, y: height * 0.035, width: width * 0.885, height: height * 0.19, color: white });
 
-  const signatureX = width * 0.115;
-  const signatureWidth = width * 0.19;
+  const signatureX = width * 0.113;
+  const signatureWidth = width * 0.183;
+  const footerLineY = height * 0.17;
   const legacySignaturePath = join(process.cwd(), "public", "certificate", "signature.png");
   const signatureBytes = input.signatureSrc === undefined && existsSync(legacySignaturePath)
     ? readFileSync(legacySignaturePath)
@@ -147,32 +147,36 @@ export async function overlayTemplate(
       : null;
   if (signatureBytes) {
     const signature = await pdfDoc.embedPng(signatureBytes);
-    const scale = Math.min(signatureWidth / signature.width, (height * 0.07) / signature.height);
+    // PDF units are points: 150 CSS pixels = 112.5 points at 96 dpi.
+    const scale = Math.min(112.5 / signature.width, (height * 0.07) / signature.height);
     const w = signature.width * scale;
     const h = signature.height * scale;
-    page.drawImage(signature, { x: signatureX + (signatureWidth - w) / 2, y: height * 0.13, width: w, height: h });
+    page.drawImage(signature, { x: signatureX + (signatureWidth - w) / 2, y: footerLineY + 5, width: w, height: h });
   }
-  page.drawLine({ start: { x: signatureX, y: height * 0.12 }, end: { x: signatureX + signatureWidth, y: height * 0.12 }, thickness: 0.7, color: black });
-  fittedText(input.directorName, signatureX, height * 0.096, signatureWidth, 10, true);
-  fittedText(input.directorTitle ?? "Director", signatureX, height * 0.073, signatureWidth, 9);
+  page.drawLine({ start: { x: signatureX, y: footerLineY }, end: { x: signatureX + signatureWidth, y: footerLineY }, thickness: 1, color: black });
+  const centeredText = (text: string, x: number, y: number, maxWidth: number, size: number) => {
+    const fittedSize = Math.min(size, size * maxWidth / Math.max(1, regular.widthOfTextAtSize(text, size)));
+    fittedText(text, x + (maxWidth - regular.widthOfTextAtSize(text, fittedSize)) / 2, y, maxWidth, fittedSize);
+  };
+  centeredText(input.directorName, signatureX, footerLineY - 14, signatureWidth, 13);
+  centeredText(input.directorTitle ?? "Director", signatureX, footerLineY - 30, signatureWidth, 13);
 
-  const columnWidth = width * 0.19;
+  const columnWidth = width * 0.096;
   const fields = [
-    { label: "STUDENT #", value: String(input.studentNumber), x: width * 0.35, y: height * 0.18 },
-    { label: "ISSUED DATE", value: formatDate(input.issuedAt), x: width * 0.57, y: height * 0.18 },
-    { label: "DURATION", value: input.duration, x: width * 0.35, y: height * 0.105 },
-    { label: "PACKAGE", value: input.packageLabel || "Standard", x: width * 0.57, y: height * 0.105 },
+    { label: "Trainee No.", value: String(input.studentNumber), x: width * 0.325 },
+    { label: "Issue Date", value: formatDate(input.issuedAt), x: width * 0.46 },
+    { label: "Duration", value: input.duration, x: width * 0.608 },
   ];
   for (const field of fields) {
-    fittedText(field.label, field.x, field.y, columnWidth, 8, true);
-    fittedText(field.value, field.x, field.y - 15, columnWidth, 11);
+    page.drawLine({ start: { x: field.x, y: footerLineY }, end: { x: field.x + columnWidth, y: footerLineY }, thickness: 1, color: black });
+    centeredText(field.value, field.x, footerLineY + 8, columnWidth, 11);
+    centeredText(field.label, field.x, footerLineY - 14, columnWidth, 13);
   }
 
   const qrBytes = await QRCode.toBuffer(input.verifyUrl, { margin: 2, width: 300, errorCorrectionLevel: "M" });
   const qrImage = await pdfDoc.embedPng(qrBytes);
-  const qrSize = height * 0.14;
-  const qrX = width * 0.83;
-  page.drawImage(qrImage, { x: qrX, y: height * 0.07, width: qrSize, height: qrSize });
-  fittedText("Verify certificate", qrX, height * 0.05, qrSize, 8);
+  const qrSize = height * 0.105;
+  const qrX = width * 0.842;
+  page.drawImage(qrImage, { x: qrX, y: height * 0.095, width: qrSize, height: qrSize });
   return { buffer: Buffer.from(await pdfDoc.save()) };
 }

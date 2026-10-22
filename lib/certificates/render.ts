@@ -91,7 +91,6 @@ export async function renderCertificatePdf(id: string): Promise<RenderedPdf | nu
         directorTitle: cert.signerTitleSnapshot ?? DIRECTOR_TITLE,
         studentNumber: cert.studentNumber,
         duration: cert.durationSnapshot,
-        packageLabel: cert.trainee.tierLabel,
       });
 
       return {

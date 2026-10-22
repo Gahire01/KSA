@@ -12,8 +12,9 @@ test("SMTP delivery preserves message content and safely reports failures", asyn
   let outcome: "accepted" | "rejected" | "auth" | "timeout" = "accepted";
   const create = mock.method(nodemailer, "createTransport", (options: unknown) => {
     assert.equal((options as { host: string }).host, "smtp.gmail.com");
-    assert.equal((options as { port: number }).port, 465);
-    assert.equal((options as { secure: boolean }).secure, true);
+    assert.equal((options as { port: number }).port, 587);
+    assert.equal((options as { secure: boolean }).secure, false);
+    assert.equal((options as { requireTLS: boolean }).requireTLS, true);
     assert.deepEqual((options as { auth: unknown }).auth, { user: "sender@example.com", pass: "test-password" });
     return {
       async sendMail(message: Record<string, unknown>) {

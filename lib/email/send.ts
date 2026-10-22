@@ -31,8 +31,9 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
   try {
     transport ??= nodemailer.createTransport({
       host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
+      port: 587,
+      secure: false,
+      requireTLS: true,
       auth: { user, pass },
       connectionTimeout: 10_000,
       greetingTimeout: 10_000,

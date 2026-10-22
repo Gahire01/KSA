@@ -301,12 +301,24 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
     issuedAt: allocated.issuedAt,
   });
 
-  const delivered = await sendEmail({
-    to: trainee.email,
-    subject: email.subject,
-    html: email.html,
-    text: email.text,
-  });
+  // Delivery failure must never discard a passing result or its certificate.
+  let emailed = false;
+  try {
+    const { renderCertificatePdf } = await import("@/lib/certificates/render");
+    const pdf = await renderCertificatePdf(allocated.id);
+    if (!pdf) throw new Error("Certificate PDF unavailable");
+    const delivered = await sendEmail({
+      to: trainee.email,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+      attachments: [{ filename: pdf.filename, content: pdf.buffer, contentType: "application/pdf" }],
+    });
+    emailed = delivered.ok;
+    if (!delivered.ok) console.error("[certificates] PDF email failed:", delivered.reason);
+  } catch {
+    console.error("[certificates] PDF email could not be generated or delivered", allocated.id);
+  }
 
   return {
     certificate: {
@@ -314,6 +326,6 @@ export async function issueCertificate(input: IssueInput): Promise<IssueResult |
       traineeName: trainee.fullName,
       courseName: course.name,
     },
-    emailed: delivered.ok,
+    emailed,
   };
 }

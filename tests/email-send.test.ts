@@ -8,7 +8,8 @@ import { TEXT_FOOTER } from "../lib/email/footer";
 test("SMTP delivery preserves message content and safely reports failures", async () => {
   const originalUser = process.env.GMAIL_USER;
   const originalPassword = process.env.GMAIL_APP_PASSWORD;
-  const input = { to: "recipient@example.com", subject: "Test", html: "<p>123456</p>", text: "123456" };
+  const input = { to: "recipient@example.com", subject: "Test", html: "<p>123456</p>", text: "123456",
+    attachments: [{ filename: "certificate.pdf", content: Buffer.from("%PDF-test"), contentType: "application/pdf" as const }] };
   let outcome: "accepted" | "rejected" | "auth" | "timeout" = "accepted";
   const create = mock.method(nodemailer, "createTransport", (options: unknown) => {
     assert.equal((options as { host: string }).host, "smtp.gmail.com");
@@ -23,6 +24,7 @@ test("SMTP delivery preserves message content and safely reports failures", asyn
         assert.equal(message.to, input.to);
         assert.equal(message.html, input.html);
         assert.equal(message.text, input.text + TEXT_FOOTER);
+        assert.deepEqual(message.attachments, input.attachments);
         if (outcome === "auth" || outcome === "timeout") {
           throw Object.assign(new Error("secret test-password 123456"), {
             code: outcome === "auth" ? "EAUTH" : "ETIMEDOUT",

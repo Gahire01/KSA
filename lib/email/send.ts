@@ -16,6 +16,7 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   text: string;
+  attachments?: Array<{ filename: string; content: Buffer; contentType: "application/pdf" }>;
 }
 
 let transport: ReturnType<typeof nodemailer.createTransport> | undefined;
@@ -48,6 +49,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendResult> {
       subject: input.subject,
       html: input.html,
       text: `${input.text}${TEXT_FOOTER}`,
+      attachments: input.attachments,
     });
     if (!result.accepted?.length || result.rejected?.length) {
       return { ok: false, reason: "Gmail SMTP did not accept the recipient" };

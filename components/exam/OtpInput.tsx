@@ -86,6 +86,7 @@ export function OtpInput({
   };
 
   const fillAll = (value: string) => {
+    if (busy || disabled || submitted.current) return;
     const chars = value.replace(/\D/g, "").slice(0, OTP_LENGTH).split("");
     const next = Array(OTP_LENGTH).fill("").map((_, i) => chars[i] ?? "");
     setDigits(next);
@@ -177,6 +178,10 @@ export function OtpInput({
               }}
               value={digit}
               onChange={handleChange(index)}
+              onPaste={(event) => {
+                event.preventDefault();
+                fillAll(event.clipboardData.getData("text"));
+              }}
               onKeyDown={handleKeyDown(index)}
               onFocus={() => setFocused(index)}
               disabled={disabled || busy}

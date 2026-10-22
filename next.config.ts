@@ -54,6 +54,8 @@ const nextConfig: NextConfig = {
    * file tracing only follows imports, so without this a serverless deploy would drop
    * those files and every PDF would silently print without them. */
   outputFileTracingIncludes: {
+    "/api/certificates/manual": ["./public/logo.png", "./public/certificate/signature.png", "./public/templates/*.pdf"],
+    "/api/exams/attempts/**": ["./public/logo.png", "./public/certificate/signature.png", "./public/templates/*.pdf"],
     "/api/certificates/[id]/pdf": ["./public/logo.png", "./public/certificate/signature.png", "./public/templates/*.pdf"],
     "/api/reports/[type]": ["./public/logo.png"],
   },

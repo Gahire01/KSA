@@ -558,9 +558,11 @@ export function ExamSubmitted({
                 Student #{result.certificate.studentNumber}
               </p>
               <p className="text-xs text-green/80">
-                A copy has been emailed to you with a verification link.
+                Download your PDF below. Check your email for a PDF copy, or contact the academy if it has not arrived.
               </p>
             </div>
+          ) : passed ? (
+            <p className="text-sm text-ink-2">You passed. Contact the academy to retrieve your certificate.</p>
           ) : result.exhausted ? (
             <div className="w-full rounded-lg bg-red-bg px-4 py-3 text-sm text-red">
               You have used all {result.maxAttempts} attempts. Contact the academy for assistance.

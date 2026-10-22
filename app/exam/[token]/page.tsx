@@ -219,7 +219,10 @@ export default function ExamPage() {
   const onSubmitted = React.useCallback((submitted: RunnerResult) => {
     setResult(submitted);
     setPhase("submitted");
-  }, []);
+    if (submitted.passed && submitted.certificate) {
+      router.replace(`/exam/${encodeURIComponent(token)}/submitted`);
+    }
+  }, [router, token]);
 
   if (phase === "checking") {
     return (

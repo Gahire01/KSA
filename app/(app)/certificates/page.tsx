@@ -32,6 +32,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { canIssueManualCertificate } from "@/lib/certificates/manual-policy";
 import { api } from "@/lib/api/client";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import type { CertificateStatus } from "@/lib/types";
@@ -368,6 +369,7 @@ export default function CertificatesPage() {
         actions={
           <>
             <ExportMenu type="certificate-register" label="Export register" />
+            {canIssueManualCertificate(currentUser) && <Button asChild size="sm"><Link href="/certificates/issue">Issue certificate</Link></Button>}
             <Button asChild variant="outline" size="sm" className="gap-1.5">
               <Link href="/verify">
                 <BadgeCheckIcon className="size-4" />

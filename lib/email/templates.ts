@@ -120,7 +120,8 @@ Open the link below, then enter this six-digit code to start. The code proves th
 </p>
 
 <p style="margin:0 0 6px;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:${INK_2};">Your access code</p>
-<p style="margin:0 0 6px;font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:${NAVY};">${escapeHtml(spacedOtp(input.otp))}</p>
+<p style="margin:0 0 6px;font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:${NAVY};">${escapeHtml(input.otp)}</p>
+<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">(Select and copy the code above)</p>
 <p style="margin:0 0 22px;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMin} minutes.</p>
 
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
@@ -189,7 +190,7 @@ export function certificateEmail(input: CertificateEmailInput): {
 <p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:${INK_2};">Certificate issued</p>
 <h1 style="margin:0 0 16px;font-size:22px;line-height:1.25;color:${NAVY};">Congratulations, ${escapeHtml(input.traineeName)}</h1>
 <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:${INK};">
-You passed <strong style="color:${NAVY};">${escapeHtml(input.courseName)}</strong>. Your certificate is ready and can be verified publicly by anyone with this link.
+You passed <strong style="color:${NAVY};">${escapeHtml(input.courseName)}</strong>. Your PDF certificate is attached to this email. You can save or print it, and verify it publicly using the link below.
 </p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAPER};border-radius:10px;border-left:4px solid ${ORANGE};padding:14px 16px;margin:0 0 22px;">
 <tr><td>
@@ -210,11 +211,12 @@ You passed <strong style="color:${NAVY};">${escapeHtml(input.courseName)}</stron
     `You passed: ${input.courseName}`,
     `Student number: ${input.studentNumber}`,
     `Issued: ${date}`,
+    `Your PDF certificate is attached to this email.`,
     ``,
     `Verify: ${input.verifyUrl}`,
   ].join("\n");
 
-  return { subject: "Your Kigali Safety Academy certificate", html: shell(inner), text };
+  return { subject: "Your Kigali Safety Academy Certificate", html: shell(inner), text };
 }
 
 export interface LoginOtpEmailInput {
@@ -247,6 +249,7 @@ Enter this code on the sign-in page to finish signing in.
 </p>
 
 <div style="margin:0 0 8px;text-align:center;font-size:36px;letter-spacing:12px;font-family:'Courier New',Courier,monospace;font-weight:700;color:${NAVY};">${escapeHtml(input.code)}</div>
+<p style="margin:0;text-align:center;font-size:12px;color:${INK_2};">(Select and copy the code above)</p>
 
 <p style="margin:22px 0 6px;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMinutes} minutes.</p>
 <p style="margin:0;font-size:14px;color:${INK_2};">If you didn&rsquo;t request this, ignore this email.</p>`;
@@ -334,7 +337,8 @@ export function otpCodeOnlyEmail(input: OtpCodeOnlyEmailInput): {
 The academy has reopened your exam for <strong>${escapeHtml(input.courseName)}</strong>. Open the exam link you were sent earlier and enter this new six-digit code. The time already used on your paper still counts.
 </p>
 <p style="margin:0 0 6px;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:${INK_2};">Your access code</p>
-<p style="margin:0 0 6px;font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:${NAVY};">${escapeHtml(spacedOtp(input.otp))}</p>
+<p style="margin:0 0 6px;font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:${NAVY};">${escapeHtml(input.otp)}</p>
+<p style="margin:0 0 8px;font-size:12px;color:${INK_2};">(Select and copy the code above)</p>
 <p style="margin:0;font-size:14px;color:${INK_2};">This code expires in ${input.expiryMin} minutes.</p>`;
 
   const text = [

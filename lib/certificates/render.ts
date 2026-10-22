@@ -2,7 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import React from "react";
 
-import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/issue";
+import { DIRECTOR_NAME, DIRECTOR_TITLE } from "@/lib/certificates/signer";
 import { CertificateDocument, type CertificateDoc } from "@/lib/certificates/pdf";
 import { resolveTemplate, overlayTemplate } from "@/lib/certificates/template-overlay";
 import { appUrl } from "@/lib/email/send";

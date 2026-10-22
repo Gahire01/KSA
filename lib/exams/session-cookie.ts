@@ -11,7 +11,8 @@ import { cookies } from "next/headers";
  *
  * The cookie carries the attempt id and a keyed HMAC of it — no expiry, no
  * user data. It is validated against the attempt's own status and tokenHash on
- * every request, so replaying it after submission is refused.
+ * every request, so exam writes after submission are refused. A passed sitting
+ * may use the remaining cookie lifetime to download only its own certificate.
  */
 
 /** 2 hours. The exam itself is usually far shorter; this is a hard ceiling. */

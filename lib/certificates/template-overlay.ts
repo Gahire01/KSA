@@ -65,7 +65,10 @@ export interface OverlayInput {
   verifyUrl: string;
   signatureSrc: string | null | undefined;
   directorName: string;
+  directorTitle?: string;
   studentNumber: number;
+  duration: string;
+  packageLabel?: string | null;
 }
 
 export interface OverlayResult {
@@ -91,111 +94,85 @@ export function resolveTemplate(courseCode: string, courseName: string): string 
 }
 
 function formatDate(date: Date): string {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${day}.${month}.${date.getFullYear()}`;
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${day}.${month}.${date.getUTCFullYear()}`;
 }
 
 export async function overlayTemplate(
   templateFilename: string,
   input: OverlayInput,
 ): Promise<OverlayResult> {
-  const templateBytes = readFileSync(templatePath(templateFilename));
-  const pdfDoc = await PDFDocument.load(templateBytes);
-
+  const pdfDoc = await PDFDocument.load(readFileSync(templatePath(templateFilename)));
   const page = pdfDoc.getPages()[0]!;
   const { width, height } = page.getSize();
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const black = rgb(0, 0, 0);
+  const white = rgb(1, 1, 1);
 
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fittedText = (text: string, x: number, y: number, maxWidth: number, size: number, strong = false) => {
+    const font = strong ? bold : regular;
+    const fittedSize = Math.min(size, size * maxWidth / Math.max(1, font.widthOfTextAtSize(text, size)));
+    page.drawText(text, { x, y, size: fittedSize, font, color: black });
+  };
 
-  /* ── Cover the placeholder name with white, then draw the real name ── */
-  // The placeholder "Umukundwa Evelyne" sits roughly in the center-top area.
-  // These coordinates are approximate for the KSA templates (A4 landscape ~842x595).
-  const nameY = height * 0.52;
-  const nameSize = 22;
-  const nameWidth = helveticaBold.widthOfTextAtSize(input.traineeName.toUpperCase(), nameSize);
-
-  // White rectangle to cover placeholder name
-  page.drawRectangle({
-    x: (width - Math.max(nameWidth + 40, 350)) / 2,
-    y: nameY - 5,
-    width: Math.max(nameWidth + 40, 350),
-    height: 35,
-    color: rgb(1, 1, 1),
-  });
-
-  // Draw the real trainee name
-  page.drawText(input.traineeName.toUpperCase(), {
-    x: (width - nameWidth) / 2,
-    y: nameY + 5,
+  // All five supplied templates use the same 842.16 x 612 layout. The name
+  // band is ABOVE the completion sentence, not at 52% of the page height.
+  // Mask the entire placeholder band even when the new name is very short.
+  page.drawRectangle({ x: width * 0.18, y: height * 0.62, width: width * 0.64, height: height * 0.065, color: white });
+  const name = input.traineeName.trim().toUpperCase();
+  const nameSize = Math.min(25, 25 * (width * 0.62) / Math.max(1, bold.widthOfTextAtSize(name, 25)));
+  page.drawText(name, {
+    x: (width - bold.widthOfTextAtSize(name, nameSize)) / 2,
+    y: height * 0.638,
     size: nameSize,
-    font: helveticaBold,
-    color: rgb(0.059, 0.137, 0.251), // navy #0F2340
+    font: bold,
+    color: black,
   });
+  // The completion sentence and course title are original template artwork.
+  // Never stamp a second name or rewrite that sentence.
 
-  /* ── Date ── */
-  const dateStr = formatDate(input.issuedAt);
-  const dateSize = 10;
-  // Date typically goes in the bottom-right info area
-  const dateX = width * 0.65;
-  const dateY = height * 0.18;
+  // Remove the sample footer, including its QR and certificate ID, before
+  // drawing a single, aligned footer within the original border.
+  page.drawRectangle({ x: width * 0.075, y: height * 0.035, width: width * 0.885, height: height * 0.19, color: white });
 
-  // Cover old date area
-  page.drawRectangle({
-    x: dateX - 5,
-    y: dateY - 3,
-    width: 100,
-    height: 16,
-    color: rgb(1, 1, 1),
-  });
+  const signatureX = width * 0.115;
+  const signatureWidth = width * 0.19;
+  const legacySignaturePath = join(process.cwd(), "public", "certificate", "signature.png");
+  const signatureBytes = input.signatureSrc === undefined && existsSync(legacySignaturePath)
+    ? readFileSync(legacySignaturePath)
+    : input.signatureSrc?.startsWith("data:image/png;base64,")
+      ? Buffer.from(input.signatureSrc.split(",")[1]!, "base64")
+      : null;
+  if (signatureBytes) {
+    const signature = await pdfDoc.embedPng(signatureBytes);
+    const scale = Math.min(signatureWidth / signature.width, (height * 0.07) / signature.height);
+    const w = signature.width * scale;
+    const h = signature.height * scale;
+    page.drawImage(signature, { x: signatureX + (signatureWidth - w) / 2, y: height * 0.13, width: w, height: h });
+  }
+  page.drawLine({ start: { x: signatureX, y: height * 0.12 }, end: { x: signatureX + signatureWidth, y: height * 0.12 }, thickness: 0.7, color: black });
+  fittedText(input.directorName, signatureX, height * 0.096, signatureWidth, 10, true);
+  fittedText(input.directorTitle ?? "Director", signatureX, height * 0.073, signatureWidth, 9);
 
-  page.drawText(dateStr, {
-    x: dateX,
-    y: dateY,
-    size: dateSize,
-    font: helvetica,
-    color: rgb(0.059, 0.137, 0.251),
-  });
-
-  /* ── QR Code ── */
-  const qrDataUrl = await QRCode.toDataURL(input.verifyUrl, {
-    margin: 1,
-    width: 200,
-    errorCorrectionLevel: "M",
-  });
-  const qrBase64 = qrDataUrl.split(",")[1]!;
-  const qrImage = await pdfDoc.embedPng(Buffer.from(qrBase64, "base64"));
-
-  const qrSize = 55;
-  const qrX = width * 0.82;
-  const qrY = height * 0.08;
-
-  page.drawImage(qrImage, {
-    x: qrX,
-    y: qrY,
-    width: qrSize,
-    height: qrSize,
-  });
-
-  /* ── Director signature ── */
-  if (input.signatureSrc && input.signatureSrc.startsWith("data:image/png;base64,")) {
-    const sigBase64 = input.signatureSrc.split(",")[1]!;
-    const sigImage = await pdfDoc.embedPng(Buffer.from(sigBase64, "base64"));
-
-    const sigWidth = 120;
-    const sigHeight = 40;
-    const sigX = width * 0.10;
-    const sigY = height * 0.14;
-
-    page.drawImage(sigImage, {
-      x: sigX,
-      y: sigY,
-      width: sigWidth,
-      height: sigHeight,
-    });
+  const columnWidth = width * 0.19;
+  const fields = [
+    { label: "STUDENT #", value: String(input.studentNumber), x: width * 0.35, y: height * 0.18 },
+    { label: "ISSUED DATE", value: formatDate(input.issuedAt), x: width * 0.57, y: height * 0.18 },
+    { label: "DURATION", value: input.duration, x: width * 0.35, y: height * 0.105 },
+    { label: "PACKAGE", value: input.packageLabel || "Standard", x: width * 0.57, y: height * 0.105 },
+  ];
+  for (const field of fields) {
+    fittedText(field.label, field.x, field.y, columnWidth, 8, true);
+    fittedText(field.value, field.x, field.y - 15, columnWidth, 11);
   }
 
-  const pdfBytes = await pdfDoc.save();
-  return { buffer: Buffer.from(pdfBytes) };
+  const qrBytes = await QRCode.toBuffer(input.verifyUrl, { margin: 2, width: 300, errorCorrectionLevel: "M" });
+  const qrImage = await pdfDoc.embedPng(qrBytes);
+  const qrSize = height * 0.14;
+  const qrX = width * 0.83;
+  page.drawImage(qrImage, { x: qrX, y: height * 0.07, width: qrSize, height: qrSize });
+  fittedText("Verify certificate", qrX, height * 0.05, qrSize, 8);
+  return { buffer: Buffer.from(await pdfDoc.save()) };
 }

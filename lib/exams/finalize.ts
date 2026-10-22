@@ -199,8 +199,9 @@ export async function finalizeAttempt(
     });
   }
 
-  /* The exam-session cookie is cleared so the token cannot be driven further. */
-  await clearExamSessionCookie(options.token);
+  /* A passing trainee keeps the existing, bounded OTP proof for downloading
+   * their certificate. Every exam-write route still rejects closed sittings. */
+  if (!passed) await clearExamSessionCookie(options.token);
 
   let certificate: { id: string; studentNumber: number; verificationToken: string; issuedAt: string } | null = null;
 

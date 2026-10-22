@@ -238,6 +238,7 @@ export default function ExamPage() {
           result={result}
           courseName={paper.courseName}
           submittedAt={new Date().toISOString()}
+          examToken={token}
         />
       </>
     );

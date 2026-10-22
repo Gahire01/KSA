@@ -6,6 +6,9 @@ import { apiFail } from "@/lib/api/response";
 import { viaCourse } from "@/lib/auth/scope";
 import { renderCertificatePdf } from "@/lib/certificates/render";
 import { prisma } from "@/lib/db";
+import { canTraineeDownloadCertificate } from "@/lib/certificates/trainee-access";
+import { hashExamToken } from "@/lib/exams/token";
+import { readExamSession } from "@/lib/exams/session-cookie";
 
 /**
  * GET /api/certificates/:id/pdf
@@ -16,19 +19,37 @@ import { prisma } from "@/lib/db";
  * (the owner) already holds read. The response is `private, no-store` — this is
  * personal data in a file, so it must not sit in a shared cache or a back button.
  */
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
-  const gate = await guard("certificate.read", { trainerScoped: true });
-  if (!gate.ok) return gate.response;
-
-  /* Ownership first: a trainer must not be able to render another trainer's certificate. */
-  if (gate.trainerScope) {
-    const owned = await prisma.certificate.findFirst({
-      where: { id, ...viaCourse(gate.trainerScope) },
-      select: { id: true },
+  const examToken = request.headers.get("X-Exam-Token");
+  if (examToken !== null) {
+    if (!/^[A-Za-z0-9_-]{32,128}$/.test(examToken)) return apiFail("Certificate download is not authorized.", 401);
+    const certificate = await prisma.certificate.findUnique({
+      where: { id },
+      select: {
+        traineeId: true, courseId: true, revokedAt: true,
+        attempt: { select: { id: true, traineeId: true, courseId: true, status: true, tokenHash: true } },
+      },
     });
-    if (!owned) return apiFail("That certificate does not exist.", 404);
+    const verified = certificate?.attempt
+      ? await readExamSession(examToken, certificate.attempt.id)
+      : false;
+    if (!canTraineeDownloadCertificate(certificate, hashExamToken(examToken), verified)) {
+      return apiFail("Certificate download is not authorized. Contact the academy if your session has expired.", 401);
+    }
+  } else {
+    const gate = await guard("certificate.read", { trainerScoped: true });
+    if (!gate.ok) return gate.response;
+
+    /* Ownership first: trainers can only render their own course certificates. */
+    if (gate.trainerScope) {
+      const owned = await prisma.certificate.findFirst({
+        where: { id, ...viaCourse(gate.trainerScope) },
+        select: { id: true },
+      });
+      if (!owned) return apiFail("That certificate does not exist.", 404);
+    }
   }
 
   try {

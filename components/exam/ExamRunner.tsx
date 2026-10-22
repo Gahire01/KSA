@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatDateTime, formatNumber, formatPercent } from "@/lib/utils/format";
 import { api, ApiError } from "@/lib/api/client";
 import { ExamWatermark } from "@/components/exam/ExamWatermark";
+import { TraineeCertificateDownload } from "@/components/certificate/TraineeCertificateDownload";
 import { useContentProtection } from "@/lib/hooks/use-content-protection";
 
 /**
@@ -501,10 +502,12 @@ export function ExamSubmitted({
   result,
   courseName,
   submittedAt,
+  examToken,
 }: {
   result: RunnerResult;
   courseName: string;
   submittedAt: string;
+  examToken: string;
 }) {
   const passed = result.passed;
   const [privacyAgreed, setPrivacyAgreed] = React.useState(false);
@@ -600,12 +603,8 @@ export function ExamSubmitted({
           )}
 
           <div className="mt-2 flex flex-wrap justify-center gap-2">
-            {result.certificate ? (
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/certificates/${result.certificate.id}`}>
-                  View certificate
-                </Link>
-              </Button>
+            {passed && result.certificate ? (
+              <TraineeCertificateDownload certificate={result.certificate} examToken={examToken} />
             ) : null}
             <Button asChild variant="ghost" size="sm">
               <Link href="/login">Back to sign in</Link>
